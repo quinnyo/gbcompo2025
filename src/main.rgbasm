@@ -1,0 +1,121 @@
+include "hardware.inc"
+
+
+macro vblank_wait
+	ldh a, [rLY]
+	cp 144
+	jr c, @-6
+endm
+
+
+def PLATFORM_CGB   equ $02 ; host is CGB
+def PLATFORM_SGB   equ $04 ; host is SGB
+def PLATFORM_COLOR equ $08 ; CGB mode
+def PLATFORM_REV   equ $10 ; CGB=AGB, SGB=SGB2, 0=MGB
+
+
+section "wPlatform", wram0
+wPlatform::
+	.flags:: db
+
+
+section "LCD Interrupt", rom0[$48]
+	reti
+
+
+section "Timer Interrupt", rom0[$50]
+	reti
+
+
+section "Serial Interrupt", rom0[$58]
+	reti
+
+
+section "Joypad Interrupt", rom0[$60]
+	reti
+
+
+section "Header", rom0[$100]
+	nop
+	jp Boot
+
+	ds $150 - @, 0
+
+
+section "Main", rom0
+Boot:
+	; A = 11(CGB,AGB)
+	cp $11
+	jr z, .detect_color
+	; A = FF(MGB,SGB2), 01(DMG,SGB)
+	and PLATFORM_REV
+	; C = 13(DMG,MGB), 14(SGBx)
+	or PLATFORM_SGB
+	and c
+	jr .detect_finalise
+.detect_color:
+	; D = 00(DMG Mode), FF(CGB Mode)
+	ld a, PLATFORM_COLOR
+	and d
+	or PLATFORM_CGB
+	; B = 00(CGB), 01(AGB)
+	swap b
+	or b
+	jr .detect_finalise
+.detect_finalise
+	ld [wPlatform.flags], a
+
+
+Main::
+	ld sp, $FFFE
+
+	di
+
+	xor a
+	ldh [rNR52], a
+
+	vblank_wait
+	xor a
+	ldh [rLCDC], a
+
+	call VBlankInit
+	call InputInit
+;	call MainInit
+
+	ldh a, [rLCDC]
+	or LCDCF_ON | LCDCF_BGON | LCDCF_OBJ16 | LCDCF_OBJON
+	ldh [rLCDC], a
+
+	; Default palette (DMG)
+	ld a, %11_10_01_00
+	ldh [rBGP], a
+	ldh [rOBP0], a
+	ldh [rOBP1], a
+
+	xor a
+	ldh [rIF], a
+	ei
+.loop:
+	call InputRead
+	call InputUpdate
+;	call MainUpdate
+
+	ld hl, wSCX
+	dec [hl]
+
+.vsync
+	ld hl, wVBlankCount
+	ld a, [hl]
+.vsync_wait
+	halt
+	nop
+	cp [hl]
+	jr z, .vsync_wait
+
+:
+	ldh a, [rLY]
+	cp 144
+	jr nc, :-
+
+	jp .loop
+
