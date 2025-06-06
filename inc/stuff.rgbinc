@@ -1,0 +1,24 @@
+if !def(STUFF_INC_D8F7D3C1)
+def STUFF_INC_D8F7D3C1 equ 1
+
+include "hardware.inc"
+
+
+; @mut: A
+macro rombsel
+	assert (\1) < 256 && (\1) >= 1
+	ld a, (\1)
+	ld [$2000], a
+endm
+
+
+; @mut: A
+macro vblank_wait
+	ldh a, [rLY]
+	cp 144
+	jr c, @-6
+endm
+
+
+endc ; STUFF_INC_D8F7D3C1
+

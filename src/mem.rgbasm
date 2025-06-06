@@ -1,0 +1,35 @@
+section "Mem", rom0
+; Copy up to 256 bytes from one location to another.
+; @param C: length, 0 is interpreted as 256
+; @param DE: source
+; @param HL: destination
+; @mut: AF, C, DE, HL
+MemCopySmall::
+:
+	ld a, [de]
+	inc de
+	ld [hl+], a
+	dec c
+	jr nz, :-
+	ret
+
+
+; Copy up to 65536 bytes from one location to another.
+; @param BC: length, 0 is interpreted as 65536
+; @param DE: source
+; @param HL: destination
+; @mut: AF, BC, DE, HL
+MemCopyLarge::
+	dec bc
+	inc c
+	inc b
+:
+	ld a, [de]
+	inc de
+	ld [hl+], a
+	dec c
+	jr nz, :-
+	dec b
+	jr nz, :-
+	ret
+
