@@ -1,0 +1,39 @@
+include "hardware.inc"
+
+
+section "Palettes", rom0
+PalettesInit::
+	ld a, $80
+	ld hl, rBGPI
+	ld [hl+], a
+	ld de, $7FFF
+	ld [hl], e
+	ld [hl], d
+	ld de, $3DF3
+	ld [hl], e
+	ld [hl], d
+	ld de, $252C
+	ld [hl], e
+	ld [hl], d
+	ld de, $0865
+	ld [hl], e
+	ld [hl], d
+
+	ld a, $80
+	ld hl, rOBPI
+	ld [hl+], a
+	ld de, $8000
+	ld [hl], e
+	ld [hl], d
+	ld de, $3A8F
+	ld [hl], e
+	ld [hl], d
+	ld de, $21A9
+	ld [hl], e
+	ld [hl], d
+	ld de, $0923
+	ld [hl], e
+	ld [hl], d
+
+	ret
+

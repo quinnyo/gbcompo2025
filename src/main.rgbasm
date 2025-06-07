@@ -83,6 +83,7 @@ Main::
 
 	call VBlankInit
 	call InputInit
+	call PalettesInit
 ;	call MainInit
 
 	ldh a, [rLCDC]
