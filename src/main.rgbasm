@@ -40,6 +40,10 @@ section "assets/fonty8.chr", romx
 incbin "assets/fonty8.chr"
 
 
+section "assets/iconoglyphs.chr", romx
+incbin "assets/iconoglyphs.chr", 0, 16 * 8
+
+
 section "Main", rom0
 Boot:
 	; A = 11(CGB,AGB)
@@ -81,10 +85,17 @@ Main::
 	ld hl, $9000
 	call MemCopyLarge
 
+	rombsel bank("assets/iconoglyphs.chr")
+	ld de, startof("assets/iconoglyphs.chr")
+	ld bc, sizeof("assets/iconoglyphs.chr")
+	ld hl, $8000
+	call MemCopyLarge
+
 	call VBlankInit
 	call InputInit
 	call PalettesInit
 ;	call MainInit
+	call EntityInit
 
 	ldh a, [rLCDC]
 	or LCDCF_ON | LCDCF_BGON | LCDCF_OBJ16 | LCDCF_OBJON
@@ -103,9 +114,37 @@ Main::
 	call InputRead
 	call InputUpdate
 ;	call MainUpdate
+	call EntityUpdate
 
-	ld hl, wSCX
-	dec [hl]
+	; dirty test to show entity position
+	ld hl, wOAM1
+	ld e, 0
+	ld a, [wEntity + 8]
+	ld c, a
+	ld a, [wEntity + 8 + 1]
+	ld b, a
+	ld a, c
+	xor b
+	and $F0
+	xor b
+	swap a
+	add 16
+	ld [hl+], a
+	ld a, [wEntity + 4]
+	ld c, a
+	ld a, [wEntity + 4 + 1]
+	ld b, a
+	ld a, c
+	xor b
+	and $F0
+	xor b
+	swap a
+	add 8
+	ld [hl+], a
+	ld a, e
+	ld [hl+], a
+	xor a
+	ld [hl+], a
 
 .vsync
 	ld hl, wVBlankCount
