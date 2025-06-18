@@ -5,6 +5,8 @@ def Q_ENTITY_INC_b4moRE1M equ 1
 def ENTITY_COUNT_MAX equ 16
 
 def GRAVITY_100 equ $1_3
+; Maximum magnitude of either velocity component (each axis is clamped independently)
+def ENT_VELOCITY_MAX equ 100
 
 def szEntity_Info    equ 2
 def szEntity_AccX    equ 1
@@ -25,7 +27,7 @@ def Entity_VelY    rb szEntity_VelY
 def Entity_PosY    rb szEntity_PosY
 def Entity_Collide rb szEntity_Collide
 def _Entity_Pad    rb 4
-def Entity_size    rb 0
+def szEntity    rb 0
 
 
 def ENTINFOB_ID0 equ 0

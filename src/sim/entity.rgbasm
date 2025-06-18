@@ -2,7 +2,7 @@ include "entity.rgbinc"
 
 
 section "wEntity", wram0, align[8]
-wEntity:: ds ENTITY_COUNT_MAX * Entity_size
+wEntity:: ds ENTITY_COUNT_MAX * szEntity
 _pad: ds 256 - (@ - wEntity)
 
 
@@ -17,14 +17,13 @@ EntityTesto::
 	sub c
 	ld [hl+], a
 	; accx
-	ld a, c
-	inc a
-	add a
-	ld [hl+], a
+	ld a, -120 :: ld [hl+], a
 	; velx
 	xor a :: ld [hl+], a
 	; posx
-	xor a :: ld [hl+], a :: ld [hl+], a
+def _TESTO_PX equ 70
+	ld a, (_TESTO_PX & $0F) << 4 :: ld [hl+], a
+	ld a, (_TESTO_PX & $F0) >> 4 :: ld [hl+], a
 	; accy
 	ld a, -5 :: ld [hl+], a
 	; vely
@@ -34,7 +33,7 @@ EntityTesto::
 
 	ld a, l
 	and $F0
-	add Entity_size
+	add szEntity
 	ld l, a
 
 	dec c
@@ -55,106 +54,119 @@ EntityInit::
 	ret
 
 
+; @mut: AF, BC, HL
 EntityUpdate::
 	ld hl, wEntity
 .loop
-	push hl
-	call _update_motion
-	pop hl
-	ld a, l
-	add Entity_size
-	ld l, a
-	jr nz, .loop
-	ret
-
-
-; @param HL: entity address
-; @mut: AF, BC, HL
-_update_motion:
-	bit ENTINFOB_ALIVE, [hl]
-	ret z
+	ld a, szEntity ; for .next (N bytes to add to HL before next iter)
+	bit ENTINFOB_ALIVE, [hl] :: jr z, .next
 
 	assert Entity_AccX == Entity_Info + 2
-	inc l
-	inc l
+	inc l :: inc l
 
-	; Motion (X)
-	; accel x
-	ld b, [hl]
-	xor a
-	ld [hl+], a
-	; vel x
+	; Update motion X, zero constant accel
+	xor a :: call _motion_go
+	; Update motion Y, add gravity as constant accel
+	ld a, GRAVITY_100 :: call _motion_go
+
+	ld a, szEntity - Entity_PosY - szEntity_PosY
+; Apply entity pointer offset (A) and start next iter...
+.next
+assert sizeof("wEntity") == 256
+	add l :: ld l, a :: jr nc, .loop
+	ret
+
+
+; Perform entity motion update (~integration~) on one axis.
+; @param HL: Pointer to beginning of an Entity motion block.
+; @param A: constant accel
+; @ret HL: end (exclusive) of motion block.
+; @mut: AF, BC, HL
+_motion_go:
+	; Add accel accumulator to the constant accel param. Hold on to that.
+	add [hl] :: ld b, a
+	; Clear the accumulator
+	xor a :: ld [hl+], a
+
+	; Update velocity -- apply friction and acceleration.
 	ld a, [hl]
-	; TODO: use correct friction level
-	call _fric_7_8
-	; velx += accelx - friction(velx)
+	; TODO: select friction,drag model appropriate to current state.
+	call _fric_1_8
+	; Apply friction
+	add [hl]
+	; Apply accel
+	; TODO: handle potential overflow (vel + accel)
 	add b
-	ld b, [hl] ; B = old vel
-	ld [hl+], a
-	; posx += (old)velx
-	ld a, b
-	add [hl]
-	ld b, a
-	ld [hl+], a
-	adc [hl]
-	sub b
-	ld [hl+], a
-
-	; Motion (Y)
-	; TODO: use correct gravity
-	ld a, GRAVITY_100
-	; accel y
-	add [hl]
-	ld b, a
-	xor a
-	ld [hl+], a
-	; vel y
-	ld a, [hl]
-	; TODO: use correct friction level
-	call _fric_7_8
-	; vely += accely - friction(vely)
-	add b
-	ld b, [hl] ; B = old vel
-	ld [hl+], a
-	; posy += (old)vely
-	ld a, b
-	add [hl]
-	ld b, a
-	ld [hl+], a
-	adc [hl]
-	sub b
-	ld [hl+], a
-
-	ret
-
-
-; @param A: vel
-; @ret A: friction(vel)
-; @mut: AF, C
-_fric_3_8:
-	sra a
-	sra a
-	ld c, a ; 2/8
-	sra a ; 1/8
-	add c ; 3/8
-	ret
-; @param A: vel
-; @ret A: friction(vel)
-; @mut: AF, C
-_fric_6_8:
-	sra a
-	ld c, a ; 4/8
-	sra a ; 2/8
-	add c ; 6/8
-	ret
-; @param A: vel
-; @ret A: friction(vel)
-; @mut: AF, C
-_fric_7_8:
+	; Limit velocity
 	ld c, a
-	sra c
-	sra c
-	sra c
-	sub c
+	ld a, ENT_VELOCITY_MAX
+	call _clampo
+	ld a, c
+	; Grab the "old" velocity value before writing the updated one.
+	ld b, [hl]
+	ld [hl+], a
+
+	; Update position (16 bit + signed 8 bit)
+	ld a, b
+	add [hl]
+	ld c, a
+	ld [hl+], a
+	adc [hl]
+	rl b ; Set F.C from sign of velocity
+	sbc c
+	ld [hl+], a
+	ret
+
+
+; Clamp the magnitude of a signed value.
+; @param C: value
+; @param A: max magnitude, inclusive
+; @ret C: clamped value
+; @mut: AF, C
+_clampo:
+	bit 7, c :: jr nz, :+
+	; positive value
+	cp c
+	jr .end
+:
+	; negate max to match negative value
+	cpl :: inc a
+	cp c
+	ccf
+.end
+	ret nc ; within bounds
+	ld c, a ; clamp
+	ret
+
+
+/*
+; Move the signed value in A towards zero by one.
+; In other words, increment values less than zero, decrement values more than zero.
+; @param A: value
+; @ret A: new value
+_step_to_zero:
+	and a
+	ret z
+	cp $80
+	jr c, :+
+	inc a
+	ret
+:
+	dec a
+	ret
+*/
+
+
+; Calculate simple friction (1/8) for the given velocity.
+; The result is an acceleration (with magnitude in the range `[1..abs(vel)]`) opposed to the direction (sign) of the input velocity, or zero if the velocity is zero.
+; @param A: vel
+; @ret A: friction(vel)
+; @mut: AF
+_fric_1_8:
+	and a :: ret z
+	cpl :: inc a
+	sra a :: sra a :: sra a ; div 8
+	ret nz
+	inc a ; ensure friction is non-zero
 	ret
 
