@@ -1,0 +1,16 @@
+include "coord.rgbinc"
+
+
+section "Coord", rom0
+;; Compare 16 bit coords.
+;; @ret F.C: BC < DE
+;; @ret F.Z: BC == DE
+;; @mut: AF
+CoordCompare_BC_DE::
+	; compare high bytes first
+	ld a, b :: cp d
+	ret nz ; F.C = D > B
+	; high bytes are equal: check low bytes
+	ld a, c :: cp e
+	ret
+

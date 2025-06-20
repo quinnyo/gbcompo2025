@@ -1,5 +1,6 @@
 include "hardware.inc"
 include "stuff.rgbinc"
+include "coord.rgbinc"
 
 
 def PLATFORM_CGB   equ $02 ; host is CGB
@@ -119,26 +120,14 @@ Main::
 	; dirty test to show entity position
 	ld hl, wOAM1
 	ld e, 0
-	ld a, [wEntity + 8]
-	ld c, a
-	ld a, [wEntity + 8 + 1]
-	ld b, a
-	ld a, c
-	xor b
-	and $F0
-	xor b
-	swap a
+	ld a, [wEntity + 8 + 0] :: ld c, a
+	ld a, [wEntity + 8 + 1] :: ld b, a
+	coord_int8 b, c
 	add 16
 	ld [hl+], a
-	ld a, [wEntity + 4]
-	ld c, a
-	ld a, [wEntity + 4 + 1]
-	ld b, a
-	ld a, c
-	xor b
-	and $F0
-	xor b
-	swap a
+	ld a, [wEntity + 4 + 0] :: ld c, a
+	ld a, [wEntity + 4 + 1] :: ld b, a
+	coord_int8 b, c
 	add 8
 	ld [hl+], a
 	ld a, e

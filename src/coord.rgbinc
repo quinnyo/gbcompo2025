@@ -1,0 +1,80 @@
+if !def(Q_COORD_INC_aM1uDq4w)
+def Q_COORD_INC_aM1uDq4w equ 1
+
+
+;; Extract the integer part of a coord value.
+;; coord_int16 XY
+;; @result: XY
+;; @mut: AF, XY
+macro coord_int16
+	; This is ... not ideal :3
+	assert _NARG == 1
+	swap low(\1)
+	swap high(\1)
+	ld a, low(\1)
+	xor high(\1)
+	and $0F
+	xor high(\1)
+	ld low(\1), a
+	ld a, high(\1)
+	and $0F
+	ld high(\1), a
+endm
+
+
+;; Extract the integer part of a coord value, assuming it fits in a byte.
+;; coord_int8 X, Y
+;; @param X: coord high byte
+;; @param Y: coord low byte
+;; @result A
+;; @mut: AF
+macro coord_int8
+	assert _NARG == 2
+	if strcmp("a", strlwr("\2")) != 0
+		ld a, \2
+	endc
+	xor \1
+	and $F0
+	xor \1
+	swap a
+endm
+
+
+;; coord_sub xy, zw
+;; xy = xy - zw
+;; @mut: AF
+macro coord_sub
+	assert _NARG == 2
+	ld a, low(\1)
+	sub low(\2)
+	ld low(\1), a
+	ld a, high(\1)
+	sbc high(\2)
+	ld high(\1), a
+endm
+
+
+;; coord_add xy, zw
+;; xy = xy + zw
+;; @mut: AF
+macro coord_add
+	assert _NARG == 2
+	ld a, low(\1)
+	add low(\2)
+	ld low(\1), a
+	ld a, high(\1)
+	adc high(\2)
+	ld high(\1), a
+endm
+
+
+;; Load 16 bit coord integer to [hl+]
+;; @mut: AF, HL
+macro coord_ld_hli_int
+	assert (\1) < 65536
+	ld a, ((\1) << 4) & $FF :: ld [hl+], a
+	ld a, ((\1) >> 4) :: ld [hl+], a
+endm
+
+endc ; Q_COORD_INC_aM1uDq4w
+
