@@ -1,0 +1,138 @@
+include "collide.rgbinc"
+include "coord.rgbinc"
+
+
+;; _test_query_point px, py
+macro _test_query_point
+	ld hl, hCollide.px
+	coord_ld_hli_int (\1)
+	coord_ld_hli_int (\2)
+	call CollidePoint
+	ld b, b
+endm
+
+
+section "wCollide", wram0
+;; World boundary
+wCollideBounds::
+	.xpos:: dw
+	.xend:: dw
+	.ypos:: dw
+	.yend:: dw
+
+
+wCollideResult::
+	.flags:: db
+	.dpx:: dw
+	.dpy:: dw
+
+
+section "hCollide", hram
+hCollide::
+	.px:: dw
+	.py:: dw
+
+
+section "Collide", rom0
+CollideInit::
+	ld hl, hCollide
+	ld a, $FF :: ld [hl+], a :: ld [hl+], a
+	ld a, $FF :: ld [hl+], a :: ld [hl+], a
+
+	ld hl, wCollideBounds
+	xor a :: ld [hl+], a :: ld [hl+], a
+	ld a, $FF :: ld [hl+], a
+	xor a :: ld [hl+], a :: ld [hl+], a
+	ld a, $FF :: ld [hl+], a
+
+	ld hl, wCollideResult
+	xor a :: ld [hl+], a
+	xor a :: ld [hl+], a :: ld [hl+], a
+	xor a :: ld [hl+], a :: ld [hl+], a
+
+	ld hl, wCollideBounds.xpos
+	coord_ld_hli_int (WORLD_ORIGIN >> 4) + 0
+	coord_ld_hli_int (WORLD_ORIGIN >> 4) + 161
+	ld hl, wCollideBounds.ypos
+	coord_ld_hli_int (WORLD_ORIGIN >> 4) + 0
+	coord_ld_hli_int (WORLD_ORIGIN >> 4) + 145
+
+;	1,1 ~ 1024,1024
+;	_test_query_point 0, 0 ; 11, +1
+;	_test_query_point 1, 1 ; 00
+;	_test_query_point 1023, 1023 ; 00
+;	_test_query_point 1024, 1024 ; 11, -1
+;	_test_query_point 1025, 1025 ; 11, -2
+
+	ret
+
+
+;; Execute the configured point query
+;; @ret HL: pointer to result data
+;; @ret A: result flags
+;; @mut: AF, BC, DE, HL
+CollidePoint::
+	xor a :: ld [wCollideResult.flags], a
+	call CollidePointOutBounds
+	ld hl, wCollideResult.flags
+	ld a, [hl+]
+	ret
+
+
+;; @mut: AF, BC, DE, HL
+CollidePointOutBounds::
+	; X axis
+	ldh a, [hCollide.px + 0] :: ld c, a
+	ldh a, [hCollide.px + 1] :: ld b, a
+	ld hl, wCollideBounds.xpos
+	call CollidePointOutRange
+	jr nc, :+
+	ld hl, wCollideResult.flags
+	set bCOLLIDE_RESULT_X, [hl]
+:
+	ld hl, wCollideResult.dpx
+	ld a, e :: ld [hl+], a
+	ld a, d :: ld [hl+], a
+
+
+	; Y axis
+	ldh a, [hCollide.py + 0] :: ld c, a
+	ldh a, [hCollide.py + 1] :: ld b, a
+	ld hl, wCollideBounds.ypos
+	call CollidePointOutRange
+	jr nc, :+
+	ld hl, wCollideResult.flags
+	set bCOLLIDE_RESULT_Y, [hl]
+:
+	ld hl, wCollideResult.dpy
+	ld a, e :: ld [hl+], a
+	ld a, d :: ld [hl+], a
+
+	ret
+
+
+;; Point out of range
+;; @param HL: collider range ({pos,end}})
+;; @param BC: query point coord
+;; @ret DE: offset to crossed boundary (if result positive)
+;; @ret F.C: result
+;; @mut: AF, BC, DE, HL
+CollidePointOutRange::
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+	call CoordCompare_BC_DE
+	; F.C = DE > BC ~~~ B > P
+	jr c, .hit
+
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+;	dec de
+	inc bc
+	call CoordCompare_BC_DE
+	; F.C = DE > BC ~~~ B > P
+	ccf :: ret nc
+.hit
+	coord_sub de, bc
+	scf
+	ret
+

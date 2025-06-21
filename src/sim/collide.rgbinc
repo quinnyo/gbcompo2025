@@ -1,0 +1,12 @@
+if !def(Q_COLLIDE_INC_x5sglf2W)
+def Q_COLLIDE_INC_x5sglf2W equ 1
+
+
+def bCOLLIDE_RESULT_X equ 0
+def bCOLLIDE_RESULT_Y equ 1
+def mCOLLIDE_RESULT_X equ 1 << bCOLLIDE_RESULT_X
+def mCOLLIDE_RESULT_Y equ 1 << bCOLLIDE_RESULT_Y
+
+
+endc ; Q_COLLIDE_INC_x5sglf2W
+

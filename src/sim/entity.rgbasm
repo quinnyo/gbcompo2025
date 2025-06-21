@@ -1,4 +1,6 @@
 include "entity.rgbinc"
+include "collide.rgbinc"
+include "coord.rgbinc"
 
 
 section "wEntity", wram0, align[8]
@@ -17,19 +19,17 @@ EntityTesto::
 	sub c
 	ld [hl+], a
 	; accx
-	ld a, -120 :: ld [hl+], a
+	ld a, -10 :: ld [hl+], a
 	; velx
-	xor a :: ld [hl+], a
+	ld a, -100 :: ld [hl+], a
 	; posx
-def _TESTO_PX equ 70
-	ld a, (_TESTO_PX & $0F) << 4 :: ld [hl+], a
-	ld a, (_TESTO_PX & $F0) >> 4 :: ld [hl+], a
+	coord_ld_hli_int (WORLD_ORIGIN >> 4) + 90
 	; accy
-	ld a, -5 :: ld [hl+], a
+	ld a, -10 :: ld [hl+], a
 	; vely
-	xor a :: ld [hl+], a
+	ld a, -100 :: ld [hl+], a
 	; posy
-	xor a :: ld [hl+], a :: ld [hl+], a
+	coord_ld_hli_int (WORLD_ORIGIN >> 4) + 50
 
 	ld a, l
 	and $F0
@@ -66,10 +66,55 @@ EntityUpdate::
 
 	; Update motion X, zero constant accel
 	xor a :: call _motion_go
+	ld a, c :: ldh [hCollide.px+0], a
+	ld a, b :: ldh [hCollide.px+1], a
+	push bc
 	; Update motion Y, add gravity as constant accel
 	ld a, GRAVITY_100 :: call _motion_go
+	ld a, c :: ldh [hCollide.py+0], a
+	ld a, b :: ldh [hCollide.py+1], a
 
-	ld a, szEntity - Entity_PosY - szEntity_PosY
+	; some kind of collision / trainwreck
+	push bc
+	push hl
+	call CollidePoint
+	pop hl
+	; Y
+	pop bc
+	bit bCOLLIDE_RESULT_Y, a
+	jr z, :+
+	entity_index Entity_PosY + 1
+
+	ld a, [wCollideResult.dpy + 0] :: ld e, a
+	ld a, [wCollideResult.dpy + 1] :: ld d, a
+	coord_add bc, de
+	; correct ent position and update collision query point for X axis
+	ld a, b :: ld [hl-], a
+	ldh [hCollide.py+1], a
+	ld a, c :: ld [hl-], a
+	ldh [hCollide.py+0], a
+	xor a :: ld [hl-], a
+:
+	; X
+	pop bc
+	ld a, [wCollideResult.flags]
+	bit bCOLLIDE_RESULT_X, a
+	jr z, :+
+	entity_index Entity_PosX + 1
+
+	ld a, [wCollideResult.dpx + 0] :: ld e, a
+	ld a, [wCollideResult.dpx + 1] :: ld d, a
+	coord_add bc, de
+	ld a, b :: ld [hl-], a
+	ld a, c :: ld [hl-], a
+	xor a :: ld [hl-], a
+:
+	assert szEntity == 16 && wEntity & $0F == 0
+	ld a, l
+	and $F0
+	ld l, a
+	ld a, szEntity
+
 ; Apply entity pointer offset (A) and start next iter...
 .next
 assert sizeof("wEntity") == 256
@@ -81,6 +126,7 @@ assert sizeof("wEntity") == 256
 ; @param HL: Pointer to beginning of an Entity motion block.
 ; @param A: constant accel
 ; @ret HL: end (exclusive) of motion block.
+; @ret BC: position
 ; @mut: AF, BC, HL
 _motion_go:
 	; Add accel accumulator to the constant accel param. Hold on to that.
@@ -91,7 +137,7 @@ _motion_go:
 	; Update velocity -- apply friction and acceleration.
 	ld a, [hl]
 	; TODO: select friction,drag model appropriate to current state.
-	call _fric_1_8
+	call _fric_1_16
 	; Apply friction
 	add [hl]
 	; Apply accel
@@ -114,6 +160,7 @@ _motion_go:
 	adc [hl]
 	rl b ; Set F.C from sign of velocity
 	sbc c
+	ld b, a
 	ld [hl+], a
 	ret
 
@@ -166,6 +213,13 @@ _fric_1_8:
 	and a :: ret z
 	cpl :: inc a
 	sra a :: sra a :: sra a ; div 8
+	ret nz
+	inc a ; ensure friction is non-zero
+	ret
+_fric_1_16:
+	and a :: ret z
+	cpl :: inc a
+	sra a :: sra a :: sra a :: sra a ; div 16
 	ret nz
 	inc a ; ensure friction is non-zero
 	ret

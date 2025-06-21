@@ -46,4 +46,14 @@ def _ENTINFOF_6 equ 1 << _ENTINFOB_6
 def ENTINFOF_ALIVE equ 1 << ENTINFOB_ALIVE
 
 
+macro entity_index
+	assert _NARG == 1
+	assert (\1) < szEntity
+	ld a, l
+	and $F0
+	or (\1)
+	ld l, a
+endm
+
+
 endc ; Q_ENTITY_INC_b4moRE1M

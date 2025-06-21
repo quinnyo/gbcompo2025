@@ -97,6 +97,7 @@ Main::
 	call PalettesInit
 ;	call MainInit
 	call EntityInit
+	call CollideInit
 
 	ldh a, [rLCDC]
 	or LCDCF_ON | LCDCF_BGON | LCDCF_OBJ16 | LCDCF_OBJON
@@ -122,11 +123,12 @@ Main::
 	ld e, 0
 	ld a, [wEntity + 8 + 0] :: ld c, a
 	ld a, [wEntity + 8 + 1] :: ld b, a
+	coord_sub bc, WORLD_ORIGIN
 	coord_int8 b, c
-	add 16
 	ld [hl+], a
 	ld a, [wEntity + 4 + 0] :: ld c, a
 	ld a, [wEntity + 4 + 1] :: ld b, a
+	coord_sub bc, WORLD_ORIGIN
 	coord_int8 b, c
 	add 8
 	ld [hl+], a

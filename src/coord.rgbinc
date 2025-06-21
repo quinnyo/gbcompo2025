@@ -2,6 +2,9 @@ if !def(Q_COORD_INC_aM1uDq4w)
 def Q_COORD_INC_aM1uDq4w equ 1
 
 
+def WORLD_ORIGIN equ $0100
+
+
 ;; Extract the integer part of a coord value.
 ;; coord_int16 XY
 ;; @result: XY
