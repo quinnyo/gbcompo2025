@@ -126,11 +126,9 @@ CollidePointOutRange::
 
 	ld a, [hl+] :: ld e, a
 	ld a, [hl+] :: ld d, a
-;	dec de
-	inc bc
-	call CoordCompare_BC_DE
-	; F.C = DE > BC ~~~ B > P
-	ccf :: ret nc
+	call CoordCompare_DE_BC
+	; F.C = BC > DE ~~~ P > B
+	ret nc
 .hit
 	coord_sub de, bc
 	scf
