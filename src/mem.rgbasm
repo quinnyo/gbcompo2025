@@ -1,9 +1,9 @@
 section "Mem", rom0
-; Copy up to 256 bytes from one location to another.
-; @param C: length, 0 is interpreted as 256
-; @param DE: source
-; @param HL: destination
-; @mut: AF, C, DE, HL
+;; Copy up to 256 bytes from one location to another.
+;; @param C: length, 0 is interpreted as 256
+;; @param DE: source
+;; @param HL: destination
+;; @mut: AF, C, DE, HL
 MemCopySmall::
 :
 	ld a, [de]
@@ -14,11 +14,12 @@ MemCopySmall::
 	ret
 
 
-; Copy up to 65536 bytes from one location to another.
-; @param BC: length, 0 is interpreted as 65536
-; @param DE: source
-; @param HL: destination
-; @mut: AF, BC, DE, HL
+;; Copy up to 65536 bytes from one location to another.
+;; (joke about finding 64K to read + 64K to write)
+;; @param BC: length, 0 is interpreted as 65536
+;; @param DE: source
+;; @param HL: destination
+;; @mut: AF, BC, DE, HL
 MemCopyLarge::
 	dec bc
 	inc c
@@ -30,6 +31,19 @@ MemCopyLarge::
 	dec c
 	jr nz, :-
 	dec b
+	jr nz, :-
+	ret
+
+
+;; Fill a block of memory (up to 256 bytes) with a single value.
+;; @param A: value
+;; @param C: length, 0 is interpreted as 256
+;; @param HL: destination
+;; @mut: F, C, HL
+MemFillSmall::
+:
+	ld [hl+], a
+	dec c
 	jr nz, :-
 	ret
 
