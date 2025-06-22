@@ -71,6 +71,24 @@ macro coord_add
 endm
 
 
+;; Coord comparison impl template. Impl compares values in two 16 bit registers (UV, XY).
+;; The impl returns (`ret`) after computing the result.
+;; Comparison result is in flags: `F.C = XY > UV`, `F.Z = XY == UV`
+macro coord_cp_impl ; UV, XY
+	def __PARAM_EXIT1 equs "ret nz"
+	def __PARAM_EXIT2 equs "ret"
+	; compare high bytes first
+	ld a, high(\1) :: cp high(\2)
+	; F.C = X > U
+	{__PARAM_EXIT1}
+	; high bytes are equal: check low bytes
+	ld a, low(\1) :: cp low(\2)
+	; F.C = Y > V
+	{__PARAM_EXIT2}
+	purge __PARAM_EXIT1, __PARAM_EXIT2
+endm
+
+
 ;; Load 16 bit coord integer to [hl+]
 ;; @mut: AF, HL
 macro coord_ld_hli_int
