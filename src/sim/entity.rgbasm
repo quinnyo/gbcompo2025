@@ -204,23 +204,24 @@ _step_to_zero:
 */
 
 
-; Calculate simple friction (1/8) for the given velocity.
+; Calculate simple friction (1/16) for the given velocity.
 ; The result is an acceleration (with magnitude in the range `[1..abs(vel)]`) opposed to the direction (sign) of the input velocity, or zero if the velocity is zero.
 ; @param A: vel
 ; @ret A: friction(vel)
 ; @mut: AF
-_fric_1_8:
-	and a :: ret z
-	cpl :: inc a
-	sra a :: sra a :: sra a ; div 8
-	ret nz
-	inc a ; ensure friction is non-zero
-	ret
 _fric_1_16:
 	and a :: ret z
+	cp $80
+	jr nc, .negative
+	; positive: divide first
+	swap a :: and $0F
 	cpl :: inc a
-	sra a :: sra a :: sra a :: sra a ; div 16
-	ret nz
-	inc a ; ensure friction is non-zero
+	dec a
+	ret
+.negative
+	; negative: invert first
+	cpl :: inc a
+	swap a :: and $0F
+	inc a
 	ret
 
