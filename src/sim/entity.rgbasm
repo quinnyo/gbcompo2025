@@ -3,6 +3,11 @@ include "collide.rgbinc"
 include "coord.rgbinc"
 
 
+section "wSim", wram0
+wSim::
+	.gravity:: db
+
+
 section "wEntity", wram0, align[8]
 wEntity:: ds ENTITY_COUNT_MAX * szEntity
 _pad: ds 256 - (@ - wEntity)
@@ -43,14 +48,20 @@ EntityTesto::
 
 section "Entity", rom0
 EntityInit::
-	ld hl, startof("wEntity")
-	xor a
-	ld c, a
+	ld hl, wEntity
+	ld b, ENTITY_COUNT_MAX
+.entity_pool_loop
+	ld c, szEntity
 :
 	ld [hl+], a
 	dec c
 	jr nz, :-
+	dec b
+	jr nz, .entity_pool_loop
+
 	call EntityTesto
+
+	ld a, GRAVITY_100 :: ld [wSim.gravity], a
 	ret
 
 
@@ -58,19 +69,22 @@ EntityInit::
 EntityUpdate::
 	ld hl, wEntity
 .loop
-	ld a, szEntity ; for .next (N bytes to add to HL before next iter)
 	bit ENTINFOB_ALIVE, [hl] :: jr z, .next
 
-	assert Entity_AccX == Entity_Info + 2
-	inc l :: inc l
-
 	; Update motion X, zero constant accel
+	entity_index Entity_AccX
 	xor a :: call _motion_go
 	ld a, c :: ldh [hCollide.px+0], a
 	ld a, b :: ldh [hCollide.px+1], a
 	push bc
-	; Update motion Y, add gravity as constant accel
-	ld a, GRAVITY_100 :: call _motion_go
+
+	; Flap!
+	entity_index Entity_Ctrl
+	call _flap_update :: ld b, a
+
+	; Update motion Y, add gravity and flap as constant accel
+	entity_index Entity_AccY
+	ld a, [wSim.gravity] :: add b :: call _motion_go
 	ld a, c :: ldh [hCollide.py+0], a
 	ld a, b :: ldh [hCollide.py+1], a
 
@@ -109,16 +123,26 @@ EntityUpdate::
 	ld a, c :: ld [hl-], a
 	xor a :: ld [hl-], a
 :
-	assert szEntity == 16 && wEntity & $0F == 0
-	ld a, l
-	and $F0
-	ld l, a
-	ld a, szEntity
 
-; Apply entity pointer offset (A) and start next iter...
 .next
 assert sizeof("wEntity") == 256
-	add l :: ld l, a :: jr nc, .loop
+	entity_index szEntity
+	jp nc, .loop
+	ret
+
+
+;; Update flap effect and return current flap impulse (Y axis accel)
+;; @param HL: pointer to entity ctrl field
+;; @ret A: flap impulse
+;; @mut: AF
+_flap_update:
+	ld a, mENTCTRL_FLAP
+	and [hl]
+	ret z
+	; count down
+	dec [hl]
+	; calculate flap impulse/accel
+	cpl :: inc a
 	ret
 
 
@@ -214,14 +238,30 @@ _fric_1_16:
 	cp $80
 	jr nc, .negative
 	; positive: divide first
-	swap a :: and $0F
+	swap a :: and $0E
 	cpl :: inc a
 	dec a
 	ret
 .negative
 	; negative: invert first
 	cpl :: inc a
-	swap a :: and $0F
+	swap a :: and $0E
+	inc a
+	ret
+
+_fric_1_32:
+	and a :: ret z
+	cp $80
+	jr nc, .negative
+	; positive: divide first
+	rlca :: rlca :: rlca :: and $06
+	cpl :: inc a
+	dec a
+	ret
+.negative
+	; negative: invert first
+	cpl :: inc a
+	rlca :: rlca :: rlca :: and $06
 	inc a
 	ret
 

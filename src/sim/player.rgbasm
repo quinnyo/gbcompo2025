@@ -1,0 +1,120 @@
+include "hardware.inc"
+include "sim/entity.rgbinc"
+
+
+def bVKEY_FLAP        equ 0
+def bVKEY_AUTOFLAP    equ 1
+def bVKEY_DRIVE_LEFT  equ 6
+def bVKEY_DRIVE_RIGHT equ 7
+
+def FLAP_FULL equ $0D
+def FLAP_AUTO equ $0C
+def AUTOFLAP_THRESHOLD equ $02
+
+section "wPlayer", wram0
+wPlayer::
+	.vkeys: db
+	.drive_horiz: db
+
+
+section "Player", rom0
+PlayerInit::
+	ret
+
+
+;; Player entity controller: per-tick update function
+;; @mut: AF, BC, D, HL
+PlayerUpdate::
+	; HACK: I just wrote this,
+	; and I've been lazy.
+	; So read this comment,
+	; TODO/FIXME/MAYBE:
+	; This is hardcoded to work on the first entity in wEntity. This might be
+	;   fine, as the player entity can probably just always be that one, but I
+	;   never actually decided to do that, so it seemed worth mentioning.
+
+	call PlayerInputUpdate
+	; Keep the 'ctrl' field available in C, and save any changes made to it down below.
+	ld a, [wEntity + Entity_Ctrl] :: ld c, a
+
+	; Flap!
+	bit bVKEY_FLAP, b
+	jr z, :+
+	ld a, FLAP_FULL
+	jr .flap
+:
+
+	; Autoflap!
+	bit bVKEY_AUTOFLAP, b
+	jr z, :+
+	ld a, c :: and mENTCTRL_FLAP
+	cp AUTOFLAP_THRESHOLD
+	jr nc, :+
+	ld a, FLAP_FULL
+	jr .flap
+:
+	jr .noflap
+
+.flap:
+	xor c :: and mENTCTRL_FLAP :: xor c
+	ld c, a
+	; @SFX?
+	; @VFX
+.noflap:
+
+	ld hl, wEntity + Entity_Ctrl
+	ld a, c :: ld [hl+], a
+
+	; Propel/move/drive on X axis!
+	ld a, [wPlayer.drive_horiz]
+	add a :: add a
+	assert Entity_Ctrl + 1 == Entity_AccX
+	ld [hl+], a
+	; TODO: horizontal motion things, with Entity:
+	; TODO: apply horizontal move in air with flap only!
+	; TODO: horiz acceleration depending on state/mode
+	; TODO: decelerate based on input
+	; TODO: handle input opposed to velocity
+	ret
+
+
+;; Read input, update vkeys
+;; @ret B: vkeys
+;; @mut: AF, BC
+PlayerInputUpdate:
+	ld a, [wInput.state] :: ld c, a
+	; left/right
+	xor a
+	bit PADB_LEFT, c
+	jr z, :+
+	dec a
+:
+	bit PADB_RIGHT, c
+	jr z, :+
+	inc a
+:
+	; If neither or both L,R pressed, A will be zero. Or LEFT: $FF, RIGHT: $01
+	; Save signed direction
+	ld [wPlayer.drive_horiz], a
+	; Rotate and mask to get desired vkeys bit pattern: {L***_***R} ~~> {RL00_0000}
+	rrca :: and $C0
+	; B will hold the new vkeys state...
+	ld b, a
+
+	; autoflap
+	bit PADB_A, c
+	jr z, :+
+	set bVKEY_AUTOFLAP, b
+:
+
+	; manual flap
+	ld a, [wInput.pressed]
+	bit PADB_A, a
+	jr z, :+
+	set bVKEY_FLAP, b
+	res bVKEY_AUTOFLAP, b ; overrides autoflap
+:
+
+	ld a, b :: ld [wPlayer.vkeys], a
+	ret
+

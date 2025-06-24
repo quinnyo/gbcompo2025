@@ -4,11 +4,12 @@ def Q_ENTITY_INC_b4moRE1M equ 1
 
 def ENTITY_COUNT_MAX equ 16
 
-def GRAVITY_100 equ $1_3
+def GRAVITY_100 equ $0_6
 ; Maximum magnitude of either velocity component (each axis is clamped independently)
 def ENT_VELOCITY_MAX equ 100
 
-def szEntity_Info    equ 2
+def szEntity_Info    equ 1
+def szEntity_Ctrl    equ 1
 def szEntity_AccX    equ 1
 def szEntity_VelX    equ 1
 def szEntity_PosX    equ 2
@@ -19,6 +20,7 @@ def szEntity_Collide equ 2
 
 rsreset
 def Entity_Info    rb szEntity_Info
+def Entity_Ctrl    rb szEntity_Ctrl
 def Entity_AccX    rb szEntity_AccX
 def Entity_VelX    rb szEntity_VelX
 def Entity_PosX    rb szEntity_PosX
@@ -46,12 +48,16 @@ def _ENTINFOF_6 equ 1 << _ENTINFOB_6
 def ENTINFOF_ALIVE equ 1 << ENTINFOB_ALIVE
 
 
+;; Flap effect level & timer
+def mENTCTRL_FLAP  equ $0F
+
+
 macro entity_index
 	assert _NARG == 1
-	assert (\1) < szEntity
+	assert (\1) <= szEntity
 	ld a, l
 	and $F0
-	or (\1)
+	add (\1)
 	ld l, a
 endm
 
