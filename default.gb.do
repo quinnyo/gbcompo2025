@@ -7,8 +7,8 @@ redo-ifchange config.sh
 # Ensure assets build first
 redo-ifchange assets
 
-# Gather sources
-mapfile -d '' SOURCES < <(find src -name '*.rgbasm' -type f -print0 | sort --zero-terminated)
+redo-ifchange "${1}.sources"
+mapfile -t SOURCES < "${1}.sources"
 
 # Create target obj for each source
 OBJDIR="${2}"
