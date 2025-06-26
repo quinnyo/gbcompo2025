@@ -47,3 +47,19 @@ MemFillSmall::
 	jr nz, :-
 	ret
 
+
+;; @param A: value
+;; @param BC: length, 0 is interpreted as 65536
+;; @param HL: destination
+;; @mut: AF, BC, DE, HL
+MemFillLarge::
+	dec bc
+	inc c
+	inc b
+:
+	ld [hl+], a
+	dec c
+	jr nz, :-
+	dec b
+	jr nz, :-
+	ret
