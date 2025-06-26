@@ -1,0 +1,118 @@
+include "hardware.inc"
+
+
+def MAP_SIZE equ 32 * 32
+
+;; Set when background/async/HBlank transfers are started.
+def VRAMX_ACTIVE equ 1
+
+
+section "wMap", wramx, align[8]
+;; BG map CHR buffer
+wMapBgChr:: ds MAP_SIZE
+;; BG map attribute buffer
+wMapBgAtrb:: ds MAP_SIZE
+
+
+section "wVramx", wram0
+wVramx:
+	.status: db
+	.restore_svbk: db
+	.restore_vbk: db
+
+
+section "Vramx", rom0
+VramxInit::
+	xor a
+	ld [wVramx.status], a
+	ld [wVramx.restore_svbk], a
+	ld [wVramx.restore_vbk], a
+
+	; Clear BG map
+	ld hl, wMapBgChr
+	ld bc, (MAP_SIZE - 1) + $1_01
+:
+	ld a, l :: ld [hl+], a
+	dec c
+	jr nz, :-
+	dec b
+	jr nz, :-
+
+	; Clear BG attribute map
+	ld hl, wMapBgAtrb
+	ld bc, (MAP_SIZE - 1) + $1_01
+	xor a
+:
+	ld [hl+], a
+	dec c
+	jr nz, :-
+	dec b
+	jr nz, :-
+
+	ret
+
+
+;; Start the VRAM update and DMA transfers. To be called during VBlank.
+;; Memory banks involved **must not be changed** before calling `VramxSync`.
+;; By default, the VRAM (`VBK`) and WRAM (`SVBK`) banks are used.
+VramxBeginUpdate::
+	ld a, [wVramx.status]
+	and a
+	jr nz, .err_nonzero_status
+
+	ldh a, [rSVBK] :: ld [wVramx.restore_svbk], a
+	ldh a, [rVBK] :: ld [wVramx.restore_vbk], a
+
+	; BG map (immediate)
+	ld a, bank(wMapBgChr) :: ldh [rSVBK], a
+	ld a, 0 :: ldh [rVBK], a
+	ld de, wMapBgChr
+	ld hl, $9800
+	ld c, $40
+	call _StartDMA
+
+	; BG map attributes (HBlank)
+	ld a, bank(wMapBgAtrb) :: ldh [rSVBK], a
+	ld a, 1 :: ldh [rVBK], a
+	ld de, wMapBgAtrb
+	ld hl, $9800
+	ld c, $80 | $40
+	call _StartDMA
+
+	ld a, VRAMX_ACTIVE :: ld [wVramx.status], a
+	ret
+.err_nonzero_status:
+	ld b, b
+	ret
+
+
+;; Block until all VRAM transfers are complete.
+;; Restores banks switched by `VramxBeginUpdate`.
+;; @mut: AF
+VramxSync::
+	ld a, [wVramx.status]
+	and a :: ret z
+
+:
+	ldh a, [rHDMA5]
+	inc a
+	jr nz, :-
+
+	ld a, [wVramx.restore_svbk] :: ldh a, [rSVBK]
+	ld a, [wVramx.restore_vbk] :: ldh a, [rVBK]
+	xor a :: ld [wVramx.status], a
+	ret
+
+
+;; @param DE: Source address
+;; @param HL: Dest address
+;; @param C: Length
+_StartDMA:
+	; high byte first!
+	ld a, d :: ldh [rHDMA1], a
+	ld a, e :: ldh [rHDMA2], a
+	ld a, h :: ldh [rHDMA3], a
+	ld a, l :: ldh [rHDMA4], a
+	ld a, c :: ldh [rHDMA5], a
+	ret
+

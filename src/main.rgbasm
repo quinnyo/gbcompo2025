@@ -95,6 +95,7 @@ Main::
 	call VBlankInit
 	call InputInit
 	call PalettesInit
+	call VramxInit
 	call PlayerInit
 ;	call MainInit
 	call EntityInit
@@ -116,9 +117,33 @@ Main::
 .loop:
 	call InputRead
 	call InputUpdate
+	call VramxSync
 	call PlayerUpdate
 ;	call MainUpdate
 	call EntityUpdate
+
+	; Test editing the BG map!
+	; a row...
+	ld hl, wMapBgChr + 32 * 17
+	ld c, 32
+:
+	ld a, [hl]
+	inc a :: and $1F
+	ld [hl+], a
+	dec c
+	jr nz, :-
+
+	; a column...
+	ld hl, wMapBgChr + 19
+	ld a, [wVBlankCount]
+	and $0F
+	ld de, $20
+	ld c, 32
+:
+	ld [hl], a
+	add hl, de
+	dec c
+	jr nz, :-
 
 	; dirty test to show entity position
 	ld hl, wOAM1
@@ -147,6 +172,8 @@ Main::
 	nop
 	cp [hl]
 	jr z, .vsync_wait
+
+	call VramxBeginUpdate
 
 :
 	ldh a, [rLY]
