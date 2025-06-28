@@ -7,9 +7,12 @@ def MAP_SIZE equ 32 * 32
 def VRAMX_ACTIVE equ 1
 
 
-section "wMap", wramx, align[8]
+section "wMapBgChr", wramx[$D000], bank[1]
 ;; BG map CHR buffer
 wMapBgChr:: ds MAP_SIZE
+
+
+section "wMapBgAtrb", wramx[$D000], bank[2]
 ;; BG map attribute buffer
 wMapBgAtrb:: ds MAP_SIZE
 
@@ -29,10 +32,8 @@ VramxInit::
 	ld [wVramx.restore_vbk], a
 
 	ldh a, [rSVBK] :: push af
-	ld a, bank(wMapBgChr)
-	ldh [rSVBK], a
-
 	; Clear BG map
+	ld a, bank(wMapBgChr) :: ldh [rSVBK], a
 	ld hl, wMapBgChr
 	ld bc, (MAP_SIZE - 1) + $1_01
 :
@@ -43,6 +44,7 @@ VramxInit::
 	jr nz, :-
 
 	; Clear BG attribute map
+	ld a, bank(wMapBgAtrb) :: ldh [rSVBK], a
 	ld hl, wMapBgAtrb
 	ld bc, (MAP_SIZE - 1) + $1_01
 	xor a
