@@ -28,6 +28,10 @@ VramxInit::
 	ld [wVramx.restore_svbk], a
 	ld [wVramx.restore_vbk], a
 
+	ldh a, [rSVBK] :: push af
+	ld a, bank(wMapBgChr)
+	ldh [rSVBK], a
+
 	; Clear BG map
 	ld hl, wMapBgChr
 	ld bc, (MAP_SIZE - 1) + $1_01
@@ -49,6 +53,7 @@ VramxInit::
 	dec b
 	jr nz, :-
 
+	pop af :: ldh [rSVBK], a
 	ret
 
 
