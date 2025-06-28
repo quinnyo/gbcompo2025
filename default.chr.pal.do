@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SRC="src/${2#*/}.png"
-redo-ifchange "$SRC" "${1}.pal"
+redo-ifchange "$SRC"
 
 PARAMS="${SRC}.params"
 ATFILE=""
@@ -12,6 +12,7 @@ if [[ -e "$PARAMS" ]]; then
 fi
 
 mkdir -p "${2%/*}"
-rgbgfx -o "$3" $ATFILE -- "$SRC"
+rgbgfx -p "$3" $ATFILE -- "$SRC"
 
 # vim: ft=bash
+
