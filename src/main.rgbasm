@@ -96,10 +96,13 @@ Main::
 	call InputInit
 	call PalettesInit
 	call VramxInit
+	call ScrollInit
 	call PlayerInit
 ;	call MainInit
 	call EntityInit
 	call CollideInit
+	call MockMapConnect
+	call ScrollRenderVisible
 
 	ldh a, [rLCDC]
 	or LCDCF_ON | LCDCF_BGON | LCDCF_OBJ16 | LCDCF_OBJON
@@ -122,28 +125,29 @@ Main::
 ;	call MainUpdate
 	call EntityUpdate
 
-	; Test editing the BG map!
-	; a row...
-	ld hl, wMapBgChr + 32 * 17
-	ld c, 32
+	ld a, [wInput.state]
+	ld hl, wScroll.dy
+	bit PADB_UP, a
+	jr z, :+
+	dec [hl]
 :
-	ld a, [hl]
-	inc a :: and $1F
-	ld [hl+], a
-	dec c
-	jr nz, :-
+	bit PADB_DOWN, a
+	jr z, :+
+	inc [hl]
+:
+	ld hl, wScroll.dx
+	bit PADB_LEFT, a
+	jr z, :+
+	dec [hl]
+:
+	bit PADB_RIGHT, a
+	jr z, :+
+	inc [hl]
+:
 
-	; a column...
-	ld hl, wMapBgChr + 19
-	ld a, [wVBlankCount]
-	and $0F
-	ld de, $20
-	ld c, 32
-:
-	ld [hl], a
-	add hl, de
-	dec c
-	jr nz, :-
+	call ScrollUpdate
+	ld a, [wScroll.y + 0] :: ld [wSCY], a
+	ld a, [wScroll.x + 0] :: ld [wSCX], a
 
 	; dirty test to show entity position
 	ld hl, wOAM1

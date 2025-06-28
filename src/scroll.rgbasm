@@ -1,0 +1,265 @@
+include "hardware.inc"
+
+/*
+# WTF
+- move the view by setting deltas: wScroll.dy, wScroll.dx before calling ScrollUpdate
+- ScrollUpdate applies the deltas and invokes map rendering
+- the `SCY`/`SCX` registers are *NOT* modified
+	- probably use `wScroll.y` & `wScroll.x` for this (scroll position in dots, low byte)
+
+# Coordinate Conventions
+- scrolling in world space dots
+- rendering in world space grid
+- convert world to bg space:
+	- grid: `bg = world mod 32` or `bg = world & $1F`
+	- dot: `bg = world mod 256` or `bg = world & $FF`
+
+# Scroll Scrawl
+As scroll scrolls, visible part of map changes.
+The map renderer guy has to render stuff before we scroll it into view. (Who knew!)
+
+# Frontier Forward
+The tiles just outside the view rect are called the *frontier*.
+There are two frontier edges -- one for each axis.
+Which side the frontier is on depends on the scroll direction.
+So if the view is scrolled to the right, the frontier column will be on the right.
+
+# Render Request
+Smallest thing to render is a whole row or column.
+That's "whole" as in 32 tiles -- spanning the entire BG map buffer.
+- dependency injection ~~ function pointers
+Two functions to implement:
+RenderMapColumns(DE, C)
+RenderMapRows(DE, C)
+*/
+
+
+; Grid distance to the frontier
+def FRONTIER equ 20
+
+
+section "wScroll", wram0
+wScroll::
+	;; Pending view position delta (Y axis)
+	.dy:: db
+	;; View scroll position in dots (Y axis)
+	.y:: dw
+	.frontier_row: db
+	;; Pointer to function implementing `RenderMapRows(DE, C)`.
+	;; impl to render `C` consecutive (Y+) map rows, starting at `DE`.
+	.fn_render_map_rows:: dw
+
+	;; Pending view position delta (X axis)
+	.dx:: db
+	;; View scroll position in dots (X axis)
+	.x:: dw
+	.frontier_column: db
+	;; Pointer to function implementing `RenderMapColumns(DE, C)`.
+	;; impl to render `C` consecutive (Y+) map columns, starting at `DE`.
+	.fn_render_map_columns:: dw
+
+
+section "Scroll", rom0
+ScrollInit::
+	ld hl, startof("wScroll")
+	ld c, sizeof("wScroll")
+	xor a
+	jp MemFillSmall
+
+
+;; Call render commands for the visible view region.
+ScrollRenderVisible::
+	call ScrollGetViewRow
+	ld c, FRONTIER
+	; load impl function pointer
+	ld hl, wScroll.fn_render_map_rows
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+	; zero means unset
+	or h :: ret z
+	jp hl
+
+
+;; @ret DE: Tile grid row containing the top edge of the view rect.
+;; @mut: AF, DE
+ScrollGetViewRow::
+	ld a, [wScroll.y + 1] :: ld d, a
+	ld a, [wScroll.y + 0]
+	; dots / 8
+	srl d :: rra
+	srl d :: rra
+	srl d :: rra
+	ld e, a
+	ret
+
+
+;; @ret DE: Tile grid column containing the left edge of the view rect.
+;; @mut: AF, DE
+ScrollGetViewColumn::
+	ld a, [wScroll.x + 1] :: ld d, a
+	ld a, [wScroll.x + 0]
+	; dots / 8
+	srl d :: rra
+	srl d :: rra
+	srl d :: rra
+	ld e, a
+	ret
+
+
+;; @mut: AF, BC, DE, HL
+ScrollUpdate::
+	ld hl, wScroll.dy
+	call .UpdateAxis
+	ld hl, wScroll.dx
+;; @param HL: pointer to scroll axis state
+.UpdateAxis:
+	; Load delta & clear the accumulator
+	ld c, [hl]
+	xor a :: ld [hl+], a
+	or c :: ret z ; delta is zero, nothing to do.
+
+	; Apply delta
+	ld a, [hl+] :: ld e, a
+	ld a, [hl-] :: ld d, a
+	; signed addition ~~ if delta < 0, dec D to emulate delta having high byte of $FF
+	ld a, c
+	rlca
+	jr nc, :+
+	dec d
+:
+	ld a, e
+	add c
+	ld e, a
+	adc d
+	sub e
+	ld d, a
+	; clamp to zero
+	jr nc, :+
+	ld de, 0
+:
+	ld a, e :: ld [hl+], a
+	ld a, d :: ld [hl+], a
+	; dot to grid
+	ld a, e
+	srl d :: rra
+	srl d :: rra
+	srl d :: rra
+	ld e, a
+
+	; Advance frontier
+	; add -1 if delta is negative or +FRONTIER offset if positive
+	ld a, c :: rlca :: sbc a
+	jr nz, :+
+	ld a, FRONTIER
+:
+	add e
+	cp [hl]
+	ret z ; no change
+	ld [hl+], a
+	; TODO: ??? handle skipped rows ???
+
+	; Render frontier
+	ld e, a
+	ld c, 1
+	; read function pointer at HL & call it if it's nonzero.
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+	or h :: ret z
+	jp hl
+
+
+section "MockMap", rom0
+MockMapConnect::
+	ld hl, wScroll.fn_render_map_rows
+	ld a, low(MockMapRenderRows) :: ld [hl+], a
+	ld a, high(MockMapRenderRows) :: ld [hl+], a
+	ld hl, wScroll.fn_render_map_columns
+	ld a, low(MockMapRenderColumns) :: ld [hl+], a
+	ld a, high(MockMapRenderColumns) :: ld [hl+], a
+	ret
+
+
+def bBGATRB_PALETTE     equ 0
+def bBGATRB_PALETTE_MSB equ 2
+def bBGATRB_BANK        equ 3
+def bBGATRB__UNUSED     equ 4
+def bBGATRB_XFLIP       equ 5
+def bBGATRB_YFLIP       equ 6
+def bBGATRB_PRIORITY    equ 7
+
+def mBGATRB_PALETTE     equ $03
+def mBGATRB_BANK        equ $04
+def mBGATRB_XFLIP       equ $20
+def mBGATRB_YFLIP       equ $40
+def mBGATRB_PRIORITY    equ $80
+
+
+;; @param DE: start row
+;; @param C: number of rows
+;; @mut: AF, BC, E, HL
+MockMapRenderRows:
+assert low(wMapBgChr) == 0
+assert wMapBgChr == wMapBgAtrb
+
+	ldh a, [rSVBK] :: push af
+
+	; offset = (row mod 32) * 32
+	ld a, e :: and $1F
+	rlca :: rlca :: rlca ; * 8
+	ld l, a
+	ld h, 0
+	add hl, hl ; * 16
+	add hl, hl ; * 32
+	ld a, high(wMapBgChr) :: add h :: ld h, a
+
+.cloop
+	ld b, $20
+.bloop
+	ld a, bank(wMapBgChr) :: ldh [rSVBK], a
+	ld a, l :: and $1F
+	add $41 ; "a"
+	ld [hl], a
+	ld a, bank(wMapBgAtrb) :: ldh [rSVBK], a
+	xor a
+	ld [hl+], a
+
+	dec b
+	jr nz, .bloop
+
+	inc de
+	dec c
+	jr nz, .cloop
+
+	pop af :: ldh [rSVBK], a
+	ret
+
+
+;; @param DE: start column
+;; @param C: number of columns
+;; @mut: AF, BC, E, HL
+MockMapRenderColumns:
+	ldh a, [rSVBK] :: push af
+
+	ld h, high(wMapBgChr)
+.cloop
+	ld a, e :: and $1F :: ld l, a
+	ld b, $20
+.bloop:
+	ld a, bank(wMapBgChr) :: ldh [rSVBK], a
+	ld a, l :: and $1F
+	add $41 ; "a"
+	ld [hl], a
+	ld a, bank(wMapBgAtrb) :: ldh [rSVBK], a
+	ld a, mBGATRB_YFLIP
+	ld [hl], a
+
+	ld a, l :: add $20 :: ld l, a
+	adc h :: sub l :: ld h, a
+	dec b
+	jr nz, .bloop
+
+	inc de
+	dec c
+	jr nz, .cloop
+
+	pop af :: ldh [rSVBK], a
+	ret
+
