@@ -8,6 +8,6 @@ MFRCODE=QNVR
 PAD_VALUE=0xFF
 
 ASFLAGS=(-p ${PAD_VALUE} -DBUILD_CART=${CART} -DBUILD_RAMSIZE=${RAMSIZE} -Iinc/ -Isrc/ -Iout/ -Wall -Wextra)
-LDFLAGS=(-d)
+LDFLAGS=()
 FIXFLAGS=(-C -m ${CART} -r ${RAMSIZE} -n ${ROMVER} -t ${TITLE} -k ${LICENSEE} -i ${MFRCODE} -p ${PAD_VALUE} -v)
 
