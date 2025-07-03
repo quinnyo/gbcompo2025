@@ -46,6 +46,14 @@ section "assets/iconoglyphs.chr", romx
 incbin "assets/iconoglyphs.chr", 0, 16 * 8
 
 
+section "assets/character_test.chr", romx
+incbin "assets/character_test.chr"
+
+
+section "assets/character_test.chr.pal", romx
+incbin "assets/character_test.chr.pal"
+
+
 section "Main", rom0
 Boot:
 	; A = 11(CGB,AGB)
@@ -98,6 +106,13 @@ Main::
 	call MemCopyLarge
 	rombpop
 
+	rombpush bank("assets/character_test.chr")
+	ld de, startof("assets/character_test.chr")
+	ld bc, sizeof("assets/character_test.chr")
+	ld hl, $8100
+	call MemCopyLarge
+	rombpop
+
 	call VBlankInit
 	call InputInit
 	call PalettesInit
@@ -109,6 +124,13 @@ Main::
 	call CollideInit
 	call MockMapConnect
 	call ScrollRenderVisible
+
+	rombpush bank("assets/character_test.chr.pal")
+	ld de, startof("assets/character_test.chr.pal")
+	ld c, 1
+	ld b, 8
+	call PalettesLoad
+	rombpop
 
 	ldh a, [rLCDC]
 	or LCDCF_ON | LCDCF_BGON | LCDCF_OBJ16 | LCDCF_OBJON
@@ -166,15 +188,32 @@ Main::
 	call _ViewTargetThing
 
 	; dirty test to show entity position
-	ld hl, wOAM1
-	ld e, 0
 	ld a, [wTargetThing.y]
-	ld [hl+], a
+	add 16
+	ld c, a
 	ld a, [wTargetThing.x]
+	add 8
+	ld b, a
+	ld e, 16
+	ld d, 0
+	ld hl, wOAM1
+	ld a, c
+	ld [hl+], a
+	ld a, b
 	ld [hl+], a
 	ld a, e
 	ld [hl+], a
-	xor a
+	ld a, d
+	ld [hl+], a
+	inc e :: inc e
+	ld a, c
+	ld [hl+], a
+	ld a, b
+	add 8
+	ld [hl+], a
+	ld a, e
+	ld [hl+], a
+	ld a, d
 	ld [hl+], a
 
 .vsync
@@ -223,6 +262,7 @@ _ViewTargetThing:
 	jr z, :+
 	xor a
 :
+;	add 16
 	ld [wTargetThing.y], a
 
 	coord_sub bc, TARGET_FENCE_TOP
@@ -250,6 +290,7 @@ _ViewTargetThing:
 	jr z, :+
 	xor a
 :
+;	add 8
 	ld [wTargetThing.x], a
 
 	coord_sub bc, TARGET_FENCE_LEFT
