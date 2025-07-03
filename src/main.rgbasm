@@ -186,7 +186,10 @@ Main::
 	cp [hl]
 	jr z, .vsync_wait
 
+	di
 	call VramxBeginUpdate
+	call PalettesSync
+	ei
 
 :
 	ldh a, [rLY]

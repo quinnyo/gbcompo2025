@@ -28,5 +28,17 @@ macro vblank_wait
 endm
 
 
+macro dw_rgb555
+	assert _NARG % 3 == 0
+rept _NARG / 3
+	assert (\1) >= 0 && (\1) < $20
+	assert (\2) >= 0 && (\2) < $20
+	assert (\3) >= 0 && (\3) < $20
+	dw (\1) | ((\2) << 5) | ((\3) << 10)
+	shift 3
+endr
+endm
+
+
 endc ; STUFF_INC_D8F7D3C1
 

@@ -1,39 +1,149 @@
 include "hardware.inc"
+include "stuff.rgbinc"
+include "banker.rgbinc"
+
+
+def szCOLOUR equ 2
+def PALETTE_LENGTH equ 4
+def szPALETTE equ PALETTE_LENGTH * szCOLOUR
+
+;; Work only safe to start before this line (LY).
+def PALETTE_SYNC_DEADLINE equ 153
+
+def cBGPI equ $68
+def cBGPD equ $69
+def cOBPI equ $6A
+def cOBPD equ $6B
+
+
+section "rPalettes", romx
+rPalettesBG::
+	dw_rgb555 28,31,25, 17,27,14, 7,8,27, 20,14,8
+	dw_rgb555 31,28,30, 29,18,24, 16,10,3, 14,10,11
+	dw_rgb555 31,28,26, 25,17,10, 8,9,14, 11,5,4
+	dw_rgb555 31,28,30, 21,21,21, 11,11,11, 20,16,14
+	dw_rgb555 28,23,31, 17,14,21, 15,13,6, 12,9,13
+	dw_rgb555 31,28,30, 30,25,7, 28,11,29, 26,18,8
+	dw $7FFF, $6739, $0000, $5159
+	dw $7FFF, $7BB7, $0000, $774F
+	.end
+
+rPalettesOB::
+	dw_rgb555 31,28,30, 30,25,7, 28,11,29, 26,18,8
+	dw_rgb555 0,0,0, 31,28,30, 3,4,10, 29,16,24
+	dw $8000, $3A8F, $0000, $0923
+	dw $8000, $6E43, $0000, $4A04
+	dw $8000, $7357, $0000, $CCC1
+	dw $8000, $7E9C, $0000, $DF0A
+	dw $8000, $190F, $0000, $F3B6
+	dw $8000, $1012, $0000, $8905
+	.end
+
+
+section "wPalettes", wram0, align[8]
+;; Palette buffer -- working copy of palette data.
+;; Signal that a palette should be re-uploaded by setting bit 15 of the first colour in the palette.
+;; (That's bit 7 of the second byte of the palette, as CGB colours are RGB555, stored little endian.)
+wPalettes::
+	.bg:: ds szPALETTE * 8
+	.ob:: ds szPALETTE * 8
+	;; Current scanning location (low byte address in palette buffer)
+	.scanindex:: db
 
 
 section "Palettes", rom0
 PalettesInit::
-	ld a, $80
-	ld hl, rBGPI
-	ld [hl+], a
-	ld de, $7FFF
-	ld [hl], e
-	ld [hl], d
-	ld de, $3DF3
-	ld [hl], e
-	ld [hl], d
-	ld de, $252C
-	ld [hl], e
-	ld [hl], d
-	ld de, $0865
-	ld [hl], e
-	ld [hl], d
+	; load default palettes
+	rombopen bank("rPalettes")
+	ld b, 0
+	ld c, (rPalettesBG.end - rPalettesBG) >> 3
+	ld de, rPalettesBG
+	call PalettesLoad
+	ld b, 8
+	ld c, (rPalettesOB.end - rPalettesOB) >> 3
+	ld de, rPalettesOB
+	call PalettesLoad
 
-	ld a, $80
-	ld hl, rOBPI
-	ld [hl+], a
-	ld de, $8000
-	ld [hl], e
-	ld [hl], d
-	ld de, $3A8F
-	ld [hl], e
-	ld [hl], d
-	ld de, $21A9
-	ld [hl], e
-	ld [hl], d
-	ld de, $0923
-	ld [hl], e
-	ld [hl], d
-
+	; scanindex
+	ld a, low(wPalettes.bg) + 1 :: ld [wPalettes.scanindex], a
 	ret
+
+
+;; Get address of a palette by its index in the buffer.
+;; @param A: palette index
+;; @ret HL: address
+;; @mut: AF, HL
+PalettesIndex::
+	ld hl, wPalettes.bg
+	and $1F :: add a :: add a :: add a
+	add l :: ld l, a
+	ret
+
+
+;; Load palettes from memory.
+;; @param B: destination palette index
+;; @param C: count -- number of palettes to copy
+;; @param DE: source
+;; @mut: AF, C, DE, HL
+PalettesLoad::
+	ld a, b
+	call PalettesIndex
+:
+	ld a, [de] :: inc de :: ld [hl+], a
+	; Mark as changed
+	ld a, [de] :: inc de
+	or $80
+	ld [hl+], a
+	ld a, [de] :: inc de :: ld [hl+], a
+	ld a, [de] :: inc de :: ld [hl+], a
+	ld a, [de] :: inc de :: ld [hl+], a
+	ld a, [de] :: inc de :: ld [hl+], a
+	ld a, [de] :: inc de :: ld [hl+], a
+	ld a, [de] :: inc de :: ld [hl+], a
+	dec c
+	jr nz, :-
+	ret
+
+
+;; Upload palette data
+;; @mut AF, BC, HL
+PalettesSync::
+	ld hl, wPalettes.scanindex
+	ld l, [hl]
+	ld b, 16 ; maximum scan iters
+.scan:
+	bit 7, [hl]
+	jr nz, .work
+	ld a, l :: add 8 :: and $7F :: ld l, a
+	dec b
+	jr nz, .scan
+.done:
+	ld a, l :: ld [wPalettes.scanindex], a
+	ret
+.work:
+	; check the time
+	ldh a, [rLY] :: sub 144
+	cp PALETTE_SYNC_DEADLINE - 144
+	jr nc, .done
+
+	res 7, [hl] ; clear dirty flag
+	dec l ; scanindex is at +1 (the high byte)
+
+	ld c, cBGPI
+	; OB if scanindex > $3F (scanindex.6 is set)
+	bit 6, l
+	jr z, :+
+	ld c, cOBPI
+:
+	; Set palette index
+	ld a, l
+	or $80 ; auto-advance
+	ldh [c], a
+	inc c ; PI ~~> PD
+rept 8
+	ld a, [hl+] :: ldh [c], a
+endr
+	; inc to high byte
+	inc l
+	jr .scan
 
