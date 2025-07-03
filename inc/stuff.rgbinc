@@ -3,13 +3,21 @@ def STUFF_INC_D8F7D3C1 equ 1
 
 include "hardware.inc"
 
+if def(BUILD_RAMSIZE)
+	if BUILD_RAMSIZE >= 2 && BUILD_RAMSIZE <= 4
+		def RAM_KBITS equ 16 << (BUILD_RAMSIZE - 1) * 2
+	endc
+endc
 
-; @mut: A
-macro rombsel
-	assert (\1) < 256 && (\1) >= 1
-	ld a, (\1)
-	ld [$2000], a
-endm
+if def(BUILD_ROMSIZE)
+	def ROM_KBYTES equ 32 << BUILD_ROMSIZE
+else
+	def ROM_KBYTES equ 256
+endc
+
+;; Number of 16 KiB ROM banks for the ROM size.
+;; NOTE: Total bank count includes bank 0.
+def ROMB_COUNT equ ROM_KBYTES >> 4
 
 
 ; @mut: A

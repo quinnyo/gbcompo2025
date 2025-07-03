@@ -1,6 +1,7 @@
 include "hardware.inc"
 include "stuff.rgbinc"
 include "coord.rgbinc"
+include "banker.rgbinc"
 
 
 def PLATFORM_CGB   equ $02 ; host is CGB
@@ -80,17 +81,22 @@ Main::
 	xor a
 	ldh [rLCDC], a
 
-	rombsel bank("assets/fonty8.chr")
+	call RombInit
+	call WrambInit
+
+	rombpush bank("assets/fonty8.chr")
 	ld de, startof("assets/fonty8.chr")
 	ld bc, sizeof("assets/fonty8.chr")
 	ld hl, $9000
 	call MemCopyLarge
+	rombpop
 
-	rombsel bank("assets/iconoglyphs.chr")
+	rombpush bank("assets/iconoglyphs.chr")
 	ld de, startof("assets/iconoglyphs.chr")
 	ld bc, sizeof("assets/iconoglyphs.chr")
 	ld hl, $8000
 	call MemCopyLarge
+	rombpop
 
 	call VBlankInit
 	call InputInit

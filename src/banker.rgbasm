@@ -1,0 +1,58 @@
+include "banker.rgbinc"
+include "stuff.rgbinc"
+
+
+/*** ROM Bank numbers ***/
+for I, ROMB_COUNT
+	def __SECTION_NAME equs "RomBankId{d:I}"
+if I == 0
+	section "{__SECTION_NAME}", rom0[RomBankId - $4000]
+else
+	section "{__SECTION_NAME}", romx[RomBankId], bank[I]
+endc
+	{__SECTION_NAME}:: db I
+
+	purge __SECTION_NAME
+endr
+
+
+def STACK_ALIGN_BITS equ bitwidth(BANKER_STACK_SIZE + 1) - 1
+
+
+section "wBankerWramb", wram0
+wWramb:
+wBankerWramb:: align STACK_ALIGN_BITS
+	.sp: db
+	.stack: ds BANKER_STACK_SIZE
+
+
+section "wBankerRomb", wram0
+wRomb:
+wBankerRomb:: align STACK_ALIGN_BITS
+	.sp: db
+	.stack: ds BANKER_STACK_SIZE
+
+
+section "Banker", rom0
+RombInit::
+	ld a, 1 :: ld [ROMB_LO], a
+	ld hl, wRomb
+	jp StackInit
+
+
+WrambInit::
+	ld a, 1 :: ldh [rSVBK], a
+	ld hl, wWramb
+	jp StackInit
+
+
+;; @param HL: &stack
+StackInit:
+	ld c, BANKER_STACK_SIZE
+	ld a, c :: inc a :: ld [hl+], a
+	ld a, $FF
+:
+	ld [hl+], a
+	dec c
+	jr nz, :-
+	ret

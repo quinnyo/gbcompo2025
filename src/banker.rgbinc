@@ -1,0 +1,91 @@
+if !def(Q_BANKER_INC_ftohb3co)
+def Q_BANKER_INC_ftohb3co equ 1
+
+
+def BANKER_STACK_SIZE equ 16
+
+
+;; Address of ROM bank number stored in each bank.
+def RomBankId equ $7FFF
+
+
+def ROMB_LO equ $2000
+
+
+;; rombopen $BANK
+;; Open ROM bank in the current call scope.
+;; The current bank will be preserved and restored when returning from the enclosing subroutine.
+;; @mut: AF
+macro rombopen
+	ld a, [RomBankId]
+	push af
+	call .bankzone\@
+	pop af
+	ld [ROMB_LO], a
+	ret
+.bankzone\@
+	ld a, (\1)
+	ld [ROMB_LO], a
+endm
+
+
+;; rombpush [$BANK]
+;; @mut: AF, HL
+macro rombpush
+	assert _NARG == 0 || _NARG == 1
+;.rombpush\@
+	ld hl, wBankerRomb
+	dec [hl]
+	ld l, [hl]
+	ld a, [RomBankId]
+	ld [hl], a
+if _NARG == 1
+	ld a, (\1)
+	ld [ROMB_LO], a
+endc
+endm
+
+
+;; @mut: AF, HL
+macro rombpop
+;.rombpop\@
+	ld hl, wBankerRomb
+	ld a, [hl]
+	inc [hl]
+	ld l, a
+	ld a, [hl]
+	ld [ROMB_LO], a
+endm
+
+
+;; wrambpush [$BANK]
+;; @mut: AF, HL
+macro wrambpush
+	assert _NARG == 0 || _NARG == 1
+;.wrambpush\@
+	ld hl, wBankerWramb
+	dec [hl]
+	ld l, [hl]
+	ldh a, [rSVBK]
+	ld [hl], a
+if _NARG == 1
+	ld a, (\1)
+	ldh [rSVBK], a
+endc
+endm
+
+
+;; @mut: AF, HL
+macro wrambpop
+;.wrambpop\@
+	ld hl, wBankerWramb
+	ld a, [hl]
+	inc [hl]
+	ld l, a
+	ld a, [hl]
+	ldh [rSVBK], a
+endm
+
+
+endc ; Q_BANKER_INC_ftohb3co
+
