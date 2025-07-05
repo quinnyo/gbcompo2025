@@ -145,5 +145,6 @@ rept 8
 endr
 	; inc to high byte
 	inc l
+	ld a, l :: and $7F :: ld l, a
 	jr .scan
 
