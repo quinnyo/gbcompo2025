@@ -12,11 +12,15 @@ def RomBankId equ $7FFF
 def ROMB_LO equ $2000
 
 
-;; rombopen $BANK
-;; Open ROM bank in the current call scope.
+;; rombopen [$BANK]
 ;; The current bank will be preserved and restored when returning from the enclosing subroutine.
+;; Then switch to ROM bank $BANK (if supplied).
 ;; @mut: AF
 macro rombopen
+	assert _NARG <= 1
+	if _NARG == 1
+		assert fatal, strcmp("a", strlwr("\1")) != 0, "BANK in 'A' register not supported."
+	endc
 	ld a, [RomBankId]
 	push af
 	call .bankzone\@
@@ -24,8 +28,10 @@ macro rombopen
 	ld [ROMB_LO], a
 	ret
 .bankzone\@
-	ld a, (\1)
-	ld [ROMB_LO], a
+	if _NARG == 1
+		ld a, \1
+		ld [ROMB_LO], a
+	endc
 endm
 
 
@@ -55,6 +61,29 @@ macro rombpop
 	ld l, a
 	ld a, [hl]
 	ld [ROMB_LO], a
+endm
+
+
+;; wrambopen [$BANK]
+;; The current bank will be preserved and restored when returning from the enclosing subroutine.
+;; Then switch to WRAM bank $BANK (if supplied).
+;; @mut: AF
+macro wrambopen
+	assert _NARG <= 1
+	if _NARG == 1
+		assert fatal, strcmp("a", strlwr("\1")) != 0, "BANK in 'A' register not supported."
+	endc
+	ldh a, [rSVBK]
+	push af
+	call .bankzone\@
+	pop af
+	ldh [rSVBK], a
+	ret
+.bankzone\@
+	if _NARG == 1
+		ld a, \1
+		ldh [rSVBK], a
+	endc
 endm
 
 
