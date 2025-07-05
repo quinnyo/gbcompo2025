@@ -78,7 +78,7 @@ Boot:
 	ld [wPlatform.flags], a
 
 Main::
-	ld sp, $FFFE
+	ld sp, wStack
 
 	di
 
