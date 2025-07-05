@@ -1,0 +1,63 @@
+include "mode.rgbinc"
+include "banker.rgbinc"
+
+
+;; Ensure the modes table is created.
+section fragment "{MODES_SECTION}", romx
+
+;; Ensure the common wram section is created.
+section union "{MODE_COMMON}", wramx
+
+
+section "hMode", hram
+hModeState:: db
+
+
+section "wActiveMode", wram0
+wActiveMode:: ds szMode
+
+
+section "Mode", rom0
+ModeInit::
+	ld a, MODE_STATE_NULL
+	ldh [hModeState], a
+	ret
+
+
+;; Set the active mode.
+;; @param DE: the mode to change to (expected to be in the rModes table)
+ModeSetActive::
+	; copy mode from table to hMode
+	rombopen bank("{MODES_SECTION}")
+	ld hl, wActiveMode
+	ld c, szMode
+	call MemCopySmall
+
+	ld a, MODE_STATE_ENTER
+	ldh [hModeState], a
+	ret
+
+
+ModeUpdate::
+	ldh a, [hModeState]
+	dec a :: jr z, ActiveModeProcess
+	dec a :: jr z, ActiveModeEnter
+	ret
+
+
+ActiveModeEnter::
+	ld hl, wActiveMode + Mode_fn_enter
+	jr _CallActiveMode
+
+
+ActiveModeProcess::
+	ld hl, wActiveMode + Mode_fn_process
+
+	; FALLTHROUGH
+
+;; @param HL: address of function pointer
+_CallActiveMode:
+	rombopen [wActiveMode + Mode_impl_bank]
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+	jp hl
+

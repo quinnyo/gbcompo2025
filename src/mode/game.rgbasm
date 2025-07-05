@@ -1,0 +1,175 @@
+include "hardware.inc"
+include "banker.rgbinc"
+include "mode.rgbinc"
+include "coord.rgbinc"
+
+
+	mode_def modeGame
+
+
+section "modeGame", romx
+modeGame_Enter::
+;	rombpush bank("assets/character_test.chr")
+;	ld de, startof("assets/character_test.chr")
+;	ld bc, sizeof("assets/character_test.chr")
+;	ld hl, $8100
+;	call MemCopyLarge
+;	rombpop
+
+	rombpush bank("assets/character_test.chr.pal")
+	ld de, startof("assets/character_test.chr.pal")
+	ld c, 1
+	ld b, 8
+	call PalettesLoad
+	rombpop
+
+	call ScrollInit
+	call PlayerInit
+	call EntityInit
+	call CollideInit
+	call MockMapConnect
+	call ScrollRenderVisible
+	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
+	ret
+
+
+modeGame_Process::
+	call PlayerUpdate
+
+/*
+	; debugfly: override player input
+	ld a, [wInput.state]
+	ld b, a
+	xor a
+	bit PADB_UP, b
+	jr z, :+
+	dec a
+:
+	bit PADB_DOWN, b
+	jr z, :+
+	inc a
+:
+	add a :: add a :: add a
+	ld [wEntity + 6], a
+	xor a
+	bit PADB_LEFT, b
+	jr z, :+
+	dec a
+:
+	bit PADB_RIGHT, b
+	jr z, :+
+	inc a
+:
+	add a :: add a :: add a
+	ld [wEntity + 2], a
+*/
+
+	call EntityUpdate
+	call ScrollUpdate
+	ld a, [wScroll.y + 0] :: ld [wSCY], a
+	ld a, [wScroll.x + 0] :: ld [wSCX], a
+
+	call _ViewTargetThing
+
+	; dirty test to show entity position
+	ld a, [wTargetThing.y]
+	add 16
+	ld c, a
+	ld a, [wTargetThing.x]
+	add 8
+	ld b, a
+	ld e, 16
+	ld d, 0
+	ld hl, wOAM1
+	ld a, c
+	ld [hl+], a
+	ld a, b
+	ld [hl+], a
+	ld a, e
+	ld [hl+], a
+	ld a, d
+	ld [hl+], a
+	inc e :: inc e
+	ld a, c
+	ld [hl+], a
+	ld a, b
+	add 8
+	ld [hl+], a
+	ld a, e
+	ld [hl+], a
+	ld a, d
+	ld [hl+], a
+
+	ret
+
+
+def TARGET_FENCE_TOP equ 48
+def TARGET_FENCE_BOTTOM equ 144 - 24
+def TARGET_FENCE_LEFT equ 48
+def TARGET_FENCE_RIGHT equ 160 - 48
+_ViewTargetThing:
+	; scroll target position
+	ld a, [wScroll.y + 0] :: ld l, a
+	ld a, [wScroll.y + 1] :: ld h, a
+	ld a, [wEntity + 8 + 0] :: ld c, a
+	ld a, [wEntity + 8 + 1] :: ld b, a
+	coord_sub bc, WORLD_ORIGIN
+	coord_int16 bc
+	; screenpos = entitypos - scrollpos
+	ld a, c
+	sub l
+	ld c, a
+	ld a, b
+	sbc h
+	ld b, a
+	ld a, c
+	jr z, :+
+	xor a
+:
+;	add 16
+	ld [wTargetThing.y], a
+
+	coord_sub bc, TARGET_FENCE_TOP
+	jr c, .keepy ; keep if negative
+	coord_sub bc, TARGET_FENCE_BOTTOM - TARGET_FENCE_TOP
+	jr c, :+ ; keep if positive
+.keepy
+	ld a, c :: ld [wScroll.dy], a
+:
+
+	ld a, [wScroll.x + 0] :: ld l, a
+	ld a, [wScroll.x + 1] :: ld h, a
+	ld a, [wEntity + 4 + 0] :: ld c, a
+	ld a, [wEntity + 4 + 1] :: ld b, a
+	coord_sub bc, WORLD_ORIGIN
+	coord_int16 bc
+	; screenpos = entitypos - scrollpos
+	ld a, c
+	sub l
+	ld c, a
+	ld a, b
+	sbc h
+	ld b, a
+	ld a, c
+	jr z, :+
+	xor a
+:
+;	add 8
+	ld [wTargetThing.x], a
+
+	coord_sub bc, TARGET_FENCE_LEFT
+	jr c, .keepx
+	coord_sub bc, TARGET_FENCE_RIGHT - TARGET_FENCE_LEFT
+	jr c, :+
+.keepx
+	ld a, c :: ld [wScroll.dx], a
+:
+
+	ret
+
+
+section "wTargetThing", wram0
+wTargetThing::
+	.y:: db
+	.x:: db
+

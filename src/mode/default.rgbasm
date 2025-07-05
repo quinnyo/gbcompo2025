@@ -1,0 +1,28 @@
+include "hardware.inc"
+include "mode.rgbinc"
+include "banker.rgbinc"
+
+
+	mode_def modeDefault
+
+
+section union "{MODE_COMMON}", wramx
+_timer: db
+
+
+section "modeDefault", romx
+modeDefault_Enter::
+	wrambopen bank("{MODE_COMMON}")
+	ld a, 1 :: ld [_timer], a
+	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
+	ret
+
+
+modeDefault_Process::
+	wrambopen bank("{MODE_COMMON}")
+	ld hl, _timer
+	dec [hl]
+	ret nz
+	ld de, rModes_modeGame
+	jp ModeSetActive
+

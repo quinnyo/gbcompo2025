@@ -1,0 +1,45 @@
+if !def(Q_MODE_INC_9oUcDich)
+def Q_MODE_INC_9oUcDich equ 1
+
+
+rsreset
+def MODE_STATE_NULL rb 1
+def MODE_STATE_PROCESS rb 1
+def MODE_STATE_ENTER rb 1
+
+
+;; Name of the WRAM union section common to all modes.
+def MODE_COMMON equs "wModeCommon"
+
+
+rsreset
+;; ROM bank that contains all of the mode's implementing functions.
+def Mode_impl_bank rb 1
+;; Address of the mode's `Enter` function.
+def Mode_fn_enter rb 2
+;; Address of the mode's `Process` function.
+def Mode_fn_process rb 2
+def szMode rb 0
+
+
+;; Name of the section in ROM that stores mode metadata.
+;; The section is defined as a fragment so each mode can contribute
+;; to the table from its own source file.
+;; You probably want to use 
+def MODES_SECTION equs "rModes"
+
+
+;; mode_def NAME
+;; Add an entry to the modes table.
+;; NAME is used as a label prefix to find the implementation.
+macro mode_def
+	section fragment "{MODES_SECTION}", romx
+	rModes_\1::
+		.impl_bank: db bank(\1_Enter)
+		.fn_enter: dw \1_Enter
+		.fn_process: dw \1_Process
+endm
+
+
+endc ; Q_MODE_INC_9oUcDich
+
