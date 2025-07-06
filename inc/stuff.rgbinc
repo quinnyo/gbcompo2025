@@ -10,7 +10,7 @@ if def(BUILD_RAMSIZE)
 endc
 
 if def(BUILD_ROMSIZE)
-	def ROM_KBYTES equ 32 << BUILD_ROMSIZE
+	def ROM_KBYTES equ 256 << BUILD_ROMSIZE
 else
 	def ROM_KBYTES equ 256
 endc
