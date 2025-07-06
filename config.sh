@@ -13,7 +13,7 @@ ROMSIZE=3
 PAD_VALUE=0xFF
 
 ASFLAGS=(-p ${PAD_VALUE} -DBUILD_CART=${CART} -DBUILD_RAMSIZE=${RAMSIZE} -DBUILD_ROMSIZE=${ROMSIZE} -Iinc/ -Isrc/ -Iout/ -Wall -Wextra)
-#LDFLAGS=(-S romx=255,wramx=7)
-LDFLAGS=()
+LDFLAGS=(-S romx=127,wramx=7)
+#LDFLAGS=()
 FIXFLAGS=(-C -m ${CART} -r ${RAMSIZE} -n ${ROMVER} -t ${TITLE} -k ${LICENSEE} -i ${MFRCODE} -p ${PAD_VALUE} -v)
 
