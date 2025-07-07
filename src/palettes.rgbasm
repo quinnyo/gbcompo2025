@@ -105,6 +105,16 @@ PalettesLoad::
 	ret
 
 
+;; @param B: destination palette index
+;; @param C: count -- number of palettes to copy
+;; @param DE: source (in ROMX)
+;; @param H: source ROM bank
+;; @mut: AF, C, DE, HL
+PalettesLoadRomx::
+	rombopen h
+	jr PalettesLoad
+
+
 ;; Upload palette data
 ;; @mut AF, BC, HL
 PalettesSync::
