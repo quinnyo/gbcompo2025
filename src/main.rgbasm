@@ -105,13 +105,6 @@ Main::
 	call MemCopyLarge
 	rombpop
 
-	rombpush bank("assets/character_test.chr")
-	ld de, startof("assets/character_test.chr")
-	ld bc, sizeof("assets/character_test.chr")
-	ld hl, $8100
-	call MemCopyLarge
-	rombpop
-
 	call VBlankInit
 	call InputInit
 	call PalettesInit
@@ -136,8 +129,8 @@ Main::
 .loop:
 	call InputRead
 	call InputUpdate
-	call VramxSync
 	call ModeUpdate
+	call VramxSync
 
 .vsync
 	ld hl, wVBlankCount
@@ -149,8 +142,8 @@ Main::
 	jr z, .vsync_wait
 
 	di
-	call VramxBeginUpdate
 	call PalettesSync
+	call VramxBeginUpdate
 	ei
 
 :

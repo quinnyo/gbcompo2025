@@ -9,19 +9,17 @@ include "coord.rgbinc"
 
 section "modeGame", romx
 modeGame_Enter::
-;	rombpush bank("assets/character_test.chr")
-;	ld de, startof("assets/character_test.chr")
-;	ld bc, sizeof("assets/character_test.chr")
-;	ld hl, $8100
-;	call MemCopyLarge
-;	rombpop
+	ld b, bank("assets/character_test.chr")
+	ld de, startof("assets/character_test.chr")
+	ld c, sizeof("assets/character_test.chr") / 16 - 1
+	ld hl, $8100
+	call VxTransferRom
 
-	rombpush bank("assets/character_test.chr.pal")
 	ld de, startof("assets/character_test.chr.pal")
 	ld c, 1
 	ld b, 8
-	call PalettesLoad
-	rombpop
+	ld h, bank("assets/character_test.chr.pal")
+	call PalettesLoadRomx
 
 	call ScrollInit
 	call PlayerInit

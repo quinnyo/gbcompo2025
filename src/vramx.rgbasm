@@ -6,14 +6,39 @@ def MAP_SIZE equ 32 * 32
 
 ;; Set when background/async/HBlank transfers are started.
 def VRAMX_ACTIVE equ 1
+def _RESTORE_WRAMB equ 2
+def _RESTORE_VBK equ 4
+def _RESTORE_ROMB equ 8
 
 
-section "wMapBgChr", wramx[$D000], bank[1]
+def QUEUE_CAPACITY equ 64
+
+
+rsreset
+def OPER_NIL rb 1
+;; { wram_addr source, vram_addr dest, length }
+;; wram_addr incl bank in the low 3 bits.
+;; vram_addr incl bank in bit 0.
+def OPER_TRANSFER_WRAM rb 1
+;; { rom_bank, rom_addr source, vram_addr dest, length }
+;; vram_addr incl bank in bit 0.
+def OPER_TRANSFER_ROM rb 1
+;; { strip start, length }
+def OPER_TRANSFER_MAP_CHR rb 1
+;; { strip start, length }
+def OPER_TRANSFER_MAP_ATRB rb 1
+
+def OPER_TRANSFER_WRAM_SIZE equ 1 + 5
+def OPER_TRANSFER_ROM_SIZE equ 1 + 6
+def OPER_TRANSFER_MAP_SIZE equ 1 + 2
+
+
+section "wMapBgChr", wram0[$C800]
 ;; BG map CHR buffer
 wMapBgChr:: ds MAP_SIZE
 
 
-section "wMapBgAtrb", wramx[$D000], bank[2]
+section "wMapBgAtrb", wramx[$D800]
 ;; BG map attribute buffer
 wMapBgAtrb:: ds MAP_SIZE
 
@@ -23,6 +48,18 @@ wVramx:
 	.status: db
 	.restore_svbk: db
 	.restore_vbk: db
+	.restore_romb: db
+
+
+section "wVxQueue", wram0, align[8]
+wVxQueue:
+	ds QUEUE_CAPACITY
+
+
+section "hVxQueue", hram
+hVxQueue:
+	.front: db
+	.length: db
 
 
 section "Vramx", rom0
@@ -31,6 +68,14 @@ VramxInit::
 	ld [wVramx.status], a
 	ld [wVramx.restore_svbk], a
 	ld [wVramx.restore_vbk], a
+	ld [wVramx.restore_romb], a
+
+	ld hl, wVxQueue
+	ld a, OPER_NIL
+	ld c, QUEUE_CAPACITY
+	call MemFillSmall
+	xor a :: ldh [hVxQueue.front], a
+	ldh [hVxQueue.length], a
 
 	; Clear BG map
 	wrambpush bank(wMapBgChr)
@@ -59,32 +104,128 @@ VramxInit::
 	ret
 
 
+;; Transfer strips (half-rows) from BG CHR map buffer to VRAM BG map.
+;; @param E: start strip in [0..64)
+;; @param C: Length
+;; @mut: AF, HL
+VxTransferMapChr::
+	ld h, OPER_TRANSFER_MAP_SIZE
+	call _QueueAlloc
+	ret nc
+	ld a, OPER_TRANSFER_MAP_CHR :: ld [hl+], a
+	ld a, e :: ld [hl+], a
+	ld a, c :: ld [hl+], a
+	ret
+
+
+;; Transfer strips (half-rows) from BG ATRB map buffer to VRAM BG map.
+;; @param E: start strip in [0..64)
+;; @param C: Length
+;; @mut: AF, HL
+VxTransferMapAtrb::
+	ld h, OPER_TRANSFER_MAP_SIZE
+	call _QueueAlloc
+	ret nc
+	ld a, OPER_TRANSFER_MAP_ATRB :: ld [hl+], a
+	ld a, e :: ld [hl+], a
+	ld a, c :: ld [hl+], a
+	ret
+
+
+;; Transfer memory from WRAM to VRAM
+;; @param DE: WRAM source address. Low byte to include WRAM bank in bits `[0..2]`.
+;; @param HL: VRAM destination address. Low byte to include VRAM bank in bit `0`
+;; @param C: Length / 16 - 1
+;; @mut: AF, DE, HL
+VxTransferWram::
+	push hl
+	ld h, OPER_TRANSFER_WRAM_SIZE
+	call _QueueAlloc
+	jr nc, .abort
+	ld a, OPER_TRANSFER_WRAM :: ld [hl+], a
+	ld a, e :: ld [hl+], a
+	ld a, d :: ld [hl+], a
+	pop de
+	ld a, e :: ld [hl+], a
+	ld a, d :: ld [hl+], a
+	ld a, c :: ld [hl+], a
+	ret
+.abort:
+	pop hl
+	ret
+
+
+;; Transfer memory from ROM to VRAM
+;; @param B: source bank
+;; @param DE: ROM source address.
+;; @param HL: VRAM destination address. Low byte to include VRAM bank in bit `0`
+;; @param C: Length / 16 - 1
+;; @mut: AF, DE, HL
+VxTransferRom::
+	push hl
+	ld h, OPER_TRANSFER_ROM_SIZE
+	call _QueueAlloc
+	jr nc, .abort
+	ld a, OPER_TRANSFER_ROM :: ld [hl+], a
+	ld a, b :: ld [hl+], a
+	ld a, e :: ld [hl+], a
+	ld a, d :: ld [hl+], a
+	pop de
+	ld a, e :: ld [hl+], a
+	ld a, d :: ld [hl+], a
+	ld a, c :: ld [hl+], a
+	ret
+.abort:
+	pop hl
+	ret
+
+
 ;; Start the VRAM update and DMA transfers. To be called during VBlank.
-;; Memory banks involved **must not be changed** before calling `VramxSync`.
+;;
+;; Changes banks if needed and **DOES NOT RESTORE THE PREVIOUS STATE**.
 ;; By default, the VRAM (`VBK`) and WRAM (`SVBK`) banks are used.
+;;
+;; This function sets the VRAM bank and it **MUST NOT BE CHANGED** before
+;; calling `VramxSync`.
+;;
+;; @mut: AF, BC, DE, HL
 VramxBeginUpdate::
 	ld a, [wVramx.status]
 	and a
-	jr nz, .err_nonzero_status
+	jp nz, .err_nonzero_status
 
-	ldh a, [rSVBK] :: ld [wVramx.restore_svbk], a
-	ldh a, [rVBK] :: ld [wVramx.restore_vbk], a
+	ldh a, [hVxQueue.length]
+	and a
+	jr z, .do_map_sync
 
-	; BG map (immediate)
-	ld a, bank(wMapBgChr) :: ldh [rSVBK], a
-	ld a, 0 :: ldh [rVBK], a
-	ld de, wMapBgChr
-	ld hl, $9800
-	ld c, $40
-	call _StartDMA
+.do_queue:
+	call _QueueProcess
+	ret nc
+	ld a, c :: ldh [rHDMA5], a
+	ldh a, [rLY]
+	cp 148
+	jr c, .do_queue
+	ret
 
-	; BG map attributes (HBlank)
+.do_map_sync:
+	ldh a, [rLY] :: sub 144
+	cp 5
+	ret nc
+	; BG map attributes (VBlank immediate HDMA)
 	ld a, bank(wMapBgAtrb) :: ldh [rSVBK], a
 	ld a, 1 :: ldh [rVBK], a
-	ld de, wMapBgAtrb
-	ld hl, $9800
-	ld c, $80 | $40
-	call _StartDMA
+	ld a, high(wMapBgAtrb) :: ldh [rHDMA1], a
+	ld a, $98 :: ldh [rHDMA3], a
+	xor a :: ldh [rHDMA2], a :: ldh [rHDMA4], a
+	ld a, $3F :: ldh [rHDMA5], a
+
+	; BG map CHR codes (HBlank HDMA)
+	xor a
+	ldh [rVBK], a
+	ldh [rHDMA2], a :: ldh [rHDMA4], a
+	ld a, high(wMapBgChr) :: ldh [rHDMA1], a
+	ld a, $98 :: ldh [rHDMA3], a
+	ld a, $80 | $3F :: ldh [rHDMA5], a
 
 	ld a, VRAMX_ACTIVE :: ld [wVramx.status], a
 	ret
@@ -93,8 +234,7 @@ VramxBeginUpdate::
 	ret
 
 
-;; Block until all VRAM transfers are complete.
-;; Restores banks switched by `VramxBeginUpdate`.
+;; Block until all jobs are complete.
 ;; @mut: AF
 VramxSync::
 	ld a, [wVramx.status]
@@ -105,21 +245,151 @@ VramxSync::
 	inc a
 	jr nz, :-
 
-	ld a, [wVramx.restore_svbk] :: ldh a, [rSVBK]
-	ld a, [wVramx.restore_vbk] :: ldh a, [rVBK]
+	; FALLTHROUGH
+
+_Deactivate:
 	xor a :: ld [wVramx.status], a
 	ret
 
 
-;; @param DE: Source address
-;; @param HL: Dest address
-;; @param C: Length
-_StartDMA:
-	; high byte first!
-	ld a, d :: ldh [rHDMA1], a
-	ld a, e :: ldh [rHDMA2], a
-	ld a, h :: ldh [rHDMA3], a
-	ld a, l :: ldh [rHDMA4], a
-	ld a, c :: ldh [rHDMA5], a
+;; @param H: size
+;; @ret F.C: if successful
+;; @ret HL: pointer to allocated queue memory
+;; @mut: AF, HL
+_QueueAlloc:
+	ldh a, [hVxQueue.length] :: ld l, a
+	add h
+	cp QUEUE_CAPACITY
+	ret nc ; no fits
+	ldh [hVxQueue.length], a
+	ld h, high(wVxQueue)
+	scf
+	ret
+
+
+;; @mut: AF, HL
+_QueueReset:
+	xor a :: ldh [hVxQueue.length], a
+	ldh [hVxQueue.front], a
+	ld l, QUEUE_CAPACITY - 1
+	ld a, OPER_NIL
+:
+	ld [hl], a
+	dec l
+	jr nz, :-
+	ret
+
+
+;; @param B: step
+_QueueAdvance:
+	ldh a, [hVxQueue.length]
+	sub b
+	ldh [hVxQueue.length], a
+	ldh a, [hVxQueue.front]
+	add b
+	ldh [hVxQueue.front], a
+	ret
+
+
+;;
+;; @ret C: HDMA length parameter
+;; @ret F.C: set if successful
+;; @mut: AF, BC, DE, HL
+_QueueProcess:
+	ldh a, [hVxQueue.length]
+	and a
+	ret z
+	ldh a, [hVxQueue.front]
+	ld l, a
+	ld h, high(wVxQueue)
+	ld a, [hl+]
+	call _OperSwitch
+	jr nc, .err
+	call _QueueAdvance
+	scf
+	ret
+.err:
+	ld b, b
+	jr .err
+
+
+_OperSwitch:
+	and a :: jr z, _OperNil ; OPER_NIL
+	dec a :: jr z, _OperTransferWram ; OPER_TRANSFER_WRAM
+	dec a :: jr z, _OperTransferRom ; OPER_TRANSFER_ROM
+	dec a :: jr z, _OperTransferMapChr ; OPER_TRANSFER_MAP_CHR
+	dec a :: jr z, _OperTransferMapAtrb ; OPER_TRANSFER_MAP_ATRB
+.err_unknown:
+	ld b, b
+	jr .err_unknown
+
+
+_OperNil:
+	ld b, 1
+	scf
+	ret
+
+
+_OperTransferWram:
+	; { source, dest, length }
+
+	ld a, [hl+] :: ldh [rHDMA2], a
+	and $07 :: ldh [rSVBK], a ; WRAM bank in source addr
+	ld a, [hl+] :: ldh [rHDMA1], a
+
+	ld b, OPER_TRANSFER_WRAM_SIZE
+	jr _OperTransferMemTail
+
+
+_OperTransferRom:
+	; { bank, source, dest, length }
+
+	ld a, [hl+] :: ld [ROMB_LO], a
+
+	ld a, [hl+] :: ldh [rHDMA2], a
+	ld a, [hl+] :: ldh [rHDMA1], a
+
+	ld b, OPER_TRANSFER_ROM_SIZE
+	; FALLTHROUGH
+
+_OperTransferMemTail:
+	ld a, [hl+] :: ldh [rHDMA4], a
+	and $01 :: ldh [rVBK], a ; VRAM bank in dest addr
+	ld a, [hl+] :: ldh [rHDMA3], a
+
+	ld c, [hl]
+
+	scf
+	ret
+
+
+_OperTransferMapChr:
+	ld a, 0 :: ldh [rVBK], a
+	ld d, high(wMapBgChr)
+	jr _OperTransferMapTail
+
+
+_OperTransferMapAtrb:
+	ld a, bank(wMapBgAtrb) :: ldh [rSVBK], a
+	ld a, 1 :: ldh [rVBK], a
+	ld d, high(wMapBgAtrb)
+
+	; FALLTHROUGH
+
+;; @param D: source buffer address high byte
+_OperTransferMapTail:
+	ld a, [hl+]
+	ld c, [hl]
+	rlca :: rlca :: ld l, a ; * 4
+	xor a :: ld h, a
+	add hl, hl ; * 8
+	add hl, hl ; * 16
+
+	ld a, h :: add d :: ldh [rHDMA1], a
+	ld a, l :: ldh [rHDMA2], a :: ldh [rHDMA4], a
+	ld a, h :: add high($9800) :: ldh [rHDMA3], a
+
+	ld b, OPER_TRANSFER_MAP_SIZE
+	scf
 	ret
 

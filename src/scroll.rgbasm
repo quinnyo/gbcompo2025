@@ -196,10 +196,11 @@ def mBGATRB_PRIORITY    equ $80
 ;; @param C: number of rows
 ;; @mut: AF, BC, E, HL
 MockMapRenderRows:
-assert low(wMapBgChr) == 0
-assert wMapBgChr == wMapBgAtrb
+assert startof("wMapBgChr") == $C800
+assert startof("wMapBgAtrb") == $D800
 
 	ldh a, [rSVBK] :: push af
+	ld a, bank(wMapBgAtrb) :: ldh [rSVBK], a
 
 	; offset = (row mod 32) * 32
 	ld a, e :: and $1F
@@ -210,16 +211,17 @@ assert wMapBgChr == wMapBgAtrb
 	add hl, hl ; * 32
 	ld a, high(wMapBgChr) :: add h :: ld h, a
 
+
 .cloop
 	ld b, $20
 .bloop
-	ld a, bank(wMapBgChr) :: ldh [rSVBK], a
 	ld a, l :: and $1F
 	add $41 ; "a"
 	ld [hl], a
-	ld a, bank(wMapBgAtrb) :: ldh [rSVBK], a
+	set 4, h ; atrb map ($D800)
 	xor a
 	ld [hl+], a
+	res 4, h ; chr map ($C800)
 
 	dec b
 	jr nz, .bloop
@@ -236,20 +238,24 @@ assert wMapBgChr == wMapBgAtrb
 ;; @param C: number of columns
 ;; @mut: AF, BC, E, HL
 MockMapRenderColumns:
+assert startof("wMapBgChr") == $C800
+assert startof("wMapBgAtrb") == $D800
+
 	ldh a, [rSVBK] :: push af
+	ld a, bank(wMapBgAtrb) :: ldh [rSVBK], a
 
 	ld h, high(wMapBgChr)
 .cloop
 	ld a, e :: and $1F :: ld l, a
 	ld b, $20
 .bloop:
-	ld a, bank(wMapBgChr) :: ldh [rSVBK], a
 	ld a, l :: and $1F
 	add $41 ; "a"
 	ld [hl], a
-	ld a, bank(wMapBgAtrb) :: ldh [rSVBK], a
+	set 4, h ; atrb map ($D800)
 	ld a, mBGATRB_YFLIP
 	ld [hl], a
+	res 4, h ; chr map ($C800)
 
 	ld a, l :: add $20 :: ld l, a
 	adc h :: sub l :: ld h, a
