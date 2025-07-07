@@ -8,7 +8,7 @@ def PALETTE_LENGTH equ 4
 def szPALETTE equ PALETTE_LENGTH * szCOLOUR
 
 ;; Work only safe to start before this line (LY).
-def PALETTE_SYNC_DEADLINE equ 153
+def PALETTE_SYNC_DEADLINE equ 152
 
 def cBGPI equ $68
 def cBGPD equ $69
@@ -19,24 +19,25 @@ def cOBPD equ $6B
 section "rPalettes", romx
 rPalettesBG::
 	dw_rgb555 28,31,25, 17,27,14, 7,8,27, 20,14,8
-	dw_rgb555 31,28,30, 29,18,24, 16,10,3, 14,10,11
-	dw_rgb555 31,28,26, 25,17,10, 8,9,14, 11,5,4
-	dw_rgb555 31,28,30, 21,21,21, 11,11,11, 20,16,14
-	dw_rgb555 28,23,31, 17,14,21, 15,13,6, 12,9,13
-	dw_rgb555 31,28,30, 30,25,7, 28,11,29, 26,18,8
-	dw $7FFF, $6739, $0000, $5159
-	dw $7FFF, $7BB7, $0000, $774F
+;	dw_rgb555 31,0,0, 0,31,0, 0,0,31, 15,0,0
+	dw_rgb555 0,15,0, 0,0,15, 31,0,0, 0,31,0
+	dw_rgb555 0,0,31, 15,0,0, 0,15,0, 0,0,15
+	dw_rgb555 31,0,0, 0,31,0, 0,0,31, 15,0,0
+	dw_rgb555 0,15,0, 0,0,15, 31,0,0, 0,31,0
+	dw_rgb555 0,0,31, 15,0,0, 0,15,0, 0,0,15
+	dw_rgb555 31,0,0, 0,31,0, 0,0,31, 15,0,0
+	dw_rgb555 0,15,0, 0,0,15, 31,0,0, 0,31,0
 	.end
 
 rPalettesOB::
-	dw_rgb555 31,28,30, 30,25,7, 28,11,29, 26,18,8
-	dw_rgb555 0,0,0, 31,28,30, 3,4,10, 29,16,24
-	dw $8000, $3A8F, $0000, $0923
-	dw $8000, $6E43, $0000, $4A04
-	dw $8000, $7357, $0000, $CCC1
-	dw $8000, $7E9C, $0000, $DF0A
-	dw $8000, $190F, $0000, $F3B6
-	dw $8000, $1012, $0000, $8905
+	dw_rgb555 0,0,31, 15,0,0, 0,15,0, 0,0,15
+	dw_rgb555 31,0,0, 0,31,0, 0,0,31, 15,0,0
+	dw_rgb555 0,15,0, 0,0,15, 31,0,0, 0,31,0
+	dw_rgb555 0,0,31, 15,0,0, 0,15,0, 0,0,15
+	dw_rgb555 31,0,0, 0,31,0, 0,0,31, 15,0,0
+	dw_rgb555 0,15,0, 0,0,15, 31,0,0, 0,31,0
+	dw_rgb555 0,0,31, 15,0,0, 0,15,0, 0,0,15
+	dw_rgb555 31,0,0, 0,31,0, 0,0,31, 15,0,0
 	.end
 
 
@@ -120,8 +121,13 @@ PalettesLoadRomx::
 PalettesSync::
 	ld hl, wPalettes.scanindex
 	ld l, [hl]
-	ld b, 16 ; maximum scan iters
+	ld b, 8 ; maximum scan iters
 .scan:
+	; check the time
+	ldh a, [rLY] :: sub 144
+	cp PALETTE_SYNC_DEADLINE - 144
+	jr nc, .done
+
 	bit 7, [hl]
 	jr nz, .work
 	ld a, l :: add 8 :: and $7F :: ld l, a
@@ -131,11 +137,6 @@ PalettesSync::
 	ld a, l :: ld [wPalettes.scanindex], a
 	ret
 .work:
-	; check the time
-	ldh a, [rLY] :: sub 144
-	cp PALETTE_SYNC_DEADLINE - 144
-	jr nc, .done
-
 	res 7, [hl] ; clear dirty flag
 	dec l ; scanindex is at +1 (the high byte)
 
