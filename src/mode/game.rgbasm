@@ -13,7 +13,7 @@ modeGame_Enter::
 	ld de, startof("assets/character_test.chr")
 	ld c, sizeof("assets/character_test.chr") / 16 - 1
 	ld hl, $8100
-	call VxTransferRom
+	call VxLoadRom
 
 	ld de, startof("assets/character_test.chr.pal")
 	ld c, 1

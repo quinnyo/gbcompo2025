@@ -37,15 +37,15 @@ section "Header", rom0[$100]
 	ds $150 - @, 0
 
 
-section "assets/fonty8.chr", romx
+section "assets/fonty8.chr", romx, align[4]
 incbin "assets/fonty8.chr"
 
 
-section "assets/iconoglyphs.chr", romx
+section "assets/iconoglyphs.chr", romx, align[4]
 incbin "assets/iconoglyphs.chr", 0, 16 * 8
 
 
-section "assets/character_test.chr", romx
+section "assets/character_test.chr", romx, align[4]
 incbin "assets/character_test.chr"
 
 
@@ -91,20 +91,6 @@ Main::
 	call RombInit
 	call WrambInit
 
-	rombpush bank("assets/fonty8.chr")
-	ld de, startof("assets/fonty8.chr")
-	ld bc, sizeof("assets/fonty8.chr")
-	ld hl, $9000
-	call MemCopyLarge
-	rombpop
-
-	rombpush bank("assets/iconoglyphs.chr")
-	ld de, startof("assets/iconoglyphs.chr")
-	ld bc, sizeof("assets/iconoglyphs.chr")
-	ld hl, $8000
-	call MemCopyLarge
-	rombpop
-
 	call VBlankInit
 	call InputInit
 	call PalettesInit
@@ -112,6 +98,18 @@ Main::
 	call ModeInit
 	ld de, rModes_modeDefault
 	call ModeSetActive
+
+	ld b, bank("assets/iconoglyphs.chr")
+	ld de, startof("assets/iconoglyphs.chr")
+	ld c, sizeof("assets/iconoglyphs.chr") / 16
+	ld hl, $8000
+	call VxLoadRom
+
+	ld b, bank("assets/fonty8.chr")
+	ld de, startof("assets/fonty8.chr")
+	ld c, sizeof("assets/fonty8.chr") / 16
+	ld hl, $9000
+	call VxLoadRom
 
 	ldh a, [rLCDC]
 	or LCDCF_ON | LCDCF_BGON | LCDCF_OBJ16 | LCDCF_OBJON
