@@ -76,6 +76,9 @@ Boot:
 .detect_finalise
 	ld [wPlatform.flags], a
 
+	and PLATFORM_COLOR
+	jp z, MonochromeTears
+
 Main::
 	ld sp, wStack
 
@@ -114,12 +117,6 @@ Main::
 	ldh a, [rLCDC]
 	or LCDCF_ON | LCDCF_BGON | LCDCF_OBJ16 | LCDCF_OBJON
 	ldh [rLCDC], a
-
-	; Default palette (DMG)
-	ld a, %11_10_01_00
-	ldh [rBGP], a
-	ldh [rOBP0], a
-	ldh [rOBP1], a
 
 	xor a
 	ldh [rIF], a

@@ -1,0 +1,54 @@
+include "hardware.inc"
+include "stuff.rgbinc"
+
+
+section "assets/monochrome_tears.chr", romx
+incbin "assets/monochrome_tears.chr"
+
+
+section "assets/monochrome_tears.chr.idx", romx
+incbin "assets/monochrome_tears.chr.idx"
+
+
+section "MonochromeTears", rom0
+MonochromeTears::
+	di
+
+	vblank_wait
+	xor a
+	ldh [rLCDC], a
+
+	ld a, %11_10_01_00
+	ldh [rBGP], a
+	ldh [rOBP0], a
+	ldh [rOBP1], a
+
+	ld de, startof("assets/monochrome_tears.chr")
+	ld a, bank("assets/monochrome_tears.chr")
+	ld [$2000], a
+	ld hl, $9000
+	ld bc, sizeof("assets/monochrome_tears.chr")
+	call MemCopyLarge
+
+	ld de, startof("assets/monochrome_tears.chr.idx")
+	ld a, bank("assets/monochrome_tears.chr.idx")
+	ld [$2000], a
+	ld hl, $9800
+	ld b, sizeof("assets/monochrome_tears.chr.idx") / 20
+:
+	ld c, 20
+	call MemCopySmall
+	ld c, 12
+	call MemFillSmall
+	dec b
+	jr nz, :-
+
+	ldh a, [rLCDC]
+	or LCDCF_ON | LCDCF_BGON
+	ldh [rLCDC], a
+
+.cry:
+	halt
+	nop
+	jr .cry
+
