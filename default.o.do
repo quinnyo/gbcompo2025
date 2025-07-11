@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+rgbasm --version | redo-stamp
+
 SRC="src/${2#*/*/}"
 
 mkdir -p "${1%/*}"

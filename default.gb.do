@@ -4,6 +4,9 @@ set -euo pipefail
 redo-ifchange config.sh
 . ./config.sh
 
+rgblink --version | redo-stamp
+rgbfix --version | redo-stamp
+
 # Ensure assets build first
 redo-ifchange assets
 

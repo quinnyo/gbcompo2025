@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+rgbgfx --version | redo-stamp
+
 SRC="src/${2#*/}.png"
 redo-ifchange "$SRC"
 
