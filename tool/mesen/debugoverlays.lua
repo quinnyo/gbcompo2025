@@ -158,9 +158,30 @@ end
 local function st_create(name)
 	local st = {}
 	st.name = name or "Struct"
-	st.read = function(addr, memType)
-		return st_read(st, addr, memType)
+
+	-- Same as emu.getLabelAddress but try looking up the first field if
+	-- symbol isn't found.
+	-- Necessary because: for a given address, Mesen only keeps the last
+	-- label encountered in the .sym file. So if `wLabel::` is at the same
+	-- address as `wLabel.x:: db`, whichever appears last in the .sym file
+	-- will be the only one that Mesen knows about.
+	st.getLabelAddress = function(self, symbol)
+		local label = emu.getLabelAddress(symbol)
+		if not label and #self > 0 then
+			local fieldSym = symbol .. "_" .. self[1].name
+			label = emu.getLabelAddress(fieldSym)
+		end
+		return label
 	end
+
+	st.readFromLabel = function(self, symbol, offset)
+		local label = self:getLabelAddress(symbol)
+		if not label then
+			return
+		end
+		return st_read(self, label.address + (offset or 0), label.memType)
+	end
+
 	return st
 end
 
@@ -253,6 +274,23 @@ Scroll.fieldfmt = {
 
 
 
+-------- Collide --------
+
+Rect = st_create("Rect")
+st_field(Rect, "xpos", 2)
+st_field(Rect, "xend", 2)
+st_field(Rect, "ypos", 2)
+st_field(Rect, "yend", 2)
+
+Rect.fieldfmt = {
+	xpos = Coord.fmt,
+	xend = Coord.fmt,
+	ypos = Coord.fmt,
+	yend = Coord.fmt,
+}
+
+
+
 -------- Do stuff --------
 
 local overlay = createOverlay({ x = 12, y = 12 }, 4)
@@ -262,12 +300,18 @@ local function onEndFrame()
 	overlay:select()
 	overlay:drawWindow()
 
-	local wScroll = emu.getLabelAddress("wScroll")
-	local scroll = st_read(Scroll, wScroll.address, wScroll.memType)
-	overlay:drawString(96, 0, scroll and st_fmt(scroll) or "noscroll!")
+--	local surfW = overlay:getSurfaceSize()
+--	for x = 0, surfW, 64 do
+--		overlay:drawString(x, -8, tostring(x))
+--	end
 
-	local wEntity = emu.getLabelAddress("wEntity")
-	local ent = get_entity(0, wEntity)
+	local scroll = Scroll:readFromLabel("wScroll")
+	overlay:drawString(32, 0, scroll and st_fmt(scroll) or "noscroll!")
+
+	local worldBounds = Rect:readFromLabel("wCollideBounds")
+	overlay:drawString(120, 0, worldBounds and st_fmt(worldBounds, "wCollideBounds") or "noworldBounds!")
+
+	local ent = get_entity(0)
 	overlay:drawString(0, 40, ent and st_fmt(ent) or "noent!")
 end
 
