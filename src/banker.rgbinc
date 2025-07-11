@@ -36,7 +36,7 @@ endm
 
 
 ;; rombpush [$BANK]
-;; @mut: AF, HL
+;; @mut: AF
 macro rombpush
 	assert _NARG == 0 || _NARG == 1
 	if _NARG == 1
@@ -51,7 +51,7 @@ endc
 endm
 
 
-;; @mut: AF, HL
+;; @mut: AF
 macro rombpop
 	pop af
 	ld [ROMB_LO], a
