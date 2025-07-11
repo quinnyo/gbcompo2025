@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-rgbasm --version | redo-stamp
+redo-ifchange rgbdsver
 
 SRC="src/${2#*/*/}"
 
