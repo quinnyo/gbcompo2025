@@ -1,0 +1,65 @@
+include "map.rgbinc"
+
+
+section "MapChunkLookup", rom0
+;; @param HL: Chunk Table
+;; @param D,E: row,column
+;; @ret HL: Chunk
+;; @ret F.C: set if successful
+;; @mut: AF, C, HL
+MapChunkLookup::
+	ld a, [hl+]
+	ld c, a
+:
+	ld a, [hl+]
+	cp d
+	jr z, .xtable
+	inc hl :: inc hl
+	dec c
+	jr nz, :-
+	jr .fail
+.xtable:
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a
+	ld a, [hl+]
+	ld c, a
+:
+	ld a, [hl+]
+	cp e
+	jr z, .ok
+	inc hl :: inc hl
+	dec c
+	jr nz, :-
+.fail:
+	xor a ; clear F.C
+	ret
+.ok:
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a
+	scf
+	ret
+
+
+/*
+section "test/map/chunk_lookup", rom0
+Test_map_chunk_lookup::
+	ld b, b
+for Y, 6
+	for X, 6
+.test_{d:Y}_{d:X}:
+	ld a, bank(map_test)
+	ld [$2000], a
+	ld hl, map_test.chunk_table
+	ld de, (Y << 8) | X
+	call MapChunkLookup
+	ld b, b
+	endr
+endr
+	ret
+
+*/
+
+
+

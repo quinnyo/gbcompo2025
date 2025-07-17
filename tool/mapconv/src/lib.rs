@@ -362,7 +362,7 @@ impl Rgbasm for MapConverter {
         for (pos, chrs, atrbs) in self.normalised() {
             assert!(atrbs.size() == chrs.size());
             let ntiles = chrs.size();
-            writeln!(&mut w, ".chunk_{chunk_idx}: ; {pos} ({ntiles})")?;
+            writeln!(&mut w, ".chunk_{chunk_idx}:: ; {pos} ({ntiles})")?;
             for brush in chrs.brushes() {
                 write!(&mut w, "\t")?;
                 brush.rgbasm(&mut w)?;
@@ -384,9 +384,13 @@ impl Rgbasm for MapConverter {
         }
 
         // print chunk table
-        writeln!(&mut w, ".chunk_table: db {}", chunk_table.len())?;
+        writeln!(&mut w, ".chunk_table:: db {}", chunk_table.len())?;
+        for i in 0..chunk_table.len() {
+            let y = chunk_table[i].0;
+            writeln!(&mut w, "\tdb {y}\n\tdw .row{y}")?;
+        }
         for (y, data) in chunk_table.iter() {
-            writeln!(&mut w, "\tdb {}, {}", y, data.len())?;
+            writeln!(&mut w, "\t.row{y}: db {}", data.len())?;
             for (x, idx) in data.iter() {
                 writeln!(&mut w, "\t\tdb {x}\n\t\tdw .chunk_{idx}")?;
             }
