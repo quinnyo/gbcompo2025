@@ -363,7 +363,14 @@ impl Rgbasm for MapConverter {
             assert!(atrbs.size() == chrs.size());
             let ntiles = chrs.size();
             writeln!(&mut w, ".chunk_{chunk_idx}:: ; {pos} ({ntiles})")?;
+            writeln!(&mut w, "\tdw .chunk_{chunk_idx}_atrb")?;
             for brush in chrs.brushes() {
+                write!(&mut w, "\t")?;
+                brush.rgbasm(&mut w)?;
+                writeln!(&mut w)?;
+            }
+            writeln!(&mut w, ".chunk_{chunk_idx}_atrb::")?;
+            for brush in atrbs.brushes() {
                 write!(&mut w, "\t")?;
                 brush.rgbasm(&mut w)?;
                 writeln!(&mut w)?;
