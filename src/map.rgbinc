@@ -1,0 +1,15 @@
+if !def(Q_MAP_INC_rJ398bhW)
+def Q_MAP_INC_rJ398bhW equ 1
+
+
+rsreset
+;; Terminates the brushes array.
+def BR_TERM rb 1
+
+;; { BR_SOLID, reps: db, value: db }
+;; Emit `value` `reps+1` times.
+def BR_SOLID rb 1
+
+
+endc ; Q_MAP_INC_rJ398bhW
+
