@@ -80,7 +80,7 @@ Boot:
 	jp z, MonochromeTears
 
 Main::
-	ld sp, wStack
+	ld sp, wStack.bottom
 
 	di
 
