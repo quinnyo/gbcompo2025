@@ -10,6 +10,9 @@ def BR_TERM rb 1
 ;; Emit `value` `reps+1` times.
 def BR_SOLID rb 1
 
+def BR__MAX rb 0
+def BR__TYPE equ (1 << bitwidth(BR__MAX)) - 1
+
 
 endc ; Q_MAP_INC_rJ398bhW
 

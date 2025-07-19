@@ -97,9 +97,11 @@ Main::
 	call VBlankInit
 	call InputInit
 	call PalettesInit
+	call MapInit
 	call VramxInit
 	call ModeInit
 	ld de, rModes_modeDefault
+	ld de, rModes_modeMapView
 	call ModeSetActive
 
 	ld b, bank("assets/iconoglyphs.chr")

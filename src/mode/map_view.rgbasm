@@ -1,0 +1,107 @@
+include "hardware.inc"
+include "mode.rgbinc"
+include "banker.rgbinc"
+
+
+	mode_def modeMapView
+
+
+section union "{MODE_COMMON}", wramx
+wVelX: db
+wVelY: db
+
+
+section "modeMapView", romx
+modeMapView_Enter::
+	wrambpush bank("{MODE_COMMON}")
+	xor a
+	ld [wVelX], a
+	ld [wVelY], a
+	wrambpop
+
+	call ScrollInit
+	call MapEnable
+
+	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
+	ret
+
+
+modeMapView_Process::
+	wrambopen bank("{MODE_COMMON}")
+	ld a, [wInput.state]
+	ld b, a
+
+	xor a
+	bit PADB_LEFT, b
+	jr z, :+
+	dec a
+:
+	bit PADB_RIGHT, b
+	jr z, :+
+	inc a
+:
+	add a :: ld d, a
+	ld hl, wVelX
+	ld e, [hl]
+	call _accelerate
+	ld [hl+], a
+	ld [wScroll.dx], a
+
+	xor a
+	bit PADB_UP, b
+	jr z, :+
+	dec a
+:
+	bit PADB_DOWN, b
+	jr z, :+
+	inc a
+:
+	add a :: ld d, a
+	ld e, [hl]
+	call _accelerate
+	ld [hl], a
+	ld [wScroll.dy], a
+
+	call ScrollUpdate
+	ld a, [wScroll.y + 0] :: ld [wSCY], a
+	ld a, [wScroll.x + 0] :: ld [wSCX], a
+
+	ret
+
+
+;; @param D: delta
+;; @param E: velocity
+;; @ret A: velocity
+;; @mut: AF, DE
+_accelerate:
+	ld a, e
+	and a
+	jr nz, :+
+	ld a, d
+	ret
+:
+	ld a, d
+	and a
+	jr z, .drag
+	; compare sign of delta and velocity & add delta twice if opposite
+	xor e :: rlca :: sbc a :: and d
+	add d
+	add e
+	ld e, a
+.drag:
+	ld a, e
+	cp $80
+	jr c, .positive
+.negative:
+	; yep
+	cpl :: inc a
+	call .positive
+	cpl :: inc a
+	ret
+.positive:
+	dec a
+	ld d, a
+	sra d :: sra d :: sra d :: sra d
+	sub d
+	ret
+

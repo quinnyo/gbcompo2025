@@ -2,8 +2,6 @@ include "hardware.inc"
 include "banker.rgbinc"
 
 
-def MAP_SIZE equ 32 * 32
-
 ;; Set when background/HBlank transfers are started.
 def VX_HBLANK_ACTIVE equ 1
 
@@ -27,16 +25,6 @@ def TASK_SYNC_BG_SIZE equ 1 + 2
 
 
 def QUEUE_CAPACITY equ 64
-
-
-section "wMapBgChr", wram0[$C800]
-;; BG map CHR buffer
-wMapBgChr:: ds MAP_SIZE
-
-
-section "wMapBgAtrb", wramx[$D800]
-;; BG map attribute buffer
-wMapBgAtrb:: ds MAP_SIZE
 
 
 section "wVxQueue", wram0, align[8]
@@ -71,30 +59,6 @@ VramxInit::
 	xor a
 	call MemFillSmall
 
-	; Clear BG map
-	wrambpush bank(wMapBgChr)
-	ld hl, wMapBgChr
-	ld bc, (MAP_SIZE - 1) + $1_01
-:
-	ld a, l :: ld [hl+], a
-	dec c
-	jr nz, :-
-	dec b
-	jr nz, :-
-
-	; Clear BG attribute map
-	ld a, bank(wMapBgAtrb) :: ldh [rSVBK], a
-	ld hl, wMapBgAtrb
-	ld bc, (MAP_SIZE - 1) + $1_01
-	xor a
-:
-	ld [hl+], a
-	dec c
-	jr nz, :-
-	dec b
-	jr nz, :-
-
-	wrambpop
 	ret
 
 

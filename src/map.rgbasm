@@ -1,4 +1,143 @@
 include "map.rgbinc"
+include "hardware.inc"
+include "banker.rgbinc"
+
+
+def MAP_SIZE equ 32 * 32
+def MAP_CHUNK_SIZE equ 16 * 16
+def MAP_CHUNK_BUFFER_COUNT equ 9
+def MAP_CHR_BUFFER_BANK equ 6
+def MAP_ATRB_BUFFER_BANK equ 7
+
+
+section "hMapLoader", hram
+hMapLoader::
+	.map_bank:: db
+	.map_addr:: dw
+
+
+section "wMapBgChr", wram0[$C800]
+;; BG map CHR buffer
+wMapBgChr:: ds MAP_SIZE
+
+
+section "wMapBgAtrb", wramx[$D800], bank[MAP_ATRB_BUFFER_BANK]
+;; BG map attribute buffer
+wMapBgAtrb:: ds MAP_SIZE
+
+
+for I, MAP_CHUNK_BUFFER_COUNT
+	if I < 8
+		def _addr equ $D000 + $100 * I
+	else
+		def _addr equ $D000 + $100 * I + $400
+	endc
+
+	section "wMapBufferChr{d:I}", wramx[_addr], bank[MAP_CHR_BUFFER_BANK]
+	wMapBufferChr{d:I}:: ds MAP_CHUNK_SIZE
+
+	section "wMapBufferAtrb{d:I}", wramx[_addr], bank[MAP_ATRB_BUFFER_BANK]
+	wMapBufferAtrb{d:I}:: ds MAP_CHUNK_SIZE
+
+	purge _addr
+endr
+
+
+section "MapSelect", rom0
+MapSelect::
+	ret
+
+
+section "MapChunkTransfer", rom0
+;; Copy a chunk (16 * 16) to a bg map buffer (32 * 32)
+;; @param DE: source (chunk buffer)
+;; @param HL: dest (bg map)
+;; @mut: AF, BC, DE, HL
+MapChunkTransfer::
+	ld b, 16 ; Y
+	ld c, b ; X
+.loop
+	ld a, [de] :: inc de
+	ld [hl+], a
+	dec c
+	jr nz, .loop
+	; bg map is 32 wide, so add an additional 16 to `dest` (HL)
+	ld a, 16
+	ld c, a ; reset C also!
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+
+	dec b
+	jr nz, .loop
+	ret
+
+
+section "MapChunkRender", rom0
+;; Render a chunk to a chunk buffer.
+;; @param HL: source chunk brushes
+;; @param DE: dest (chunk buffer)
+;; @mut: AF, C, DE, HL
+MapChunkRender::
+.continue:
+	ld a, [hl+]
+	and BR__TYPE
+	assert BR_TERM == 0
+	ret z
+	assert BR_SOLID == 1
+	dec a :: jr z, .br_solid
+
+.err_unhandled_brush:
+	ld b, b
+	jr .err_unhandled_brush
+
+.br_solid:
+	ld a, [hl+]
+	ld c, a
+	inc c ; brush data has length - 1
+	ld a, [hl+]
+:
+	ld [de], a :: inc de
+	dec c
+	jr nz, :-
+	jr .continue
+
+
+/*
+section "test/map/chunk_render", rom0
+Test_map_chunk_render:
+	rombopen bank(map_test)
+	ld hl, map_test.chunk_table
+	ld de, (0 << 8) | 4
+	call MapChunkLookup
+	jr nc, .err
+	; skip 2 byte atrb pointer
+	inc hl :: inc hl
+
+	wrambpush bank(wMapBufferChr0)
+	ld de, wMapBufferChr0
+	call MapChunkRender
+
+	ld de, wMapBufferChr0
+	ld hl, wMapBgChr
+	call MapChunkTransfer
+	wrambpop
+
+	ret
+.err:
+	ld b, b
+	halt :: nop
+	jr .err
+*/
+
+
+section "MapEnable", rom0
+;; @mut: AF
+MapEnable::
+	push bc :: push de :: push hl
+	; call Test_map_chunk_render
+	; call ScrollRenderVisible
+	pop hl :: pop de :: pop bc
+	ret
 
 
 section "MapChunkLookup", rom0
@@ -62,4 +201,41 @@ endr
 */
 
 
+section "xMapBufferInit", romx
+xMapBufferInit::
+	; Clear BG map
+	wrambpush bank(wMapBgChr)
+	ld hl, wMapBgChr
+	ld bc, (MAP_SIZE - 1) + $1_01
+:
+	ld a, l :: ld [hl+], a
+	dec c
+	jr nz, :-
+	dec b
+	jr nz, :-
+
+	; Clear BG attribute map
+	ld a, bank(wMapBgAtrb) :: ldh [rSVBK], a
+	ld hl, wMapBgAtrb
+	ld bc, (MAP_SIZE - 1) + $1_01
+	xor a
+:
+	ld [hl+], a
+	dec c
+	jr nz, :-
+	dec b
+	jr nz, :-
+
+	wrambpop
+	ret
+
+
+section "MapInit", rom0
+MapInit::
+	xor a
+	ldh [hMapLoader.map_bank], a
+	ldh [hMapLoader.map_addr + 0], a
+	ldh [hMapLoader.map_addr + 1], a
+	rombopen bank(xMapBufferInit)
+	jp xMapBufferInit
 
