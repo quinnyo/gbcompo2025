@@ -82,6 +82,17 @@ local function createOverlay(margin, scale)
 		emu.drawString(ox + x, oy + y, text, textColor, backgroundColor, maxWidth, duration, delay)
 	end
 
+	obj.drawVector = function(self, cx, cy, vx, vy, magMax, displayMag, color, bgcolor)
+		color = color or 0xFF00FF
+		local scale = displayMag / magMax
+		local w = displayMag * 2
+		self:drawRectangle(cx - displayMag, cy - displayMag, w, w, bgcolor or 0xA0000000, true)
+		self:drawRectangle(cx - displayMag, cy - displayMag, w, w, color | 0x80000000)
+		self:drawLine(cx, cy, cx + vx * scale, cy + vy * scale, color)
+		self:drawLine(cx, 1 + cy, cx + vx * scale, 1 + cy + vy * scale, color)
+		self:drawLine(1 + cx, cy, 1 + cx + vx * scale, cy + vy * scale, color)
+	end
+
 	obj.drawWindow = function(self)
 		local w, h = self:getSize()
 		self:drawRectangle(0, 0, w, h, 0x0F9BABEB, false)
@@ -130,7 +141,7 @@ local function st_field(t, name, size, signed)
 	field.size = size
 	field.signed = signed or false
 	table.insert(t, field)
-	t[name] = t._ofs
+	t[name] = field
 	t._ofs = t._ofs + size
 	t.size = t._ofs
 end
@@ -152,6 +163,49 @@ local function st_read(st, addr, memType, ident)
 		end
 	end
 	return data
+end
+
+
+local function st_monitor(st, instAddr, memType, ident)
+	local mon = {}
+	mon._st = st
+	mon.state = st_read(st, instAddr, memType, ident or "(mon)")
+	mon.changes = {}
+	mon.tick = function(self)
+		for i,field in ipairs(st) do
+			mon.changes[field.name] = {}
+		end
+	end
+	mon.write = function(self, ifield, address, value)
+		local field = self._st[ifield]
+		self.state[field.name] = value
+		table.insert(self.changes[field.name], value)
+		if self.onWrite and type(self.onWrite) == "function" then
+			self.onWrite(ifield, address, value)
+		end
+	end
+	for i,field in ipairs(st) do
+		mon.changes[field.name] = {}
+		local fieldAddr = instAddr + field.ofs
+		if field.size == 1 then
+			emu.addMemoryCallback(function(address, value)
+				if field.signed then
+					value = value < 0x80 and value or value - 256
+				end
+				mon:write(i, address, value)
+			end, emu.callbackType.write, fieldAddr, fieldAddr, emu.cpuType.gameboy, memType)
+		else
+			emu.addMemoryCallback(function(address, value)
+				local fieldRelAddr = address - fieldAddr
+				local state = mon.state[field.name]
+				local shiftBits = fieldRelAddr * 8
+				local mask = 0xFF << shiftBits
+				local newValue = (value << shiftBits) | (state & ~mask)
+				mon:write(i, address, newValue)
+			end, emu.callbackType.write, fieldAddr, fieldAddr + field.size - 1)
+		end
+	end
+	return mon
 end
 
 
@@ -267,11 +321,20 @@ st_field(Scroll, "x", 2)
 st_field(Scroll, "frontier_column", 1)
 st_field(Scroll, "fn_render_map_columns", 2)
 
-Scroll.fieldfmt = {
-	y = "%d",
-	x = "%d",
-}
 
+local fmt_scroll_pos = function(dot)
+	local grid = dot >> 3
+	local chunk = grid >> 4
+	return string.format("%4d d | %3d g | %d c", dot, grid, chunk)
+end
+
+
+Scroll.fieldfmt = {
+	y = fmt_scroll_pos,
+	frontier_row = "%d",
+	x = fmt_scroll_pos,
+	frontier_column = "%d",
+}
 
 
 -------- Collide --------
@@ -293,7 +356,41 @@ Rect.fieldfmt = {
 
 -------- Do stuff --------
 
+local dottogrid = function(d)
+	return d >> 3
+end
+
+local gridtochunk = function(g)
+	return g >> 4
+end
+
+local iMinMax = function(t, min0, max0)
+	local lo = min0
+	local hi = max0
+	for i,x in ipairs(t) do
+		lo = math.min(lo or x, x)
+		hi = math.max(hi or x, x)
+	end
+	return lo, hi
+end
+
+local absMax = function(a, b)
+	return math.abs(a) >= math.abs(b) and a or b
+end
+
+local iAbsMax = function(t, max0)
+	local hi = max0
+	for i,x in ipairs(t) do
+		hi = absMax(hi or x, x)
+	end
+	return hi
+end
+
+
 local overlay = createOverlay({ x = 12, y = 12 }, 4)
+
+local wScroll = Scroll:getLabelAddress("wScroll")
+local monScroll = st_monitor(Scroll, wScroll.address, wScroll.memType)
 
 
 local function onEndFrame()
@@ -306,7 +403,23 @@ local function onEndFrame()
 --	end
 
 	local scroll = Scroll:readFromLabel("wScroll")
-	overlay:drawString(32, 0, scroll and st_fmt(scroll) or "noscroll!")
+	if scroll then
+		local px = 220
+		local py = 0
+		local s = st_fmt(scroll)
+		local dy, dx
+		if monScroll then
+			dy = iAbsMax(monScroll.changes.dy)
+			dx = iAbsMax(monScroll.changes.dx)
+			s = s .. string.format(" dx,dy: %3d,%3d", dx, dy)
+			monScroll:tick()
+		end
+		overlay:drawString(px, py, s)
+		if dx then
+			local w,h = overlay:getSize()
+			overlay:drawVector(px + 16, py + 52 + 16, dx, dy, 15, 16, 0xEE80DD, 0xA0303030)
+		end
+	end
 
 	local worldBounds = Rect:readFromLabel("wCollideBounds")
 	overlay:drawString(120, 0, worldBounds and st_fmt(worldBounds, "wCollideBounds") or "noworldBounds!")
