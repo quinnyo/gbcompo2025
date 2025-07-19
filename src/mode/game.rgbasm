@@ -67,6 +67,46 @@ modeGame_Process::
 	ld a, [wScroll.y + 0] :: ld [wSCY], a
 	ld a, [wScroll.x + 0] :: ld [wSCX], a
 
+/*
+	; paint trail ~~ coord verify/test
+	; coord Y -> BG grid offset
+	ld a, [wEntity + 8 + 0]
+	rla
+	ld a, [wEntity + 8 + 1]
+	rla
+	add a ; * 2
+	add a ; * 4
+	add a ; * 8
+	ld l, a
+	ld h, 0
+	add hl, hl ; * 16
+	add hl, hl ; * 32
+
+	; coord X -> BG grid offset
+	ld a, [wEntity + 4 + 0]
+	rla
+	ld a, [wEntity + 4 + 1]
+	rla
+	and $1F
+	add l
+	ld l, a
+	adc h
+	sub l
+	add high(wMapBgAtrb)
+	ld h, a
+
+	; cycle BG tile palette
+	wrambpush bank(wMapBgAtrb)
+	ld a, [hl]
+	ld b, a
+	inc b
+	xor b
+	and $F8
+	xor b
+	ld [hl], a
+	wrambpop
+*/
+
 	call _ViewTargetThing
 
 	; dirty test to show entity position
