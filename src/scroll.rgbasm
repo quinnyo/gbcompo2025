@@ -120,6 +120,7 @@ ScrollUpdate::
 	; Apply delta
 	ld a, [hl+] :: ld e, a
 	ld a, [hl-] :: ld d, a
+	inc d ; work on pos.hi + 1 to handle underflow
 	; signed addition ~~ if delta < 0, dec D to emulate delta having high byte of $FF
 	ld a, c
 	rlca
@@ -132,10 +133,13 @@ ScrollUpdate::
 	adc d
 	sub e
 	ld d, a
-	; clamp to zero
-	jr nc, :+
-	ld de, 0
+	; if D (pos.hi + 1) is zero, it underflowed. Clamp to zero.
+	and a
+	jr nz, :+
+	ld de, $0100
 :
+	dec d ; undo the inc from before applying the delta, D = pos.hi
+
 	ld a, e :: ld [hl+], a
 	ld a, d :: ld [hl+], a
 	; dot to grid
