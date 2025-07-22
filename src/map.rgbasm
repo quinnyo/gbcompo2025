@@ -88,6 +88,11 @@ MapSelect::
 
 section "MapUpdate", rom0
 MapUpdate::
+	; Map address of $FFxx is 'unset'
+	ldh a, [hMapAddr + 1]
+	inc a
+	ret z
+
 	call MapUpdateViewChunk
 	call MapUpdateCache
 
