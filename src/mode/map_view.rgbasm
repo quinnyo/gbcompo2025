@@ -66,6 +66,8 @@ modeMapView_Process::
 	ld a, [wScroll.y + 0] :: ld [wSCY], a
 	ld a, [wScroll.x + 0] :: ld [wSCX], a
 
+	call MapUpdate
+
 	ret
 
 

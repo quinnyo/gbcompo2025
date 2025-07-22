@@ -10,10 +10,36 @@ def MAP_CHR_BUFFER_BANK equ 6
 def MAP_ATRB_BUFFER_BANK equ 7
 
 
-section "hMapLoader", hram
-hMapLoader::
-	.map_bank:: db
-	.map_addr:: dw
+;; Slot status enum/flags
+rsreset
+;; Slot status bit range used for assigned buffer ID.
+;; Buffer ID is the identifying bits of the buffer's address: `id = high(addr) - $D0`
+def bSLOT_BUFFER rb 4
+;; Set after the chunk in the slot has been rendered.
+def bSLOT_RENDERED rb 1
+;; Set if there is no chunk to render in the slot.
+def bSLOT_NOCHUNK rb 1
+
+def SLOT_BUFFER equ $0F
+def SLOT_RENDERED equ 1 << bSLOT_RENDERED
+def SLOT_NOCHUNK  equ 1 << bSLOT_NOCHUNK
+
+
+section "hMap", hram
+;; Bank of the selected map
+hMapBank:: db
+;; Selected map address
+hMapAddr:: dw
+
+hMapViewChunkY: db
+hMapViewChunkX: db
+hMapViewChunkNewY: db
+hMapViewChunkNewX: db
+hMapChunkSlots: ds MAP_CHUNK_BUFFER_COUNT
+hMapChunkSlotsScratch: ds 3
+
+;; The index of the next chunk slot to update
+hMapSlotIdx: db
 
 
 section "wMapBgChr", wram0[$C800]
@@ -33,6 +59,9 @@ for I, MAP_CHUNK_BUFFER_COUNT
 		def _addr equ $D000 + $100 * I + $400
 	endc
 
+	;; Buffer ID
+	def CHUNK_BUFFER_{d:I} equ high(_addr) & SLOT_BUFFER
+
 	section "wMapBufferChr{d:I}", wramx[_addr], bank[MAP_CHR_BUFFER_BANK]
 	wMapBufferChr{d:I}:: ds MAP_CHUNK_SIZE
 
@@ -43,8 +72,277 @@ for I, MAP_CHUNK_BUFFER_COUNT
 endr
 
 
+section "MapEnable", rom0
+;; @mut: AF
+MapEnable::
+	ld a, bank(map_test) :: ldh [hMapBank], a
+	ld a, low(map_test) :: ldh [hMapAddr + 0], a
+	ld a, high(map_test) :: ldh [hMapAddr + 1], a
+	ret
+
+
 section "MapSelect", rom0
 MapSelect::
+	ret
+
+
+section "MapUpdate", rom0
+MapUpdate::
+	call MapUpdateViewChunk
+	call MapUpdateCache
+
+	; Testing ~~ display cached chunk in slot 4 (centre)
+	ldh a, [hMapChunkSlots + 4]
+	bit bSLOT_RENDERED, a
+	ret z
+	bit bSLOT_NOCHUNK, a
+	ret nz
+	and SLOT_BUFFER :: or $D0
+	ld d, a
+	ld e, 0
+	wrambopen MAP_CHR_BUFFER_BANK
+	push de
+	ld hl, wMapBgChr + 32 * 16 + 16
+	call MapChunkTransfer
+	pop de
+	ld a, MAP_ATRB_BUFFER_BANK :: ldh [rSVBK], a
+	ld hl, wMapBgAtrb + 32 * 16 + 16
+	jp MapChunkTransfer
+
+
+section "MapSlotInfo", rom0
+SlotInfo:
+db -1, -1
+db -1, 0
+db -1, 1
+db 0, -1
+db 0, 0
+db 0, 1
+db 1, -1
+db 1, 0
+db 1, 1
+
+
+section "MapUpdateSlot", rom0
+;; Render the chunk in the given slot, if it hasn't been already.
+;; @param L: index
+;; @mut: AF, BC, DE, HL
+MapUpdateSlot:
+	ld a, l :: add low(hMapChunkSlots) :: ld c, a
+	ldh a, [c]
+	and SLOT_RENDERED | SLOT_NOCHUNK
+	ret nz
+	ldh a, [c]
+	or SLOT_NOCHUNK
+	ldh [c], a
+
+	ld a, l :: add a ; index * 2
+	add low(SlotInfo) :: ld l, a
+	adc high(SlotInfo) :: sub l :: ld h, a
+
+	ldh a, [hMapViewChunkY]
+	add [hl] :: inc hl
+	ret c ; chunk coord overflow ~~ out of bounds
+	ld d, a
+
+	ldh a, [hMapViewChunkX]
+	add [hl]
+	ret c ; chunk coord overflow ~~ out of bounds
+	ld e, a
+
+	; Chunk lookup
+	ld hl, hMapAddr
+	ld a, [hl+] :: ld h, [hl] :: ld l, a ; hMapAddr
+	ld a, [hl+] :: ld h, [hl] :: ld l, a ; map.chunk_table
+	call MapChunkLookup
+	ret nc
+
+	; DE = chunk buffer dest
+	ldh a, [c] :: and SLOT_BUFFER :: or $D0
+	ld d, a :: ld e, 0
+	push de
+;	push hl
+	; skip atrb brushes
+	inc hl :: inc hl
+	ld a, MAP_CHR_BUFFER_BANK :: ldh [rSVBK], a
+	call MapChunkRender
+
+;	pop hl
+	pop de
+	; pointer to atrb brushes
+;	ld a, [hl+] :: ld h, [hl] :: ld l, a
+	ld a, MAP_ATRB_BUFFER_BANK :: ldh [rSVBK], a
+	call MapChunkRender
+
+	; update slot status
+	ldh a, [c]
+	xor SLOT_RENDERED | SLOT_NOCHUNK ; clear NOCHUNK & set RENDERED
+	ldh [c], a
+	ret
+
+
+section "MapUpdateCache", rom0
+MapUpdateCache:
+	rombpush
+	ldh a, [hMapBank]
+	ld [$2000], a
+	wrambpush
+
+	call _UpdateNext
+	call _UpdateNext
+	;call _UpdateNext
+
+	wrambpop
+	rombpop
+	ret
+
+
+_UpdateNext:
+	ldh a, [hMapSlotIdx] :: ld l, a
+	inc a
+	cp MAP_CHUNK_BUFFER_COUNT
+	jr c, :+
+	xor a
+:
+	ldh [hMapSlotIdx], a
+	jp MapUpdateSlot
+
+
+
+section "MapUpdateViewChunk", rom0
+;; Update visible chunks from scroll position.
+;; @mut: AF, HL
+MapUpdateViewChunk:
+	; Y axis view position (world dots) to chunk coords
+	ld hl, wScroll.y
+	ld a, [hl+]
+	ld h, [hl]
+	add 72 ; offset to view rect centre
+	ld l, a
+	adc h
+	sub l
+	ld h, a
+	; divide by 128: hi.0 <~~ lo.7
+	ld a, l
+	rla
+	ld a, h
+	rla
+	ldh [hMapViewChunkNewY], a
+	; X axis view position (world dots) to chunk coords
+	ld hl, wScroll.x
+	ld a, [hl+]
+	ld h, [hl]
+	add 80 ; offset to view rect centre
+	ld l, a
+	adc h
+	sub l
+	ld h, a
+	; divide by 128: hi.0 <~~ lo.7
+	ld a, l
+	rla
+	ld a, h
+	rla
+	ldh [hMapViewChunkNewX], a
+
+	call _UpdateSlotsY
+	ldh a, [hMapViewChunkNewY]
+	ldh [hMapViewChunkY], a
+	call _UpdateSlotsX
+	ldh a, [hMapViewChunkNewX]
+	ldh [hMapViewChunkX], a
+
+	ret
+
+
+_UpdateSlotsY:
+	ldh a, [hMapViewChunkY]
+	ld l, a
+	ldh a, [hMapViewChunkNewY]
+	sub l
+	ret z
+;	jp _ResetAllSlots
+	jr c, .neg
+	; (newY - Y) > 0: scroll down ~~ shift up
+	dec a
+	jp z, _SlotsShiftUp
+	jp _ResetAllSlots
+.neg
+	; (newY - Y) < 0: scroll up ~~ shift down
+	inc a
+	jp z, _SlotsShiftDown
+	jp _ResetAllSlots
+
+
+_UpdateSlotsX:
+	ldh a, [hMapViewChunkX]
+	ld l, a
+	ldh a, [hMapViewChunkNewX]
+	sub l
+	ret z
+;	jp _ResetAllSlots
+	jr c, .neg
+	; (newX - X) > 0: scroll right ~~ shift left
+	dec a
+	jp z, _SlotsShiftLeft
+	jp _ResetAllSlots
+.neg
+	; (newX - X) < 0: scroll left ~~ shift right
+	inc a
+	jp z, _SlotsShiftRight
+	jp _ResetAllSlots
+
+
+_ResetAllSlots:
+for I, MAP_CHUNK_BUFFER_COUNT
+	ld a, CHUNK_BUFFER_{d:I} :: ldh [hMapChunkSlots + I], a
+endr
+	ret
+
+
+section "MapSlotsShift", rom0
+_SlotsShiftUp:
+	ld hl, hMapChunkSlots
+	ld a, [hl+] :: and SLOT_BUFFER :: ldh [hMapChunkSlotsScratch + 0], a
+	ld a, [hl+] :: and SLOT_BUFFER :: ldh [hMapChunkSlotsScratch + 1], a
+	ld a, [hl+] :: and SLOT_BUFFER :: ldh [hMapChunkSlotsScratch + 2], a
+for I, MAP_CHUNK_BUFFER_COUNT
+	ld a, [hl+] :: ldh [hMapChunkSlots + I], a
+endr
+	ret
+
+
+_SlotsShiftDown:
+	ld hl, hMapChunkSlotsScratch + 2
+for I, MAP_CHUNK_BUFFER_COUNT
+	ldh a, [hMapChunkSlots + MAP_CHUNK_BUFFER_COUNT - I - 1] :: ld [hl-], a
+endr
+	ldh a, [hMapChunkSlotsScratch + 2] :: and SLOT_BUFFER :: ld [hl-], a
+	ldh a, [hMapChunkSlotsScratch + 1] :: and SLOT_BUFFER :: ld [hl-], a
+	ldh a, [hMapChunkSlotsScratch + 0] :: and SLOT_BUFFER :: ld [hl-], a
+	ret
+
+
+_SlotsShiftLeft:
+	ld hl, hMapChunkSlots
+
+for I, 3
+	ld b, [hl]
+	ldh a, [hMapChunkSlots + I * 3 + 1] :: ld [hl+], a
+	ldh a, [hMapChunkSlots + I * 3 + 2] :: ld [hl+], a
+	ld a, b :: and SLOT_BUFFER :: ld [hl+], a
+endr
+	ret
+
+
+_SlotsShiftRight:
+	ld hl, hMapChunkSlots
+
+for I, 3
+	ld b, [hl]
+	ldh a, [hMapChunkSlots + I * 3 + 2] :: and SLOT_BUFFER :: ld [hl+], a
+	ld a, b :: ld b, [hl] :: ld [hl+], a
+	ld a, b :: ld [hl+], a
+endr
 	ret
 
 
@@ -76,7 +374,7 @@ section "MapChunkRender", rom0
 ;; Render a chunk to a chunk buffer.
 ;; @param HL: source chunk brushes
 ;; @param DE: dest (chunk buffer)
-;; @mut: AF, C, DE, HL
+;; @mut: AF, B, DE, HL
 MapChunkRender::
 .continue:
 	ld a, [hl+]
@@ -92,12 +390,12 @@ MapChunkRender::
 
 .br_solid:
 	ld a, [hl+]
-	ld c, a
-	inc c ; brush data has length - 1
+	ld b, a
+	inc b ; brush data has length - 1
 	ld a, [hl+]
 :
 	ld [de], a :: inc de
-	dec c
+	dec b
 	jr nz, :-
 	jr .continue
 
@@ -130,31 +428,21 @@ Test_map_chunk_render:
 */
 
 
-section "MapEnable", rom0
-;; @mut: AF
-MapEnable::
-	push bc :: push de :: push hl
-	; call Test_map_chunk_render
-	; call ScrollRenderVisible
-	pop hl :: pop de :: pop bc
-	ret
-
-
 section "MapChunkLookup", rom0
 ;; @param HL: Chunk Table
 ;; @param D,E: row,column
 ;; @ret HL: Chunk
 ;; @ret F.C: set if successful
-;; @mut: AF, C, HL
+;; @mut: AF, B, HL
 MapChunkLookup::
 	ld a, [hl+]
-	ld c, a
+	ld b, a
 :
 	ld a, [hl+]
 	cp d
 	jr z, .xtable
 	inc hl :: inc hl
-	dec c
+	dec b
 	jr nz, :-
 	jr .fail
 .xtable:
@@ -162,13 +450,13 @@ MapChunkLookup::
 	ld h, [hl]
 	ld l, a
 	ld a, [hl+]
-	ld c, a
+	ld b, a
 :
 	ld a, [hl+]
 	cp e
 	jr z, .ok
 	inc hl :: inc hl
-	dec c
+	dec b
 	jr nz, :-
 .fail:
 	xor a ; clear F.C
@@ -232,10 +520,20 @@ xMapBufferInit::
 
 section "MapInit", rom0
 MapInit::
-	xor a
-	ldh [hMapLoader.map_bank], a
-	ldh [hMapLoader.map_addr + 0], a
-	ldh [hMapLoader.map_addr + 1], a
+	ld a, $FF
+	ldh [hMapBank], a
+	ldh [hMapAddr + 0], a
+	ldh [hMapAddr + 1], a
+	ldh [hMapViewChunkY], a
+	ldh [hMapViewChunkX], a
+	ld a, $80
+	ldh [hMapViewChunkNewY], a
+	ldh [hMapViewChunkNewX], a
+
+	call _ResetAllSlots
+
+	xor a :: ldh [hMapSlotIdx], a
+
 	rombopen bank(xMapBufferInit)
 	jp xMapBufferInit
 
