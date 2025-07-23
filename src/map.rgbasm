@@ -147,12 +147,10 @@ MapUpdateSlot:
 
 	ldh a, [hMapViewChunkY]
 	add [hl] :: inc hl
-	ret c ; chunk coord overflow ~~ out of bounds
 	ld d, a
 
 	ldh a, [hMapViewChunkX]
 	add [hl]
-	ret c ; chunk coord overflow ~~ out of bounds
 	ld e, a
 
 	; Chunk lookup
