@@ -406,10 +406,12 @@ MapChunkSlot.read = function(address, memType)
 	return MapChunkSlot.decode(data)
 end
 
-MapChunkSlot.readArray = function(address, memType, count)
+MapChunkSlot.readArray = function(startAddress, memType, count)
 	local out = {}
+	local addr = startAddress
 	for _ = 1, count do
-		table.insert(out, MapChunkSlot.read(address, memType))
+		table.insert(out, MapChunkSlot.read(addr, memType))
+		addr = addr + 1
 	end
 	return out
 end
@@ -435,11 +437,17 @@ local function getLabel(symbol)
 	return label
 end
 
+local bufferIdIndex = {}
 local labelsMapBufferChr = {}
 local labelsMapBufferAtrb = {}
-for i = 0, 8 do
-	table.insert(labelsMapBufferChr, getLabel(string.format("wMapBufferChr%d", i)))
-	table.insert(labelsMapBufferAtrb, getLabel(string.format("wMapBufferAtrb%d", i)))
+for i = 1, 9 do
+	local label0 = getLabel(string.format("wMapBufferChr%d", i - 1))
+	if label0 then
+		bufferIdIndex[(label0.address >> 8) & MapChunkSlot.SLOT_BUFFER] = i
+	end
+	table.insert(labelsMapBufferChr, label0)
+	local label1 = getLabel(string.format("wMapBufferAtrb%d", i - 1))
+	table.insert(labelsMapBufferAtrb, label1)
 end
 
 MapTool = {
@@ -530,8 +538,19 @@ local function onEndFrame()
 			for cx = 0, 2 do
 				local px = originX + cx * chunkDispSize
 				local idx = 1 + cy * 3 + cx
-				local chrs = MapTool.chr_buffers[idx]
-				overlay:drawTilemap(px, py, chrs, 16, 16, tile_size)
+				local slot = MapTool.slots[idx]
+				if slot.nochunk then
+					overlay:drawRectangle(px, py, chunkDispSize, chunkDispSize, 0x10603030, true)
+					overlay:drawLine(px, py, px + chunkDispSize, py + chunkDispSize, 0xC09010)
+					overlay:drawLine(px + chunkDispSize, py, px, py + chunkDispSize, 0xC09010)
+				else
+					local bufferIdx = bufferIdIndex[slot.buffer & MapChunkSlot.SLOT_BUFFER]
+					local chrs = MapTool.chr_buffers[bufferIdx]
+					overlay:drawTilemap(px, py, chrs, 16, 16, tile_size)
+				end
+
+				local sflags = slot.rendered and "R" or "..."
+				overlay:drawString(px, py, string.format("%X %s", slot.buffer, sflags))
 			end
 		end
 	end
