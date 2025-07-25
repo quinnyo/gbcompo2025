@@ -9,6 +9,7 @@ include "banker.rgbinc"
 section union "{MODE_COMMON}", wramx
 wVelX: db
 wVelY: db
+wSpeed: db
 
 
 section "modeMapView", romx
@@ -17,6 +18,7 @@ modeMapView_Enter::
 	xor a
 	ld [wVelX], a
 	ld [wVelY], a
+	ld a, 2 :: ld [wSpeed], a
 	wrambpop
 
 	call ScrollInit
@@ -27,36 +29,42 @@ modeMapView_Enter::
 
 
 modeMapView_Process::
+	ld a, [wInput.pressed]
+	and PADF_SELECT
+	call nz, _SpeedUp
+
 	wrambopen bank("{MODE_COMMON}")
 	ld a, [wInput.state]
 	ld b, a
 
+	ld a, [wSpeed] :: ld d, a
 	xor a
 	bit PADB_LEFT, b
 	jr z, :+
-	dec a
+	sub d
 :
 	bit PADB_RIGHT, b
 	jr z, :+
-	inc a
+	add d
 :
-	add a :: ld d, a
+	ld d, a
 	ld hl, wVelX
 	ld e, [hl]
 	call _accelerate
 	ld [hl+], a
 	ld [wScroll.dx], a
 
+	ld a, [wSpeed] :: ld d, a
 	xor a
 	bit PADB_UP, b
 	jr z, :+
-	dec a
+	sub d
 :
 	bit PADB_DOWN, b
 	jr z, :+
-	inc a
+	add d
 :
-	add a :: ld d, a
+	ld d, a
 	ld e, [hl]
 	call _accelerate
 	ld [hl], a
@@ -68,6 +76,16 @@ modeMapView_Process::
 
 	call MapUpdate
 
+	ret
+
+
+_SpeedUp:
+	ld a, [wSpeed]
+	inc a :: and $03
+	jr nz, :+
+	inc a
+:
+	ld [wSpeed], a
 	ret
 
 
