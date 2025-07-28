@@ -42,6 +42,26 @@ hMapChunkSlotsScratch: ds 3
 hMapSlotIdx: db
 
 
+section "hXfer", hram
+_destY: db
+_destX: db
+
+_xfer0dest: dw
+_xfer0len: db
+_x0: db
+_xfer0src: dw
+
+_xfer1dest: dw
+_xfer1len: db
+_x1: db
+_xfer1src: dw
+
+_xfer2dest: dw
+_xfer2len: db
+_x2: db
+_xfer2src: dw
+
+
 section "wMapBgChr", wram0[$C800]
 ;; BG map CHR buffer
 wMapBgChr:: ds MAP_SIZE
@@ -96,23 +116,245 @@ MapUpdate::
 	call MapUpdateViewChunk
 	call MapUpdateCache
 
-	; Testing ~~ display cached chunk in slot 4 (centre)
-	ldh a, [hMapChunkSlots + 4]
-	bit bSLOT_RENDERED, a
-	ret z
-	bit bSLOT_NOCHUNK, a
-	ret nz
-	and SLOT_BUFFER :: or $D0
+	; proof of concept: update north front
+	call ScrollGetViewColumn
+	; destX = viewX mod 32
+	ld a, e :: and $1F :: ld b, a
+	ldh [_destX], a
+	call ScrollGetViewRow
+	ld a, e :: or d :: ret z ; out of bounds
+	ld a, e :: dec a :: and $1F
+	ldh [_destY], a
+	call _FrontNorth
 	ld d, a
-	ld e, 0
-	wrambopen MAP_CHR_BUFFER_BANK
-	push de
-	ld hl, wMapBgChr + 32 * 16 + 16
-	call MapChunkTransfer
-	pop de
+	jp MapSyncRow
+
+
+section "MapUpdateFront", rom0
+
+;; @param E: viewY grid coordinate
+;; @ret A: North front Y coordinate
+_FrontNorth:
+	; [6..21]
+	; 6 + ((viewY - 7) & $0F)
+	ld a, e :: sub 7 :: and $0F :: add 6
+	ret
+
+
+_FrontSouth:
+	; [25..40]
+	; 25 + ((viewY + 9) & $0F)
+	ld a, e :: add 9 :: and $0F :: add 25
+	ret
+
+
+_FrontWest:
+	; [5..20]
+	; 5 + ((viewX - 6) & $0F)
+	ld a, e :: sub 6 :: and $0F :: add 5
+	ret
+
+
+_FrontEast:
+	; [26..41]
+	; 26 + ((viewX + 10) & $0F)
+	ld a, e :: add 10 :: and $0F :: add 26
+	ret
+
+
+;; Transfer a row from cache to the bgmap buffers.
+;; @param B: destX
+;; @param D: srcY
+;; @mut: AF, BC, DE, HL
+MapSyncRow:
+	; Configure srcX, srcLen for each slot
+.configure_x_axis:
+	; default start X for slot 1 & 2 = 0
+	xor a
+	ldh [_x1], a
+	ldh [_x2], a
+
+	; calculate srcX: row starting column (west)
+	; same as the west front + 1
+	ld a, b
+	sub 6 :: and $0F :: add 6
+	ld e, a
+	; srcX will be in x0 (LHS) or x1 (middle), so we'll just branch and handle each case separately.
+	cp 16
+	jr c, .start_x0
+.start_x1 ; if srcX in [16..31]: start in slot 1 (middle)
+	; x1 = srcX - 16
+	sub 16 :: ldh [_x1], a
+	; len1 = 16 - x1 = 32 - srcX
+	ld a, 32 :: sub e :: ldh [_xfer1len], a
+	; len2 = 20 - len1
+	ld b, a
+	ld a, 20 :: sub b :: ldh [_xfer2len], a
+	; len0 = 0
+	xor a :: ldh [_xfer0len], a
+
+	jr .configure_x_done
+.start_x0 ; if srcX in [0..15]: start in slot 0 (LHS)
+	; x0 = srcX
+	ldh [_x0], a
+	; len0 = 16 - x0
+	ld a, 16 :: sub e :: ldh [_xfer0len], a
+	; lenRemaining = 20 - len0
+	ld b, a :: ld a, 20 :: sub b
+	cp 17
+	jr c, .end_x1
+.end_x2 ; if lenRemaining > 16: end in slot 2
+	; len2 = lenRemaining - len1
+	sub 16 :: ldh [_xfer2len], a
+	ld a, 16 :: ldh [_xfer1len], a
+	jr .configure_x_done
+
+.end_x1 ; lenRemaining <= 16: end in slot 1
+	; len1 = lenRemaining
+	ldh [_xfer1len], a
+	xor a :: ldh [_xfer2len], a
+
+.configure_x_done:
+	; Configure addresses, finalise transfers
+
+	; src[i] = slot buffer + (srcY % 16) * 16 + srcX[i]
+	ld a, d
+	and $0F :: swap a ; (srcY % 16) * 16
+	ld b, a
+
+	ld c, low(hMapChunkSlots) ; top
+	ld a, d
+	sub 16
+	; if srcY in [0..15]: src in top 3 slots
+	jr c, .row_x0
+	ld c, low(hMapChunkSlots + 3) ; middle
+	sub 16
+	; if srcY in [16..31]: src in middle 3 slots
+	jr c, .row_x0
+	ld c, low(hMapChunkSlots + 6) ; bottom
+	; else srcY in [32..47]: src in bottom 3 slots
+
+.row_x0:
+	; destination address
+	ldh a, [_destX]
+	ld l, a
+	; multiply Y by 32
+	ldh a, [_destY]
+	swap a :: rlca ; mul 32 (but the lowest 5 bits are for D)
+	ld e, a
+	and $1F :: ld d, a
+	ld a, e :: sub d :: add l :: ld e, a
+
+	ld hl, _xfer0dest
+	call _FinaliseRowSlotXfer
+	inc c
+	ld hl, _xfer1dest
+	call _FinaliseRowSlotXfer
+	inc c
+	; adjust destination address to avoid wrapping onto the next destination row
+	ld a, e
+	sub 32
+	ld e, a
+	jr nc, :+
+	dec d
+:
+	ld hl, _xfer2dest
+	call _FinaliseRowSlotXfer
+
+.process_xfers:
+	; Process the transfers -- update the BG map
+	wrambpush
+
+	ld hl, _xfer0dest
+	call _ProcessSlotXfer
+	ld hl, _xfer1dest
+	call _ProcessSlotXfer
+	ld hl, _xfer2dest
+	call _ProcessSlotXfer
+
+	wrambpop
+	ret
+
+
+;; Finalise slot transfer configuration for row update ~~
+;; @param B: common buffer offset ... (srcY % 16) * 16
+;; @param C: low byte pointer to slot status
+;; @param DE: destination address
+;; @param HL: xfer params
+;; @ret DE: destination address + length
+;; @mut: AF, DE, HL
+_FinaliseRowSlotXfer:
+	; write destination address
+	ld a, e :: ld [hl+], a
+	ld a, d :: ld [hl+], a
+
+	; if len == 0, do nothing
+	ld a, [hl+]
+	and a
+	ret z
+
+	; update destination address
+	add e :: ld e, a
+	adc d :: sub e :: ld d, a
+
+	ldh a, [c]
+	bit bSLOT_RENDERED, a
+	jr nz, :+
+	; TODO: if slot is unrendered (but not NOCHUNK) -- do something...
+	dec hl
+	xor a :: ld [hl], a
+	ret
+:
+
+	ld a, [hl+] ; xoffset
+	add b
+	ld [hl+], a ; src low byte
+
+	; buffer address (src high byte)
+	ldh a, [c]
+	and SLOT_BUFFER :: or $D0
+	ld [hl+], a
+
+	ret
+
+
+;; @param HL: xfer params
+_ProcessSlotXfer:
+	; dest (offset)
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+	; len
+	ld a, [hl]
+	and a :: ret z
+	ld c, a
+	xor a :: ld [hl+], a
+
+	inc hl ; xoffset (skip)
+
+	; src
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a
+
+	ld a, MAP_CHR_BUFFER_BANK :: ldh [rSVBK], a
+	push bc :: push de :: push hl
+	ld a, d :: add high(wMapBgChr) :: ld d, a
+:
+	ld a, [hl+]
+	ld [de], a :: inc de
+	dec c
+	jr nz, :-
+
 	ld a, MAP_ATRB_BUFFER_BANK :: ldh [rSVBK], a
-	ld hl, wMapBgAtrb + 32 * 16 + 16
-	jp MapChunkTransfer
+	pop hl :: pop de :: pop bc
+	ld a, d :: add high(wMapBgAtrb) :: ld d, a
+:
+	ld a, [hl+]
+	ld [de], a :: inc de
+	dec c
+	jr nz, :-
+
+	ret
 
 
 section "MapSlotInfo", rom0
