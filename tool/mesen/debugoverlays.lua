@@ -93,6 +93,17 @@ local function createOverlay(margin, scale)
 		emu.drawString(ox + x, oy + y, text, textColor, backgroundColor, maxWidth, duration, delay)
 	end
 
+	obj.drawRectangle2 = function(self, x, y, width, height, color, fillColor)
+		if not fillColor then
+			local a = (color << 2) & 0xFF000000
+			fillColor = a | (color & 0x00FFFFFF)
+		end
+		self:select()
+		local ox, oy = self:getOrigin()
+		emu.drawRectangle(ox + x, oy + y, width, height, fillColor, true)
+		emu.drawRectangle(ox + x, oy + y, width, height, color, false)
+	end
+
 	obj.drawVector = function(self, cx, cy, vx, vy, magMax, displayMag, color, bgcolor)
 		color = color or 0xFF00FF
 		local vecScale = displayMag / magMax
@@ -455,6 +466,10 @@ MapTool = {
 	CHUNK_SLOTS_COUNT = 9,
 	SCRATCH_SLOTS_COUNT = 3,
 
+	tile_size = 3,
+	originX = 0,
+	originY = 0,
+
 	labels = {
 		slots = getLabel("hMapChunkSlots"),
 		chr_buffers = labelsMapBufferChr,
@@ -473,6 +488,10 @@ MapTool = {
 		end
 		self.chr_buffers = chr_buffers
 	end,
+
+	gridDisplayPos = function(self, column, row)
+		return self.originX + column * self.tile_size, self.originY + row * self.tile_size
+	end
 }
 
 
@@ -521,6 +540,39 @@ local wScroll = Scroll:getLabelAddress("wScroll")
 local monScroll = st_monitor(Scroll, wScroll.address, wScroll.memType)
 
 
+local function frontNorth(viewY)
+	return 6 + ((viewY - 7) & 0x0F)
+end
+
+local function frontSouth(viewY)
+	return 25 + ((viewY + 9) & 0x0F)
+end
+
+local function frontWest(viewX)
+	-- [5..20]
+	return 5 + ((viewX - 6) & 0x0F)
+end
+
+local function frontEast(viewX)
+	-- [26..41]
+	return 26 + ((viewX + 10) & 0x0F)
+end
+
+local function frontThing(viewY, viewX)
+	local frontN = frontNorth(viewY)
+	local frontS = frontSouth(viewY)
+	local frontW = frontWest(viewX)
+	local frontE = frontEast(viewX)
+	local xNS, northY = MapTool:gridDisplayPos(4, frontN)
+	local _, southY = MapTool:gridDisplayPos(0, frontS)
+	local westX, yWE = MapTool:gridDisplayPos(frontW, 4)
+	local eastX, _ = MapTool:gridDisplayPos(frontE, 0)
+	overlay:drawLine(xNS, northY, 128, northY, 0x2080FF00)
+	overlay:drawLine(xNS, southY, 128, southY, 0x2000FF80)
+	overlay:drawLine(westX, yWE, westX, yWE + 128, 0x20FF8000)
+	overlay:drawLine(eastX, yWE, eastX, yWE + 128, 0x20FF0080)
+end
+
 local function onEndFrame()
 	overlay:select()
 	overlay:drawWindow()
@@ -528,15 +580,15 @@ local function onEndFrame()
 	MapTool:readState()
 	-- draw chunk cache
 	if MapTool.chr_buffers and #MapTool.chr_buffers == 9 then
-		local tile_size = 3
-		local chunkDispSize = 16 * tile_size
+		local chunkDispSize = 16 * MapTool.tile_size
 		local _, dispH = overlay:getSize()
-		local originX = 0
-		local originY = dispH - chunkDispSize * 3
+		MapTool.originX = 0
+		MapTool.originY = dispH - chunkDispSize * 3
+
 		for cy = 0, 2 do
-			local py = originY + cy * chunkDispSize
+			local py = MapTool.originY + cy * chunkDispSize
 			for cx = 0, 2 do
-				local px = originX + cx * chunkDispSize
+				local px = MapTool.originX + cx * chunkDispSize
 				local idx = 1 + cy * 3 + cx
 				local slot = MapTool.slots[idx]
 				if slot.nochunk then
@@ -546,7 +598,7 @@ local function onEndFrame()
 				else
 					local bufferIdx = bufferIdIndex[slot.buffer & MapChunkSlot.SLOT_BUFFER]
 					local chrs = MapTool.chr_buffers[bufferIdx]
-					overlay:drawTilemap(px, py, chrs, 16, 16, tile_size)
+					overlay:drawTilemap(px, py, chrs, 16, 16, MapTool.tile_size)
 				end
 
 				local sflags = slot.rendered and "R" or "..."
@@ -562,6 +614,19 @@ local function onEndFrame()
 
 	local scroll = Scroll:readFromLabel("wScroll")
 	if scroll then
+		-- draw view rect on map
+		local viewRow = math.floor(scroll.y / 8)
+		local viewCol = math.floor(scroll.x / 8)
+		local viewX, viewY = MapTool:gridDisplayPos(viewCol, viewRow)
+		local viewDispW = 20 * MapTool.tile_size
+		local viewDispH = 18 * MapTool.tile_size
+		overlay:drawRectangle2(viewX, viewY, viewDispW, viewDispH, 0x30EEEEEE)
+		local viewCentreRow = 16 + ((viewRow + 9) & 0x0F)
+		local viewCentreCol = 16 + ((viewCol + 10) & 0x0F)
+		local viewCentreX, viewCentreY = MapTool:gridDisplayPos(viewCentreCol, viewCentreRow)
+		overlay:drawRectangle2(viewCentreX - viewDispW / 2, viewCentreY - viewDispH / 2, viewDispW, viewDispH, 0x30B0F030)
+		frontThing(viewRow, viewCol)
+
 		local px = 220
 		local py = 0
 		local s = st_fmt(scroll)
