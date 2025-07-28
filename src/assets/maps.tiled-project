@@ -10,5 +10,18 @@
     "properties": [
     ],
     "propertyTypes": [
+        {
+            "color": "#ffc1b1a3",
+            "drawFill": true,
+            "id": 1,
+            "members": [
+            ],
+            "name": "ViewRect",
+            "type": "class",
+            "useAs": [
+                "object",
+                "project"
+            ]
+        }
     ]
 }
