@@ -29,11 +29,11 @@ modeMapView_Enter::
 
 
 modeMapView_Process::
+	wrambpush bank("{MODE_COMMON}")
 	ld a, [wInput.pressed]
 	and PADF_SELECT
 	call nz, _SpeedUp
 
-	wrambopen bank("{MODE_COMMON}")
 	ld a, [wInput.state]
 	ld b, a
 
@@ -70,13 +70,13 @@ modeMapView_Process::
 	ld [hl], a
 	ld [wScroll.dy], a
 
+	wrambpop
+
 	call ScrollUpdate
 	ld a, [wScroll.y + 0] :: ld [wSCY], a
 	ld a, [wScroll.x + 0] :: ld [wSCX], a
 
-	call MapUpdate
-
-	ret
+	jp MapUpdate
 
 
 _SpeedUp:
