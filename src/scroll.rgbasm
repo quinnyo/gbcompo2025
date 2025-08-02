@@ -44,7 +44,10 @@ wScroll::
 	.dy:: db
 	;; View scroll position in dots (Y axis)
 	.y:: dw
+	;; View scroll grid row
+	.row:: dw
 	.frontier_row: db
+	.frontier_row_prev: db
 	;; Pointer to function implementing `RenderMapRows(DE, C)`.
 	;; impl to render `C` consecutive (Y+) map rows, starting at `DE`.
 	.fn_render_map_rows:: dw
@@ -53,10 +56,18 @@ wScroll::
 	.dx:: db
 	;; View scroll position in dots (X axis)
 	.x:: dw
+	;; View scroll grid column
+	.column:: dw
 	.frontier_column: db
+	.frontier_column_prev: db
 	;; Pointer to function implementing `RenderMapColumns(DE, C)`.
 	;; impl to render `C` consecutive (Y+) map columns, starting at `DE`.
 	.fn_render_map_columns:: dw
+
+
+pushs "hScroll", hram
+_front_dist: db
+pops
 
 
 section "Scroll", rom0
@@ -107,9 +118,32 @@ ScrollGetViewColumn::
 
 ;; @mut: AF, BC, DE, HL
 ScrollUpdate::
+	ld a, 18 :: ldh [_front_dist], a
 	ld hl, wScroll.dy
 	call .UpdateAxis
+	ld a, 20 :: ldh [_front_dist], a
 	ld hl, wScroll.dx
+	call .UpdateAxis
+	ld hl, wScroll.frontier_column
+	call .ProcessFrontierChanged
+	ld hl, wScroll.frontier_row
+
+;; @param HL: pointer to scroll axis state @ new frontier
+.ProcessFrontierChanged:
+	ld a, [hl+]
+	cp [hl]
+	ret z ; no change
+	ld [hl+], a
+	; TODO: ??? handle skipped rows ???
+
+	; Render frontier
+	ld e, a
+	ld c, 1
+	; read function pointer at HL & call it if it's nonzero.
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+	or h :: ret z
+	jp hl
+
 ;; @param HL: pointer to scroll axis state
 .UpdateAxis:
 	; Load delta & clear the accumulator
@@ -149,25 +183,33 @@ ScrollUpdate::
 	srl d :: rra
 	ld e, a
 
+	; store grid position
+	ld a, e :: ld [hl+], a
+	ld a, d :: ld [hl+], a
+
 	; Advance frontier
 	; add -1 if delta is negative or +FRONTIER offset if positive
 	ld a, c :: rlca :: sbc a
 	jr nz, :+
-	ld a, FRONTIER
+	ldh a, [_front_dist]
+	;ld a, FRONTIER
 :
 	add e
-	cp [hl]
-	ret z ; no change
-	ld [hl+], a
-	; TODO: ??? handle skipped rows ???
+	ld [hl], a
+	ret
 
-	; Render frontier
-	ld e, a
-	ld c, 1
-	; read function pointer at HL & call it if it's nonzero.
-	ld a, [hl+] :: ld h, [hl] :: ld l, a
-	or h :: ret z
-	jp hl
+;	cp [hl]
+;	ret z ; no change
+;	ld [hl+], a
+;	; TODO: ??? handle skipped rows ???
+;
+;	; Render frontier
+;	ld e, a
+;	ld c, 1
+;	; read function pointer at HL & call it if it's nonzero.
+;	ld a, [hl+] :: ld h, [hl] :: ld l, a
+;	or h :: ret z
+;	jp hl
 
 
 section "MockMap", rom0

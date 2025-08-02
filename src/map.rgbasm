@@ -25,6 +25,44 @@ def SLOT_RENDERED equ 1 << bSLOT_RENDERED
 def SLOT_NOCHUNK  equ 1 << bSLOT_NOCHUNK
 
 
+
+;; Bits used to store source slot index.
+def bSynXfer_SLOT_INDEX equ 0
+;; Equivalent to source slot SLOT_RENDERED.
+def bSynXfer_SLOT_RENDERED equ bSLOT_RENDERED
+;; Equivalent to source slot SLOT_NOCHUNK.
+def bSynXfer_SLOT_SKIP equ bSLOT_NOCHUNK
+def bSynXfer_DONE equ 6
+;; Set if transfer is for a column (& needs appropriate stride applied)
+def bSynXfer_ORIENTATION equ 7
+
+def SynXfer_SLOT_INDEX equ $0F
+def SynXfer_SLOT_RENDERED equ 1 << bSynXfer_SLOT_RENDERED
+def SynXfer_SLOT_SKIP equ 1 << bSynXfer_SLOT_SKIP
+def SynXfer_DONE equ 1 << bSynXfer_DONE
+def SynXfer_COLUMN equ 1 << bSynXfer_ORIENTATION
+
+def SynXfer_EMPTY equ SynXfer_SLOT_INDEX
+
+
+rsreset
+;; Status, config, & source slot index.
+def SynXfer_status rb 1
+;; Transfer length (number of bytes).
+def SynXfer_length rb 1
+;; Starting index/offset in BG map destination.
+def SynXfer_destIndex rb 2
+;; Starting index/offset in source chunk.
+def SynXfer_srcIndex rb 1
+;;; High byte of source buffer address.
+;def SynXfer_srcBuffer rb 1
+
+;; Size of SynXfer struct.
+def szSynXfer rb 0
+
+def SYN_XFER_COUNT equ 3
+
+
 section "hMap", hram
 ;; Bank of the selected map
 hMapBank:: db
@@ -41,25 +79,42 @@ hMapChunkSlotsScratch: ds 3
 ;; The index of the next chunk slot to update
 hMapSlotIdx: db
 
+hMapSrcOriginY: db
+hMapSrcOriginX: db
+
 
 section "hXfer", hram
 _destY: db
 _destX: db
 
-_xfer0dest: dw
-_xfer0len: db
-_x0: db
-_xfer0src: dw
+for I, SYN_XFER_COUNT
+_Xfer{d:I}: ds szSynXfer
+endr
 
-_xfer1dest: dw
-_xfer1len: db
-_x1: db
-_xfer1src: dw
+;; For temporary storage of xfer status during xfer processing.
+_xfer_status: db
 
-_xfer2dest: dw
-_xfer2len: db
-_x2: db
-_xfer2src: dw
+
+_render_rows_count: db
+_render_row: db
+_render_columns_count: db
+_render_column: db
+
+
+pushs "watch", wram0
+db
+watchDestY0: db
+watchDestY1: db
+watchDestY2: db
+watchDestX0: db
+watchDestX1: db
+watchDestX2: db
+
+watchStatus0: db
+watchStatus1: db
+watchStatus2: db
+db
+pops
 
 
 section "wMapBgChr", wram0[$C800]
@@ -98,6 +153,13 @@ MapEnable::
 	ld a, bank(map_test) :: ldh [hMapBank], a
 	ld a, low(map_test) :: ldh [hMapAddr + 0], a
 	ld a, high(map_test) :: ldh [hMapAddr + 1], a
+
+	ld de, MapScrollRenderRows
+	ld a, e :: ld [wScroll.fn_render_map_rows + 0], a
+	ld a, d :: ld [wScroll.fn_render_map_rows + 1], a
+	ld de, MapScrollRenderColumns
+	ld a, e :: ld [wScroll.fn_render_map_columns + 0], a
+	ld a, d :: ld [wScroll.fn_render_map_columns + 1], a
 	ret
 
 
@@ -115,50 +177,175 @@ MapUpdate::
 
 	call MapUpdateViewChunk
 	call MapUpdateCache
+	jp MapProcessDeferredRender
 
-	; proof of concept: update north front
-	call ScrollGetViewColumn
-	; destX = viewX mod 32
-	ld a, e :: and $1F :: ld b, a
-	ldh [_destX], a
-	call ScrollGetViewRow
-	ld a, e :: or d :: ret z ; out of bounds
-	ld a, e :: dec a :: and $1F
-	ldh [_destY], a
-	call _FrontNorth
-	ld d, a
+
+section "MapScrollRenderCallbacks", rom0
+MapProcessDeferredRender:
+	ldh a, [_render_rows_count]
+	and a
+	jr z, .no_rows
+	ld c, a
+	xor a :: ldh [_render_rows_count], a
+	ldh a, [_render_row] :: ld e, a
+	call MapRenderRows
+.no_rows
+
+	ldh a, [_render_columns_count]
+	and a
+	ret z
+	ld c, a
+	xor a :: ldh [_render_columns_count], a
+	ldh a, [_render_column] :: ld e, a
+	jp MapRenderColumns
+
+
+;; @param DE: Y
+;; @param C: N
+;; @mut: AF, BC, DE, HL
+MapScrollRenderRows::
+	ld a, c :: ldh [_render_rows_count], a
+	ld a, e :: ldh [_render_row], a
+
+	; TUMBLE DOWN
+
+;; @param DE: Y
+;; @param C: N
+;; @mut: AF, BC, DE, HL
+MapRenderRows::
+	ld a, [wScroll.row + 0]
+	sub 7 :: and $F0 :: ldh [hMapSrcOriginY], a
+	; row X position
+	ld a, [wScroll.column + 0]
+	dec a ; viewX - 1 so corners get painted
+	ld b, a
+	; if N == 1, jump directly to impl
+	ld a, c
+	dec a
+	jr z, _RenderRow
+:
+	push bc :: push de
+	call _RenderRow
+	pop de :: pop bc
+	dec c
+	jr nz, :-
+	ret
+
+
+;; @param E: Y
+;; @param B: X
+;; @mut: AF, BC, DE, HL
+_RenderRow:
+	; destX
+	ld a, b :: and $1F :: ldh [_destX], a
+	ld b, a
+
+	; destY
+	ld a, e :: and $1F :: ldh [_destY], a
+
+	; srcY
+	ldh a, [hMapSrcOriginY] :: ld d, a
+	ld a, e :: sub d :: ld d, a
+
 	jp MapSyncRow
 
 
-section "MapUpdateFront", rom0
+;; @param DE: X
+;; @param C: N
+;; @mut: AF, BC, DE, HL
+MapScrollRenderColumns::
+	ld a, c :: ldh [_render_columns_count], a
+	ld a, e :: ldh [_render_column], a
 
-;; @param E: viewY grid coordinate
-;; @ret A: North front Y coordinate
-_FrontNorth:
-	; [6..21]
-	; 6 + ((viewY - 7) & $0F)
-	ld a, e :: sub 7 :: and $0F :: add 6
+	; RAMBLE ON
+
+;; @param DE: X
+;; @param C: N
+;; @mut: AF, BC, DE, HL
+MapRenderColumns::
+	ld a, [wScroll.column + 0]
+	sub 6 :: and $F0 :: ldh [hMapSrcOriginX], a
+	; column Y position
+	ld a, [wScroll.row + 0]
+	dec a ; viewY - 1 so corners get painted
+	ld b, a
+	; if N == 1, jump directly to impl
+	ld a, c
+	dec a
+	jr z, _RenderColumn
+:
+	push bc :: push de
+	call _RenderColumn
+	pop de :: pop bc
+	dec c
+	jr nz, :-
 	ret
 
 
-_FrontSouth:
-	; [25..40]
-	; 25 + ((viewY + 9) & $0F)
-	ld a, e :: add 9 :: and $0F :: add 25
+;; @param E: X
+;; @param B: Y
+;; @mut: AF, BC, DE, HL
+_RenderColumn:
+	; destY
+	ld a, b :: and $1F :: ldh [_destY], a
+	ld b, a
+
+	; destX
+	ld a, e :: and $1F :: ldh [_destX], a
+
+	; srcX
+	ldh a, [hMapSrcOriginX] :: ld d, a
+	ld a, e :: sub d :: ld d, a
+
+	jp MapSyncColumn
+
+
+section "MapSync", rom0
+;; Initialise sync xfers -- set the srcU start offset and length.
+;; @param E: srcU
+;; @param C: totalLength
+;; @mut: AF, B
+SynXferInitialLayout:
+	; Reset srcIndex for slot 1 & 2
+	xor a
+	ldh [_Xfer1 + SynXfer_srcIndex], a
+	ldh [_Xfer2 + SynXfer_srcIndex], a
+	; srcU will be in slot0 or slot1, so we'll just branch and handle each case separately.
+	ld a, e
+	cp 16
+	jr c, .start_u0
+.start_u1 ; if srcU in [16..31]: start in slot 1
+	; u1 = srcU - 16
+	sub 16 :: ldh [_Xfer1 + SynXfer_srcIndex], a
+	; len1 = 16 - u1 = 32 - srcU
+	ld a, 32 :: sub e :: ldh [_Xfer1 + SynXfer_length], a
+	; len2 = totalLength - len1
+	ld b, a
+	ld a, c :: sub b :: ldh [_Xfer2 + SynXfer_length], a
+	; len0 = 0
+	xor a :: ldh [_Xfer0 + SynXfer_length], a
 	ret
 
+.start_u0 ; if srcU in [0..15]: start in slot 0
+	; u0 = srcU
+	ldh [_Xfer0 + SynXfer_srcIndex], a
+	; len0 = 16 - u0
+	ld a, 16 :: sub e :: ldh [_Xfer0 + SynXfer_length], a
+	; lenRemaining = totalLen - len0
+	ld b, a :: ld a, c :: sub b
+	cp 17
+	jr c, .end_u1
 
-_FrontWest:
-	; [5..20]
-	; 5 + ((viewX - 6) & $0F)
-	ld a, e :: sub 6 :: and $0F :: add 5
+.end_u2 ; if lenRemaining > 16: end in slot 2
+	; len2 = lenRemaining - len1
+	sub 16 :: ldh [_Xfer2 + SynXfer_length], a
+	ld a, 16 :: ldh [_Xfer1 + SynXfer_length], a
 	ret
 
-
-_FrontEast:
-	; [26..41]
-	; 26 + ((viewX + 10) & $0F)
-	ld a, e :: add 10 :: and $0F :: add 26
+.end_u1 ; lenRemaining <= 16: end in slot 1
+	; len1 = lenRemaining
+	ldh [_Xfer1 + SynXfer_length], a
+	xor a :: ldh [_Xfer2 + SynXfer_length], a
 	ret
 
 
@@ -167,193 +354,308 @@ _FrontEast:
 ;; @param D: srcY
 ;; @mut: AF, BC, DE, HL
 MapSyncRow:
-	; Configure srcX, srcLen for each slot
-.configure_x_axis:
-	; default start X for slot 1 & 2 = 0
-	xor a
-	ldh [_x1], a
-	ldh [_x2], a
-
-	; calculate srcX: row starting column (west)
-	; same as the west front + 1
+	; calculate srcX
 	ld a, b
 	sub 6 :: and $0F :: add 6
 	ld e, a
-	; srcX will be in x0 (LHS) or x1 (middle), so we'll just branch and handle each case separately.
-	cp 16
-	jr c, .start_x0
-.start_x1 ; if srcX in [16..31]: start in slot 1 (middle)
-	; x1 = srcX - 16
-	sub 16 :: ldh [_x1], a
-	; len1 = 16 - x1 = 32 - srcX
-	ld a, 32 :: sub e :: ldh [_xfer1len], a
-	; len2 = 20 - len1
-	ld b, a
-	ld a, 20 :: sub b :: ldh [_xfer2len], a
-	; len0 = 0
-	xor a :: ldh [_xfer0len], a
+	ld c, 22
+	call SynXferInitialLayout
 
-	jr .configure_x_done
-.start_x0 ; if srcX in [0..15]: start in slot 0 (LHS)
-	; x0 = srcX
-	ldh [_x0], a
-	; len0 = 16 - x0
-	ld a, 16 :: sub e :: ldh [_xfer0len], a
-	; lenRemaining = 20 - len0
-	ld b, a :: ld a, 20 :: sub b
-	cp 17
-	jr c, .end_x1
-.end_x2 ; if lenRemaining > 16: end in slot 2
-	; len2 = lenRemaining - len1
-	sub 16 :: ldh [_xfer2len], a
-	ld a, 16 :: ldh [_xfer1len], a
-	jr .configure_x_done
+	; srcV = (srcY % 16) * 16
+	ld a, d :: and $0F :: swap a :: ld b, a
 
-.end_x1 ; lenRemaining <= 16: end in slot 1
-	; len1 = lenRemaining
-	ldh [_xfer1len], a
-	xor a :: ldh [_xfer2len], a
-
-.configure_x_done:
-	; Configure addresses, finalise transfers
-
-	; src[i] = slot buffer + (srcY % 16) * 16 + srcX[i]
-	ld a, d
-	and $0F :: swap a ; (srcY % 16) * 16
-	ld b, a
-
-	ld c, low(hMapChunkSlots) ; top
+	; Set C to the left slot (NW, WW, SW) that contains the row to sync.
+	ld c, low(hMapChunkSlots + 0)
 	ld a, d
 	sub 16
-	; if srcY in [0..15]: src in top 3 slots
-	jr c, .row_x0
-	ld c, low(hMapChunkSlots + 3) ; middle
+	; if srcY in [0..15]: top 3 slots
+	jr c, .finalise
+	ld c, low(hMapChunkSlots + 3)
 	sub 16
-	; if srcY in [16..31]: src in middle 3 slots
-	jr c, .row_x0
-	ld c, low(hMapChunkSlots + 6) ; bottom
-	; else srcY in [32..47]: src in bottom 3 slots
+	; if srcY in [16..31]: middle 3 slots
+	jr c, .finalise
+	ld c, low(hMapChunkSlots + 6)
+	; else srcY in [32..47]: bottom 3 slots
 
-.row_x0:
-	; destination address
-	ldh a, [_destX]
-	ld l, a
-	; multiply Y by 32
-	ldh a, [_destY]
-	swap a :: rlca ; mul 32 (but the lowest 5 bits are for D)
-	ld e, a
-	and $1F :: ld d, a
-	ld a, e :: sub d :: add l :: ld e, a
-
-	ld hl, _xfer0dest
-	call _FinaliseRowSlotXfer
-	inc c
-	ld hl, _xfer1dest
-	call _FinaliseRowSlotXfer
-	inc c
-	; adjust destination address to avoid wrapping onto the next destination row
-	ld a, e
-	sub 32
-	ld e, a
-	jr nc, :+
-	dec d
-:
-	ld hl, _xfer2dest
-	call _FinaliseRowSlotXfer
+.finalise:
+;	ldh a, [_destY] :: ld [watchDestY0], a
+;	ldh a, [_destX] :: ld [watchDestX0], a
+	ld hl, _Xfer0
+	call _FinaliseRowXfer
+;	ldh a, [_destY] :: ld [watchDestY1], a
+;	ldh a, [_destX] :: ld [watchDestX1], a
+	ld hl, _Xfer1
+	call _FinaliseRowXfer
+;	ldh a, [_destY] :: ld [watchDestY2], a
+;	ldh a, [_destX] :: ld [watchDestX2], a
+	ld hl, _Xfer2
+	call _FinaliseRowXfer
 
 .process_xfers:
 	; Process the transfers -- update the BG map
 	wrambpush
 
-	ld hl, _xfer0dest
-	call _ProcessSlotXfer
-	ld hl, _xfer1dest
-	call _ProcessSlotXfer
-	ld hl, _xfer2dest
-	call _ProcessSlotXfer
+	ld hl, _Xfer0
+	call _ProcessSynXfer
+	ld hl, _Xfer1
+	call _ProcessSynXfer
+	ld hl, _Xfer2
+	call _ProcessSynXfer
 
 	wrambpop
 	ret
 
 
-;; Finalise slot transfer configuration for row update ~~
-;; @param B: common buffer offset ... (srcY % 16) * 16
+;; @param B: common buffer offset
 ;; @param C: low byte pointer to slot status
-;; @param DE: destination address
-;; @param HL: xfer params
-;; @ret DE: destination address + length
-;; @mut: AF, DE, HL
-_FinaliseRowSlotXfer:
-	; write destination address
-	ld a, e :: ld [hl+], a
-	ld a, d :: ld [hl+], a
+;; @param HL: pointer to SynXfer
+;;;;;;;;;;; @mut: AF, DE, HL
+_FinaliseRowXfer:
+	; status -- slot index & flags
+	ld a, c :: sub low(hMapChunkSlots)
+	ld d, a
+	ldh a, [c]
+	and SLOT_RENDERED | SLOT_NOCHUNK
+	or d
+	ld [hl+], a ; .status
 
-	; if len == 0, do nothing
-	ld a, [hl+]
+	; Check xfer length
+	ld a, [hl] ; .length
 	and a
-	ret z
+	jr z, .end
 
-	; update destination address
-	add e :: ld e, a
-	adc d :: sub e :: ld d, a
+	; Destination address from grid position
+	ldh a, [_destY]
+	; Multiply Y by 32. The result requires 2 bytes but initially both bytes are combined.
+	swap a :: rlca
+	ld e, a
+	; The lowest 5 bits are the high byte of the result.
+	and $1F :: ld d, a
+	; Finally, subtract the high byte from the combined result to get the low byte on its own.
+	; NOTE: adding the X offset here won't cause overflow, assuming a valid value in `[0..31]`.
+	ldh a, [_destX] :: add e :: sub d :: ld e, a
 
+	; Advance destination X coord by xfer length
+	ldh a, [_destX]
+	add [hl] :: and $1F
+	ldh [_destX], a
+	inc hl
+
+	; Store dest index
+	ld a, e :: ld [hl+], a ; dest.0
+	ld a, d :: ld [hl+], a ; dest.1
+
+	; If slot has NOCHUNK set, this xfer will be skipped & we have nothing else to do.
+	; NOTE: this check must come after updating destination coord.
 	ldh a, [c]
-	bit bSLOT_RENDERED, a
-	jr nz, :+
-	; TODO: if slot is unrendered (but not NOCHUNK) -- do something...
-	dec hl
-	xor a :: ld [hl], a
-	ret
-:
+	bit bSLOT_NOCHUNK, a
+	jr nz, .end
 
-	ld a, [hl+] ; xoffset
+	; srcIndex -- source address low byte
+	ld a, [hl] ; .srcIndex holds srcU initially
 	add b
-	ld [hl+], a ; src low byte
+	ld [hl+], a ; srcIndex
 
-	; buffer address (src high byte)
-	ldh a, [c]
-	and SLOT_BUFFER :: or $D0
-	ld [hl+], a
-
+.end:
+	inc c
 	ret
 
 
-;; @param HL: xfer params
-_ProcessSlotXfer:
-	; dest (offset)
+;; Transfer a column from cache to the bgmap buffers.
+;; @param B: destY
+;; @param D: srcX
+;; @mut: AF, BC, DE, HL
+MapSyncColumn:
+	; calculate srcY: starting row, top row of view rect
+	ld a, b
+	sub 7 :: and $0F :: add 7
+	ld e, a
+	ld c, 20
+	call SynXferInitialLayout
+
+	; srcV = srcX % 16
+	ld a, d :: and $0F :: ld b, a
+
+	; Set C to the top slot (NW, NN, NE) that contains the column to sync. (*the column being sunc*)
+	ld c, low(hMapChunkSlots)
+	ld a, d
+	sub 16
+	; if srcX in [0..15]: west 3 slots
+	jr c, .finalise
+	inc c
+	sub 16
+	; if srcX in [16..31]: middle 3 slots
+	jr c, .finalise
+	inc c
+	; else srcX in [32..47]: east 3 slots
+
+.finalise:
+;	ldh a, [_destY] :: ld [watchDestY0], a
+;	ldh a, [_destX] :: ld [watchDestX0], a
+	ld hl, _Xfer0
+	call _FinaliseColumnXfer
+;	ldh a, [_destY] :: ld [watchDestY1], a
+;	ldh a, [_destX] :: ld [watchDestX1], a
+	ld hl, _Xfer1
+	call _FinaliseColumnXfer
+;	ldh a, [_destY] :: ld [watchDestY2], a
+;	ldh a, [_destX] :: ld [watchDestX2], a
+	ld hl, _Xfer2
+	call _FinaliseColumnXfer
+
+;	ld a, [_Xfer0 + SynXfer_status] :: ld [watchStatus0], a
+;	ld a, [_Xfer1 + SynXfer_status] :: ld [watchStatus1], a
+;	ld a, [_Xfer2 + SynXfer_status] :: ld [watchStatus2], a
+
+.process_xfers:
+	; Process the transfers -- update the BG map
+	wrambpush
+
+	ld hl, _Xfer0
+	call _ProcessSynXfer
+	ld hl, _Xfer1
+	call _ProcessSynXfer
+	ld hl, _Xfer2
+	call _ProcessSynXfer
+
+	wrambpop
+	ret
+
+
+;; @param B: common buffer offset ... srcX
+;; @param C: low byte pointer to slot status
+;; @param HL: pointer to xfer params
+;;;;;;;;;;; @mut: AF, DE, HL
+_FinaliseColumnXfer:
+	; status -- slot index & flags
+	ld a, c :: sub low(hMapChunkSlots)
+	or SynXfer_COLUMN
+	ld d, a
+	ldh a, [c]
+	and SLOT_RENDERED | SLOT_NOCHUNK
+	or d
+	ld [hl+], a ; .status
+
+	; Check xfer length
+	ld a, [hl+] ; .length
+	and a
+	jr z, .end
+	ld d, a
+	; Destination address from grid position
+	ldh a, [_destY] :: ld e, a
+	; Advance destination Y coord by xfer length
+	add d :: and $1F
+	ldh [_destY], a
+	; Multiply Y by 32. The result requires 2 bytes but initially both bytes are combined.
+	ld a, e :: swap a :: rlca
+	ld e, a
+	; The lowest 5 bits are the high byte of the result.
+	and $1F :: ld d, a
+	; Finally, subtract the high byte from the combined result to get the low byte on its own.
+	; NOTE: adding the X offset here won't cause overflow, assuming a valid value in `[0..31]`.
+	ldh a, [_destX] :: add e :: sub d
+	; ld e, a
+	; ld a, e
+	ld [hl+], a ; dest.0
+	ld a, d :: ld [hl+], a ; dest.1
+
+	; If slot has NOCHUNK set, this xfer will be skipped & we have nothing else to do.
+	; NOTE: this check must come after updating destination coord.
+	ldh a, [c]
+	bit bSLOT_NOCHUNK, a
+	jr nz, .end
+
+	; srcIndex -- source address low byte
+	ld a, [hl] ; .srcIndex holds srcU initially
+	; srcIndex = srcV + (srcU % 16) * 16
+	and $0F :: swap a :: add b
+	ld [hl+], a ; srcIndex
+
+.end:
+	inc c :: inc c :: inc c ; C += 3
+	ret
+
+
+;; @param HL: pointer to SynXfer
+;; @mut: AF, BC, DE, HL
+_ProcessSynXfer:
+	ld a, [hl+] ; .status
+	; check source slot status
+	bit bSynXfer_SLOT_RENDERED, a
+	ret z
+	bit bSynXfer_SLOT_SKIP, a
+	ret nz
+
+	ldh [_xfer_status], a
+
+	ld a, [hl+] ; .length
+	and a :: ret z ; TODO: probably redundant (SKIP should be set, RENDERED should not be)
+	ld b, a
+
+	; .destIndex
 	ld a, [hl+] :: ld e, a
 	ld a, [hl+] :: ld d, a
-	; len
-	ld a, [hl]
-	and a :: ret z
+
+	; get source slot index
+	ldh a, [_xfer_status]
+	and SynXfer_SLOT_INDEX
+	cp 10 :: ret nc ; TODO: probably redundant (SKIP should be set, RENDERED should not be)
+	add low(hMapChunkSlots)
 	ld c, a
-	xor a :: ld [hl+], a
 
-	inc hl ; xoffset (skip)
+	; .srcIndex (src address low byte)
+	ld l, [hl]
+	; src buffer address (high byte)
+	ldh a, [c] :: and SLOT_BUFFER :: or $D0
+	ld h, a
 
-	; src
-	ld a, [hl+]
-	ld h, [hl]
-	ld l, a
+	; keep xfer status in C
+	ldh a, [_xfer_status]
+	ld c, a
 
 	ld a, MAP_CHR_BUFFER_BANK :: ldh [rSVBK], a
 	push bc :: push de :: push hl
 	ld a, d :: add high(wMapBgChr) :: ld d, a
-:
-	ld a, [hl+]
-	ld [de], a :: inc de
-	dec c
-	jr nz, :-
+
+	bit bSynXfer_ORIENTATION, c
+	call _xfer_loop
 
 	ld a, MAP_ATRB_BUFFER_BANK :: ldh [rSVBK], a
 	pop hl :: pop de :: pop bc
 	ld a, d :: add high(wMapBgAtrb) :: ld d, a
-:
+
+	bit bSynXfer_ORIENTATION, c
+	jr _xfer_loop
+
+
+;; @param B: length
+;; @param DE: destination address
+;; @param HL: source address
+;; @param F.Z: Z = orientation is ROW, NZ = orientation is COLUMN
+;; @mut: AF, B, DE, HL
+_xfer_loop:
+	jr z, .xfer_loop_row
+.xfer_loop_column:
+	ld a, [hl]
+	ld [de], a
+
+	ld a, 32
+	add e :: ld e, a
+	adc d :: sub e :: ld d, a
+
+	ld a, 16
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+
+	dec b
+	jr nz, .xfer_loop_column
+	ret
+
+.xfer_loop_row:
 	ld a, [hl+]
 	ld [de], a :: inc de
-	dec c
-	jr nz, :-
-
+	dec b
+	jr nz, .xfer_loop_row
 	ret
 
 
@@ -778,6 +1080,22 @@ MapInit::
 	call _ResetAllSlots
 
 	xor a :: ldh [hMapSlotIdx], a
+
+	ld b, SYN_XFER_COUNT * szSynXfer
+	ld a, SynXfer_EMPTY
+	ld c, low(_Xfer0)
+:
+	ldh [c], a :: inc c
+	dec b
+	jr nz, :-
+
+	xor a
+	ldh [_render_rows_count], a
+	ldh [_render_row], a
+	ldh [_render_columns_count], a
+	ldh [_render_column], a
+	ldh [hMapSrcOriginX], a
+	ldh [hMapSrcOriginY], a
 
 	rombopen bank(xMapBufferInit)
 	jp xMapBufferInit

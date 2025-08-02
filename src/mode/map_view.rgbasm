@@ -23,6 +23,7 @@ modeMapView_Enter::
 
 	call ScrollInit
 	call MapEnable
+	call ScrollRenderVisible
 
 	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
 	ret
