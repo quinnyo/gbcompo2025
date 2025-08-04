@@ -356,11 +356,15 @@ end
 Scroll = st_create("Scroll")
 st_field(Scroll, "dy", 1, true)
 st_field(Scroll, "y", 2)
+st_field(Scroll, "row", 2)
 st_field(Scroll, "frontier_row", 1)
+st_field(Scroll, "frontier_row_prev", 1)
 st_field(Scroll, "fn_render_map_rows", 2)
 st_field(Scroll, "dx", 1, true)
 st_field(Scroll, "x", 2)
+st_field(Scroll, "column", 2)
 st_field(Scroll, "frontier_column", 1)
+st_field(Scroll, "frontier_column_prev", 1)
 st_field(Scroll, "fn_render_map_columns", 2)
 
 
@@ -402,7 +406,19 @@ local MapChunkSlot = {
 	SLOT_BUFFER = 0x0F,
 	SLOT_RENDERED = 0x10,
 	SLOT_NOCHUNK = 0x20,
+
+	NAME = {
+		"NW", "NN", "NE",
+		"WW", "CC", "EE",
+		"SW", "SS", "SE",
+	}
 }
+
+MapChunkSlot.slotNameIndexed = function(i)
+	assert(i >= 0)
+	assert(i < #MapChunkSlot.NAME)
+	return MapChunkSlot.NAME[i + 1]
+end
 
 MapChunkSlot.decode = function(data)
 	local t = {}
@@ -495,6 +511,38 @@ MapTool = {
 }
 
 
+-------- Map SynXfer --------
+local SynXfer = st_create("SynXfer")
+st_field(SynXfer, "status", 1)
+st_field(SynXfer, "length", 1)
+st_field(SynXfer, "destIndex", 2)
+st_field(SynXfer, "srcIndex", 1)
+
+SynXfer.fieldfmt = {
+	status = function(x)
+		local slotIndex = x & 0x0F
+		local isEmpty = slotIndex == 0x0F
+		if isEmpty then
+			return "NIL"
+		else
+			local orientation = (x & 0x80 == 0) and "ROW" or "COL"
+			local slotName = MapChunkSlot.slotNameIndexed(slotIndex)
+			local sflags = ""
+			if x & MapChunkSlot.SLOT_NOCHUNK ~= 0 then
+				sflags = sflags .. " NC"
+			end
+			if x & MapChunkSlot.SLOT_RENDERED ~= 0 then
+				sflags = sflags .. " R"
+			end
+			return string.format("%s(%s)%s", slotName, orientation, sflags)
+		end
+	end,
+	length = "%3d",
+	destIndex = "%4X",
+	srcIndex = "%3d",
+}
+
+
 
 -------- Do stuff --------
 
@@ -538,6 +586,10 @@ local overlay = createOverlay({ x = 12, y = 12 }, 4)
 
 local wScroll = Scroll:getLabelAddress("wScroll")
 local monScroll = st_monitor(Scroll, wScroll.address, wScroll.memType)
+
+local config = {
+	showMapSync = false,
+}
 
 
 local function frontNorth(viewY)
@@ -606,6 +658,20 @@ local function onEndFrame()
 			end
 		end
 	end
+
+	-- map sync transfers
+	if config.showMapSync then
+		for i = 0, 2 do
+			local sym = string.format("_Xfer%d", i)
+			local xfer = SynXfer:readFromLabel(sym)
+			local s = string.format("%s: NOT FOUND", sym)
+			if xfer then
+				s = st_fmt(xfer)
+			end
+			overlay:drawString(i * 100, 200, s)
+		end
+	end
+
 
 --	local surfW = overlay:getSurfaceSize()
 --	for x = 0, surfW, 64 do
