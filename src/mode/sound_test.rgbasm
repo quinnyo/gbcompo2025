@@ -1,0 +1,47 @@
+include "hardware.inc"
+include "mode.rgbinc"
+include "banker.rgbinc"
+
+
+	mode_def modeSoundTest
+
+
+section union "{MODE_COMMON}", wramx
+wSfxSelect: db
+
+
+section "modeSoundTest", romx
+modeSoundTest_Enter::
+	wrambpush bank("{MODE_COMMON}")
+	xor a :: ld [wSfxSelect], a
+	wrambpop
+
+	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
+	ret
+
+
+modeSoundTest_Process::
+	wrambpush bank("{MODE_COMMON}")
+
+	ld a, [wInput.pressed]
+	bit PADB_A, a
+	jr z, :+
+	ld a, [wSfxSelect]
+	jr .play
+:
+	bit PADB_START, a
+	jr z, .nopes
+	ld a, [wSfxSelect]
+	inc a
+	cp SFX_COUNT
+	jr c, :+
+	xor a
+:
+	ld [wSfxSelect], a
+.play
+	call audio_play_fx
+.nopes
+
+	wrambpop
+	ret
+

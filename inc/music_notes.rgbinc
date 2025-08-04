@@ -1,0 +1,85 @@
+if !def(MUSIC_NOTES_INC_7d35bdd3f3)
+
+def NOTE0 equ 44
+def NOTE1 equ 156
+def NOTE2 equ 262
+def NOTE3 equ 363
+def NOTE4 equ 457
+def NOTE5 equ 547
+def NOTE6 equ 631
+def NOTE7 equ 710
+def NOTE8 equ 786
+def NOTE9 equ 854
+def NOTE10 equ 923
+def NOTE11 equ 986
+def NOTE12 equ 1046
+def NOTE13 equ 1102
+def NOTE14 equ 1155
+def NOTE15 equ 1205
+def NOTE16 equ 1253
+def NOTE17 equ 1297
+def NOTE18 equ 1339
+def NOTE19 equ 1379
+def NOTE20 equ 1417
+def NOTE21 equ 1452
+def NOTE22 equ 1486
+def NOTE23 equ 1517
+def NOTE24 equ 1546
+def NOTE25 equ 1575
+def NOTE26 equ 1602
+def NOTE27 equ 1627
+def NOTE28 equ 1650
+def NOTE29 equ 1673
+def NOTE30 equ 1694
+def NOTE31 equ 1714
+def NOTE32 equ 1732
+def NOTE33 equ 1750
+def NOTE34 equ 1767
+def NOTE35 equ 1783
+def NOTE36 equ 1798
+def NOTE37 equ 1812
+def NOTE38 equ 1825
+def NOTE39 equ 1837
+def NOTE40 equ 1849
+def NOTE41 equ 1860
+def NOTE42 equ 1871
+def NOTE43 equ 1881
+def NOTE44 equ 1890
+def NOTE45 equ 1899
+def NOTE46 equ 1907
+def NOTE47 equ 1915
+def NOTE48 equ 1923
+def NOTE49 equ 1930
+def NOTE50 equ 1936
+def NOTE51 equ 1943
+def NOTE52 equ 1949
+def NOTE53 equ 1954
+def NOTE54 equ 1959
+def NOTE55 equ 1964
+def NOTE56 equ 1969
+def NOTE57 equ 1974
+def NOTE58 equ 1978
+def NOTE59 equ 1982
+def NOTE60 equ 1985
+def NOTE61 equ 1988
+def NOTE62 equ 1992
+def NOTE63 equ 1995
+def NOTE64 equ 1998
+def NOTE65 equ 2001
+def NOTE66 equ 2004
+def NOTE67 equ 2006
+def NOTE68 equ 2009
+def NOTE69 equ 2011
+def NOTE70 equ 2013
+def NOTE71 equ 2015
+
+def NOTE_COUNT equ 72
+
+macro generate_note_table
+	for I, NOTE_COUNT
+		dw NOTE{u:I}
+	endr
+endm
+
+endc ; MUSIC_NOTES_INC_7d35bdd3f3
+
