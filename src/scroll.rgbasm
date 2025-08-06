@@ -34,8 +34,8 @@ RenderMapRows(DE, C)
 */
 
 
-; Grid distance to the frontier
-def FRONTIER equ 20
+def VIEW_COLUMNS equ 20
+def VIEW_ROWS equ 18
 
 
 section "wScroll", wram0
@@ -81,7 +81,7 @@ ScrollInit::
 ;; Call render commands for the visible view region.
 ScrollRenderVisible::
 	call ScrollGetViewRow
-	ld c, FRONTIER
+	ld c, VIEW_ROWS
 	; load impl function pointer
 	ld hl, wScroll.fn_render_map_rows
 	ld a, [hl+] :: ld h, [hl] :: ld l, a
@@ -118,10 +118,10 @@ ScrollGetViewColumn::
 
 ;; @mut: AF, BC, DE, HL
 ScrollUpdate::
-	ld a, 18 :: ldh [_front_dist], a
+	ld a, VIEW_ROWS + 1 :: ldh [_front_dist], a
 	ld hl, wScroll.dy
 	call .UpdateAxis
-	ld a, 20 :: ldh [_front_dist], a
+	ld a, VIEW_COLUMNS + 1 :: ldh [_front_dist], a
 	ld hl, wScroll.dx
 	call .UpdateAxis
 	ld hl, wScroll.frontier_column
@@ -192,7 +192,6 @@ ScrollUpdate::
 	ld a, c :: rlca :: sbc a
 	jr nz, :+
 	ldh a, [_front_dist]
-	;ld a, FRONTIER
 :
 	add e
 	ld [hl], a
