@@ -357,15 +357,9 @@ Scroll = st_create("Scroll")
 st_field(Scroll, "dy", 1, true)
 st_field(Scroll, "y", 2)
 st_field(Scroll, "row", 2)
-st_field(Scroll, "frontier_row", 1)
-st_field(Scroll, "frontier_row_prev", 1)
-st_field(Scroll, "fn_render_map_rows", 2)
 st_field(Scroll, "dx", 1, true)
 st_field(Scroll, "x", 2)
 st_field(Scroll, "column", 2)
-st_field(Scroll, "frontier_column", 1)
-st_field(Scroll, "frontier_column_prev", 1)
-st_field(Scroll, "fn_render_map_columns", 2)
 
 
 local fmt_scroll_pos = function(dot)
@@ -397,6 +391,52 @@ Rect.fieldfmt = {
 	ypos = Coord.fmt,
 	yend = Coord.fmt,
 }
+
+
+
+-------- Emutil --------
+Emutil = {}
+
+Emutil.read = emu.read
+Emutil.getLabelAddress = emu.getLabelAddress
+Emutil.getState = emu.getState()
+
+Emutil.lbRead = function(label, signed)
+	return Emutil.read(label.address, label.memType, signed)
+end
+
+Emutil.readBytes = function(startAddress, memType, length, signed)
+	signed = signed or false
+	local addr = startAddress
+	local bytes = {}
+	for _ = 1, length do
+		local value = Emutil.read(addr, memType, signed)
+		table.insert(bytes, value)
+		addr = addr + 1
+	end
+	return bytes
+end
+
+Emutil.getLabel = function(symbol)
+	local label = Emutil.getLabelAddress(symbol)
+	if not label then
+		return nil
+	end
+	label.symbol = symbol
+	return label
+end
+
+Emutil.getFrameCount = function()
+	return Emutil.getState()["frameCount"]
+end
+
+Emutil.getScanline = function()
+	return Emutil.getState()["ppu.ly"]
+end
+
+Emutil.getCpuCycleCount = function()
+	return Emutil.getState()["cpu.cycleCount"]
+end
 
 
 
@@ -443,37 +483,16 @@ MapChunkSlot.readArray = function(startAddress, memType, count)
 	return out
 end
 
-local function readBytes(startAddress, memType, length, signed)
-	signed = signed or false
-	local addr = startAddress
-	local bytes = {}
-	for _ = 1, length do
-		local value = emu.read(addr, memType, signed)
-		table.insert(bytes, value)
-		addr = addr + 1
-	end
-	return bytes
-end
-
-local function getLabel(symbol)
-	local label = emu.getLabelAddress(symbol)
-	if not label then
-		return nil
-	end
-	label.symbol = symbol
-	return label
-end
-
 local bufferIdIndex = {}
 local labelsMapBufferChr = {}
 local labelsMapBufferAtrb = {}
 for i = 1, 9 do
-	local label0 = getLabel(string.format("wMapBufferChr%d", i - 1))
+	local label0 = Emutil.getLabel(string.format("wMapBufferChr%d", i - 1))
 	if label0 then
 		bufferIdIndex[(label0.address >> 8) & MapChunkSlot.SLOT_BUFFER] = i
 	end
 	table.insert(labelsMapBufferChr, label0)
-	local label1 = getLabel(string.format("wMapBufferAtrb%d", i - 1))
+	local label1 = Emutil.getLabel(string.format("wMapBufferAtrb%d", i - 1))
 	table.insert(labelsMapBufferAtrb, label1)
 end
 
@@ -487,7 +506,7 @@ MapTool = {
 	originY = 0,
 
 	labels = {
-		slots = getLabel("hMapChunkSlots"),
+		slots = Emutil.getLabel("hMapChunkSlots"),
 		chr_buffers = labelsMapBufferChr,
 		atrb_buffers = labelsMapBufferAtrb,
 	},
@@ -500,7 +519,7 @@ MapTool = {
 
 		local chr_buffers = {}
 		for _, label in ipairs(self.labels.chr_buffers) do
-			table.insert(chr_buffers, readBytes(label.address, label.memType, self.CHUNK_SIZE))
+			table.insert(chr_buffers, Emutil.readBytes(label.address, label.memType, self.CHUNK_SIZE))
 		end
 		self.chr_buffers = chr_buffers
 	end,
