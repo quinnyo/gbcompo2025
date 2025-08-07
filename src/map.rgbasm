@@ -30,18 +30,18 @@ def bSynXfer_SLOT_INDEX equ 0
 ;; Equivalent to source slot SLOT_RENDERED.
 def bSynXfer_SLOT_RENDERED equ bSLOT_RENDERED
 ;; Equivalent to source slot SLOT_NOCHUNK.
-def bSynXfer_SLOT_SKIP equ bSLOT_NOCHUNK
+def bSynXfer_SKIP equ bSLOT_NOCHUNK
 def bSynXfer_DONE equ 6
 ;; Set if transfer is for a column (& needs appropriate stride applied)
 def bSynXfer_ORIENTATION equ 7
 
 def SynXfer_SLOT_INDEX equ $0F
 def SynXfer_SLOT_RENDERED equ 1 << bSynXfer_SLOT_RENDERED
-def SynXfer_SLOT_SKIP equ 1 << bSynXfer_SLOT_SKIP
+def SynXfer_SKIP equ 1 << bSynXfer_SKIP
 def SynXfer_DONE equ 1 << bSynXfer_DONE
 def SynXfer_COLUMN equ 1 << bSynXfer_ORIENTATION
 
-def SynXfer_EMPTY equ SynXfer_SLOT_INDEX
+def SynXfer_EMPTY equ SynXfer_SKIP
 
 
 rsreset
@@ -148,6 +148,8 @@ MapUpdate::
 	call MapUpdateViewChunk
 	call MapUpdateCache
 
+	;call _ProcessAllSynXfers
+
 	ldh a, [hScrollStat]
 	bit bScrollStat_ChangeFrontY, a
 	jr z, :+
@@ -171,8 +173,6 @@ section "MapSyncFront", rom0
 ;; @param E: Y
 ;; @mut: AF, BC, DE, HL
 MapSyncFrontRow::
-	ld a, [wScroll.row + 0]
-	sub 7 :: and $F0 :: ldh [hMapSrcOriginY], a
 	; row X position
 	ld a, [wScroll.column + 0]
 	dec a ; viewX - 1 so corners get painted
@@ -190,8 +190,6 @@ MapSyncFrontRow::
 ;; @param E: X
 ;; @mut: AF, BC, DE, HL
 MapSyncFrontColumn:
-	ld a, [wScroll.column + 0]
-	sub 6 :: and $F0 :: ldh [hMapSrcOriginX], a
 	; column Y position
 	ld a, [wScroll.row + 0]
 	dec a ; viewY - 1 so corners get painted
@@ -264,7 +262,7 @@ MapSyncRow:
 	ld a, b
 	sub 6 :: and $0F :: add 6
 	ld e, a
-	ld c, 22
+	ld c, 23
 	call SynXferInitialLayout
 
 	; srcV = (srcY % 16) * 16
@@ -358,7 +356,7 @@ MapSyncColumn:
 	ld a, b
 	sub 7 :: and $0F :: add 7
 	ld e, a
-	ld c, 20
+	ld c, 21
 	call SynXferInitialLayout
 
 	; srcV = srcX % 16
@@ -460,24 +458,11 @@ _ProcessAllSynXfers:
 ;; @param HL: pointer to SynXfer
 ;; @mut: AF, BC, DE, HL
 _ProcessSynXfer:
-	ld a, [hl+] ; .status
-	; check source slot status
-	bit bSynXfer_SLOT_SKIP, a
-	ret nz
-
+	ld a, [hl] ; .status
 	ldh [_xfer_status], a
-
-	ld a, [hl+] ; .length
-	and a :: ret z
-	ld b, a
-
-	ldh a, [_xfer_status]
-	bit bSynXfer_SLOT_RENDERED, a
-	ret z
-
-	; .destIndex
-	ld a, [hl+] :: ld e, a
-	ld a, [hl+] :: ld d, a
+	; Check Xfer needs doing
+	and SynXfer_SKIP | SynXfer_DONE
+	ret nz
 
 	; get source slot index
 	ldh a, [_xfer_status]
@@ -485,6 +470,24 @@ _ProcessSynXfer:
 	cp 10 :: ret nc ; TODO: probably redundant (SKIP should be set, RENDERED should not be)
 	add low(hMapChunkSlots)
 	ld c, a
+	; check slot's current status
+	; TOMAYBEDO: also check that slot is the same as when the Xfer was configured...
+	ldh a, [c]
+	bit bSLOT_RENDERED, a
+	ret z
+
+	; mark xfer as DONE
+	set bSynXfer_DONE, [hl]
+	inc hl
+
+	; Check that xfer length is nonzero
+	ld a, [hl+] ; .length
+	and a :: ret z
+	ld b, a
+
+	; .destIndex
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
 
 	; .srcIndex (src address low byte)
 	ld l, [hl]
@@ -657,6 +660,8 @@ MapUpdateViewChunk:
 	ld a, h
 	rla
 	ldh [hMapViewChunkNewY], a
+	dec a :: swap a :: and $F0 :: ldh [hMapSrcOriginY], a
+
 	; X axis view position (world dots) to chunk coords
 	ld hl, wScroll.x
 	ld a, [hl+]
@@ -672,10 +677,12 @@ MapUpdateViewChunk:
 	ld a, h
 	rla
 	ldh [hMapViewChunkNewX], a
+	dec a :: swap a :: and $F0 :: ldh [hMapSrcOriginX], a
 
 	call _UpdateSlotsY
 	ldh a, [hMapViewChunkNewY]
 	ldh [hMapViewChunkY], a
+
 	call _UpdateSlotsX
 	ldh a, [hMapViewChunkNewX]
 	ldh [hMapViewChunkX], a
