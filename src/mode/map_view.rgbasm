@@ -18,12 +18,11 @@ modeMapView_Enter::
 	xor a
 	ld [wVelX], a
 	ld [wVelY], a
-	ld a, 2 :: ld [wSpeed], a
+	ld a, 3 :: ld [wSpeed], a
 	wrambpop
 
 	call ScrollInit
 	call MapEnable
-	call ScrollRenderVisible
 
 	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
 	ret
@@ -53,6 +52,7 @@ modeMapView_Process::
 	ld e, [hl]
 	call _accelerate
 	ld [hl+], a
+	call _ScrollDelta
 	ld [wScroll.dx], a
 
 	ld a, [wSpeed] :: ld d, a
@@ -69,6 +69,7 @@ modeMapView_Process::
 	ld e, [hl]
 	call _accelerate
 	ld [hl], a
+	call _ScrollDelta
 	ld [wScroll.dy], a
 
 	wrambpop
@@ -84,9 +85,25 @@ _SpeedUp:
 	ld a, [wSpeed]
 	inc a :: and $03
 	jr nz, :+
-	inc a
+	ld a, 2
 :
 	ld [wSpeed], a
+	ret
+
+
+;; @param A: velocity
+;; @ret A: delta
+_ScrollDelta:
+	and a :: ret z
+	cp $80
+	jr c, .positive
+.negative:
+	cpl :: inc a
+	sra a :: sra a
+	cpl :: inc a
+	ret
+.positive:
+	sra a :: sra a
 	ret
 
 
