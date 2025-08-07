@@ -462,16 +462,18 @@ _ProcessAllSynXfers:
 _ProcessSynXfer:
 	ld a, [hl+] ; .status
 	; check source slot status
-	bit bSynXfer_SLOT_RENDERED, a
-	ret z
 	bit bSynXfer_SLOT_SKIP, a
 	ret nz
 
 	ldh [_xfer_status], a
 
 	ld a, [hl+] ; .length
-	and a :: ret z ; TODO: probably redundant (SKIP should be set, RENDERED should not be)
+	and a :: ret z
 	ld b, a
+
+	ldh a, [_xfer_status]
+	bit bSynXfer_SLOT_RENDERED, a
+	ret z
 
 	; .destIndex
 	ld a, [hl+] :: ld e, a
