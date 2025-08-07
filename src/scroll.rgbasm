@@ -18,24 +18,43 @@ include "hardware.inc"
 As scroll scrolls, visible part of map changes.
 The map renderer guy has to render stuff before we scroll it into view. (Who knew!)
 
-# Frontier Forward
-The tiles just outside the view rect are called the *frontier*.
-There are two frontier edges -- one for each axis.
-Which side the frontier is on depends on the scroll direction.
-So if the view is scrolled to the right, the frontier column will be on the right.
-
-# Render Request
-Smallest thing to render is a whole row or column.
-That's "whole" as in 32 tiles -- spanning the entire BG map buffer.
-- dependency injection ~~ function pointers
-Two functions to implement:
-RenderMapColumns(DE, C)
-RenderMapRows(DE, C)
+# Front Forward
+The *front* is the line of tiles just outside the view, in the direction of scrolling.
+Two fronts are tracked -- one for each axis.
+The front is intended to be used as a 'loading seam'.
+When scrolling results in the position of a front changing, a ScrollStat flag will be set (until the next update).
 */
+
+rsreset
+;; Set to request 'Reset' status.
+export def bScrollStat_RequestReset rb 1
+;; Set if scroll position has been (re)set directly.
+;; i.e. the current view rect has no relation to the previous one.
+export def bScrollStat_Reset rb 1
+;; Set if hScrollFrontY was changed in the most recent update.
+export def bScrollStat_ChangeFrontY rb 1
+;; Set if hScrollFrontX was changed in the most recent update.
+export def bScrollStat_ChangeFrontX rb 1
+
+export def ScrollStat_RequestReset equ 1 << bScrollStat_RequestReset
+export def ScrollStat_Reset equ 1 << bScrollStat_Reset
+export def ScrollStat_ChangeFrontY equ 1 << bScrollStat_ChangeFrontY
+export def ScrollStat_ChangeFrontX equ 1 << bScrollStat_ChangeFrontX
+
+;; Mask off all transient (set every frame) status flags.
+def ScrollStat_Transient equ ScrollStat_Reset | ScrollStat_ChangeFrontY | ScrollStat_ChangeFrontX
 
 
 def VIEW_COLUMNS equ 20
 def VIEW_ROWS equ 18
+
+
+section "hScroll", hram
+hScrollStat:: db
+hScrollFrontY:: db
+hScrollFrontX:: db
+
+_front_dist: db
 
 
 section "wScroll", wram0
@@ -46,11 +65,6 @@ wScroll::
 	.y:: dw
 	;; View scroll grid row
 	.row:: dw
-	.frontier_row: db
-	.frontier_row_prev: db
-	;; Pointer to function implementing `RenderMapRows(DE, C)`.
-	;; impl to render `C` consecutive (Y+) map rows, starting at `DE`.
-	.fn_render_map_rows:: dw
 
 	;; Pending view position delta (X axis)
 	.dx:: db
@@ -58,16 +72,6 @@ wScroll::
 	.x:: dw
 	;; View scroll grid column
 	.column:: dw
-	.frontier_column: db
-	.frontier_column_prev: db
-	;; Pointer to function implementing `RenderMapColumns(DE, C)`.
-	;; impl to render `C` consecutive (Y+) map columns, starting at `DE`.
-	.fn_render_map_columns:: dw
-
-
-pushs "hScroll", hram
-_front_dist: db
-pops
 
 
 section "Scroll", rom0
@@ -75,19 +79,12 @@ ScrollInit::
 	ld hl, startof("wScroll")
 	ld c, sizeof("wScroll")
 	xor a
-	jp MemFillSmall
-
-
-;; Call render commands for the visible view region.
-ScrollRenderVisible::
-	call ScrollGetViewRow
-	ld c, VIEW_ROWS
-	; load impl function pointer
-	ld hl, wScroll.fn_render_map_rows
-	ld a, [hl+] :: ld h, [hl] :: ld l, a
-	; zero means unset
-	or h :: ret z
-	jp hl
+	call MemFillSmall
+	ld a, ScrollStat_RequestReset :: ldh [hScrollStat], a
+	xor a
+	ldh [hScrollFrontY], a
+	ldh [hScrollFrontX], a
+	ret
 
 
 ;; @ret DE: Tile grid row containing the top edge of the view rect.
@@ -118,33 +115,55 @@ ScrollGetViewColumn::
 
 ;; @mut: AF, BC, DE, HL
 ScrollUpdate::
+	ldh a, [hScrollStat]
+	and ~(ScrollStat_Transient)
+	ld b, a ; B will be the new value for hScrollStat
+
 	ld a, VIEW_ROWS + 1 :: ldh [_front_dist], a
 	ld hl, wScroll.dy
 	call .UpdateAxis
+	jr nc, :+
+	; Store updated front & set changed flag if it actually changed.
+	ld c, a
+	ldh a, [hScrollFrontY]
+	cp c
+	jr z, :+
+	ld a, c :: ldh [hScrollFrontY], a
+	set bScrollStat_ChangeFrontY, b
+:
+
 	ld a, VIEW_COLUMNS + 1 :: ldh [_front_dist], a
 	ld hl, wScroll.dx
 	call .UpdateAxis
-	ld hl, wScroll.frontier_column
-	call .ProcessFrontierChanged
-	ld hl, wScroll.frontier_row
+	jr nc, :+
+	; Store updated front & set changed flag if it actually changed.
+	ld c, a
+	ldh a, [hScrollFrontX]
+	cp c
+	jr z, :+
+	ld a, c :: ldh [hScrollFrontX], a
+	set bScrollStat_ChangeFrontX, b
+:
 
-;; @param HL: pointer to scroll axis state @ new frontier
-.ProcessFrontierChanged:
-	ld a, [hl+]
-	cp [hl]
-	ret z ; no change
-	ld [hl+], a
-	; TODO: ??? handle skipped rows ???
+	; Update status
+	ld a, b
+	and ScrollStat_RequestReset
+	jr nz, .set_reset
+	ld a, b
+.store_stat
+	ldh [hScrollStat], a
+	ret
+.set_reset
+	xor b ; clear request flag
+	or ScrollStat_Reset
+	jr .store_stat
 
-	; Render frontier
-	ld e, a
-	ld c, 1
-	; read function pointer at HL & call it if it's nonzero.
-	ld a, [hl+] :: ld h, [hl] :: ld l, a
-	or h :: ret z
-	jp hl
 
 ;; @param HL: pointer to scroll axis state
+;; @ret A: new front position (only valid with F.C)
+;; @ret F.C: set to indicate success
+;; @ret F.Z: set if zero delta
+;; @mut: AF, C, DE, HL
 .UpdateAxis:
 	; Load delta & clear the accumulator
 	ld c, [hl]
@@ -194,123 +213,6 @@ ScrollUpdate::
 	ldh a, [_front_dist]
 :
 	add e
-	ld [hl], a
-	ret
-
-;	cp [hl]
-;	ret z ; no change
-;	ld [hl+], a
-;	; TODO: ??? handle skipped rows ???
-;
-;	; Render frontier
-;	ld e, a
-;	ld c, 1
-;	; read function pointer at HL & call it if it's nonzero.
-;	ld a, [hl+] :: ld h, [hl] :: ld l, a
-;	or h :: ret z
-;	jp hl
-
-
-section "MockMap", rom0
-MockMapConnect::
-	ld hl, wScroll.fn_render_map_rows
-	ld a, low(MockMapRenderRows) :: ld [hl+], a
-	ld a, high(MockMapRenderRows) :: ld [hl+], a
-	ld hl, wScroll.fn_render_map_columns
-	ld a, low(MockMapRenderColumns) :: ld [hl+], a
-	ld a, high(MockMapRenderColumns) :: ld [hl+], a
-	ret
-
-
-def bBGATRB_PALETTE     equ 0
-def bBGATRB_PALETTE_MSB equ 2
-def bBGATRB_BANK        equ 3
-def bBGATRB__UNUSED     equ 4
-def bBGATRB_XFLIP       equ 5
-def bBGATRB_YFLIP       equ 6
-def bBGATRB_PRIORITY    equ 7
-
-def mBGATRB_PALETTE     equ $03
-def mBGATRB_BANK        equ $04
-def mBGATRB_XFLIP       equ $20
-def mBGATRB_YFLIP       equ $40
-def mBGATRB_PRIORITY    equ $80
-
-
-;; @param DE: start row
-;; @param C: number of rows
-;; @mut: AF, BC, E, HL
-MockMapRenderRows:
-assert startof("wMapBgChr") == $C800
-assert startof("wMapBgAtrb") == $D800
-
-	ldh a, [rSVBK] :: push af
-	ld a, bank(wMapBgAtrb) :: ldh [rSVBK], a
-
-	; offset = (row mod 32) * 32
-	ld a, e :: and $1F
-	rlca :: rlca :: rlca ; * 8
-	ld l, a
-	ld h, 0
-	add hl, hl ; * 16
-	add hl, hl ; * 32
-	ld a, high(wMapBgChr) :: add h :: ld h, a
-
-
-.cloop
-	ld b, $20
-.bloop
-	ld a, l :: and $1F
-	add $41 ; "a"
-	ld [hl], a
-	set 4, h ; atrb map ($D800)
-	xor a
-	ld [hl+], a
-	res 4, h ; chr map ($C800)
-
-	dec b
-	jr nz, .bloop
-
-	inc de
-	dec c
-	jr nz, .cloop
-
-	pop af :: ldh [rSVBK], a
-	ret
-
-
-;; @param DE: start column
-;; @param C: number of columns
-;; @mut: AF, BC, E, HL
-MockMapRenderColumns:
-assert startof("wMapBgChr") == $C800
-assert startof("wMapBgAtrb") == $D800
-
-	ldh a, [rSVBK] :: push af
-	ld a, bank(wMapBgAtrb) :: ldh [rSVBK], a
-
-	ld h, high(wMapBgChr)
-.cloop
-	ld a, e :: and $1F :: ld l, a
-	ld b, $20
-.bloop:
-	ld a, l :: and $1F
-	add $41 ; "a"
-	ld [hl], a
-	set 4, h ; atrb map ($D800)
-	ld a, mBGATRB_YFLIP
-	ld [hl], a
-	res 4, h ; chr map ($C800)
-
-	ld a, l :: add $20 :: ld l, a
-	adc h :: sub l :: ld h, a
-	dec b
-	jr nz, .bloop
-
-	inc de
-	dec c
-	jr nz, .cloop
-
-	pop af :: ldh [rSVBK], a
+	scf ; F.C for success
 	ret
 

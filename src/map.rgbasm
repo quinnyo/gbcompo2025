@@ -25,7 +25,6 @@ def SLOT_RENDERED equ 1 << bSLOT_RENDERED
 def SLOT_NOCHUNK  equ 1 << bSLOT_NOCHUNK
 
 
-
 ;; Bits used to store source slot index.
 def bSynXfer_SLOT_INDEX equ 0
 ;; Equivalent to source slot SLOT_RENDERED.
@@ -95,28 +94,6 @@ endr
 _xfer_status: db
 
 
-_render_rows_count: db
-_render_row: db
-_render_columns_count: db
-_render_column: db
-
-
-pushs "watch", wram0
-db
-watchDestY0: db
-watchDestY1: db
-watchDestY2: db
-watchDestX0: db
-watchDestX1: db
-watchDestX2: db
-
-watchStatus0: db
-watchStatus1: db
-watchStatus2: db
-db
-pops
-
-
 section "wMapBgChr", wram0[$C800]
 ;; BG map CHR buffer
 wMapBgChr:: ds MAP_SIZE
@@ -153,13 +130,6 @@ MapEnable::
 	ld a, bank(map_test) :: ldh [hMapBank], a
 	ld a, low(map_test) :: ldh [hMapAddr + 0], a
 	ld a, high(map_test) :: ldh [hMapAddr + 1], a
-
-	ld de, MapScrollRenderRows
-	ld a, e :: ld [wScroll.fn_render_map_rows + 0], a
-	ld a, d :: ld [wScroll.fn_render_map_rows + 1], a
-	ld de, MapScrollRenderColumns
-	ld a, e :: ld [wScroll.fn_render_map_columns + 0], a
-	ld a, d :: ld [wScroll.fn_render_map_columns + 1], a
 	ret
 
 
@@ -177,123 +147,59 @@ MapUpdate::
 
 	call MapUpdateViewChunk
 	call MapUpdateCache
-	jp MapProcessDeferredRender
+
+	ldh a, [hScrollStat]
+	bit bScrollStat_ChangeFrontY, a
+	jr z, :+
+	ldh a, [hScrollFrontY]
+	ld e, a
+	call MapSyncFrontRow
+:
+
+	ldh a, [hScrollStat]
+	bit bScrollStat_ChangeFrontX, a
+	jr z, :+
+	ldh a, [hScrollFrontX]
+	ld e, a
+	call MapSyncFrontColumn
+:
+
+	ret
 
 
-section "MapScrollRenderCallbacks", rom0
-MapProcessDeferredRender:
-	ldh a, [_render_rows_count]
-	and a
-	jr z, .no_rows
-	ld c, a
-	xor a :: ldh [_render_rows_count], a
-	ldh a, [_render_row] :: ld e, a
-	call MapRenderRows
-.no_rows
-
-	ldh a, [_render_columns_count]
-	and a
-	ret z
-	ld c, a
-	xor a :: ldh [_render_columns_count], a
-	ldh a, [_render_column] :: ld e, a
-	jp MapRenderColumns
-
-
-;; @param DE: Y
-;; @param C: N
+section "MapSyncFront", rom0
+;; @param E: Y
 ;; @mut: AF, BC, DE, HL
-MapScrollRenderRows::
-	ld a, c :: ldh [_render_rows_count], a
-	ld a, e :: ldh [_render_row], a
-
-	; TUMBLE DOWN
-
-;; @param DE: Y
-;; @param C: N
-;; @mut: AF, BC, DE, HL
-MapRenderRows::
+MapSyncFrontRow::
 	ld a, [wScroll.row + 0]
 	sub 7 :: and $F0 :: ldh [hMapSrcOriginY], a
 	; row X position
 	ld a, [wScroll.column + 0]
 	dec a ; viewX - 1 so corners get painted
-	ld b, a
-	; if N == 1, jump directly to impl
-	ld a, c
-	dec a
-	jr z, _RenderRow
-:
-	push bc :: push de
-	call _RenderRow
-	pop de :: pop bc
-	dec c
-	jr nz, :-
-	ret
-
-
-;; @param E: Y
-;; @param B: X
-;; @mut: AF, BC, DE, HL
-_RenderRow:
-	; destX
-	ld a, b :: and $1F :: ldh [_destX], a
+	and $1F :: ldh [_destX], a
 	ld b, a
 
-	; destY
 	ld a, e :: and $1F :: ldh [_destY], a
 
-	; srcY
 	ldh a, [hMapSrcOriginY] :: ld d, a
 	ld a, e :: sub d :: ld d, a
 
 	jp MapSyncRow
 
 
-;; @param DE: X
-;; @param C: N
+;; @param E: X
 ;; @mut: AF, BC, DE, HL
-MapScrollRenderColumns::
-	ld a, c :: ldh [_render_columns_count], a
-	ld a, e :: ldh [_render_column], a
-
-	; RAMBLE ON
-
-;; @param DE: X
-;; @param C: N
-;; @mut: AF, BC, DE, HL
-MapRenderColumns::
+MapSyncFrontColumn:
 	ld a, [wScroll.column + 0]
 	sub 6 :: and $F0 :: ldh [hMapSrcOriginX], a
 	; column Y position
 	ld a, [wScroll.row + 0]
 	dec a ; viewY - 1 so corners get painted
-	ld b, a
-	; if N == 1, jump directly to impl
-	ld a, c
-	dec a
-	jr z, _RenderColumn
-:
-	push bc :: push de
-	call _RenderColumn
-	pop de :: pop bc
-	dec c
-	jr nz, :-
-	ret
-
-
-;; @param E: X
-;; @param B: Y
-;; @mut: AF, BC, DE, HL
-_RenderColumn:
-	; destY
-	ld a, b :: and $1F :: ldh [_destY], a
+	and $1F :: ldh [_destY], a
 	ld b, a
 
-	; destX
 	ld a, e :: and $1F :: ldh [_destX], a
 
-	; srcX
 	ldh a, [hMapSrcOriginX] :: ld d, a
 	ld a, e :: sub d :: ld d, a
 
@@ -378,32 +284,14 @@ MapSyncRow:
 	; else srcY in [32..47]: bottom 3 slots
 
 .finalise:
-;	ldh a, [_destY] :: ld [watchDestY0], a
-;	ldh a, [_destX] :: ld [watchDestX0], a
 	ld hl, _Xfer0
 	call _FinaliseRowXfer
-;	ldh a, [_destY] :: ld [watchDestY1], a
-;	ldh a, [_destX] :: ld [watchDestX1], a
 	ld hl, _Xfer1
 	call _FinaliseRowXfer
-;	ldh a, [_destY] :: ld [watchDestY2], a
-;	ldh a, [_destX] :: ld [watchDestX2], a
 	ld hl, _Xfer2
 	call _FinaliseRowXfer
 
-.process_xfers:
-	; Process the transfers -- update the BG map
-	wrambpush
-
-	ld hl, _Xfer0
-	call _ProcessSynXfer
-	ld hl, _Xfer1
-	call _ProcessSynXfer
-	ld hl, _Xfer2
-	call _ProcessSynXfer
-
-	wrambpop
-	ret
+	jp _ProcessAllSynXfers
 
 
 ;; @param B: common buffer offset
@@ -490,36 +378,14 @@ MapSyncColumn:
 	; else srcX in [32..47]: east 3 slots
 
 .finalise:
-;	ldh a, [_destY] :: ld [watchDestY0], a
-;	ldh a, [_destX] :: ld [watchDestX0], a
 	ld hl, _Xfer0
 	call _FinaliseColumnXfer
-;	ldh a, [_destY] :: ld [watchDestY1], a
-;	ldh a, [_destX] :: ld [watchDestX1], a
 	ld hl, _Xfer1
 	call _FinaliseColumnXfer
-;	ldh a, [_destY] :: ld [watchDestY2], a
-;	ldh a, [_destX] :: ld [watchDestX2], a
 	ld hl, _Xfer2
 	call _FinaliseColumnXfer
 
-;	ld a, [_Xfer0 + SynXfer_status] :: ld [watchStatus0], a
-;	ld a, [_Xfer1 + SynXfer_status] :: ld [watchStatus1], a
-;	ld a, [_Xfer2 + SynXfer_status] :: ld [watchStatus2], a
-
-.process_xfers:
-	; Process the transfers -- update the BG map
-	wrambpush
-
-	ld hl, _Xfer0
-	call _ProcessSynXfer
-	ld hl, _Xfer1
-	call _ProcessSynXfer
-	ld hl, _Xfer2
-	call _ProcessSynXfer
-
-	wrambpop
-	ret
+	jp _ProcessAllSynXfers
 
 
 ;; @param B: common buffer offset ... srcX
@@ -573,6 +439,21 @@ _FinaliseColumnXfer:
 
 .end:
 	inc c :: inc c :: inc c ; C += 3
+	ret
+
+
+_ProcessAllSynXfers:
+	; Process the transfers -- update the BG map
+	wrambpush
+
+	ld hl, _Xfer0
+	call _ProcessSynXfer
+	ld hl, _Xfer1
+	call _ProcessSynXfer
+	ld hl, _Xfer2
+	call _ProcessSynXfer
+
+	wrambpop
 	ret
 
 
@@ -753,7 +634,6 @@ _UpdateNext:
 :
 	ldh [hMapSlotIdx], a
 	jp MapUpdateSlot
-
 
 
 section "MapUpdateViewChunk", rom0
@@ -1090,10 +970,6 @@ MapInit::
 	jr nz, :-
 
 	xor a
-	ldh [_render_rows_count], a
-	ldh [_render_row], a
-	ldh [_render_columns_count], a
-	ldh [_render_column], a
 	ldh [hMapSrcOriginX], a
 	ldh [hMapSrcOriginY], a
 
