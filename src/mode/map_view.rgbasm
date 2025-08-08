@@ -6,19 +6,27 @@ include "banker.rgbinc"
 	mode_def modeMapView
 
 
+rsreset
+def MOTION_STEP rb 1
+def MOTION_SMOOTH rb 1
+def MOTION__COUNT rb 0
+
+
 section union "{MODE_COMMON}", wramx
-wVelX: db
-wVelY: db
-wSpeed: db
+wMotionMode: db
+wMotionParams: db
+wMotionState: ds 2
+
+wSelectMenu: db
 
 
 section "modeMapView", romx
 modeMapView_Enter::
 	wrambpush bank("{MODE_COMMON}")
-	xor a
-	ld [wVelX], a
-	ld [wVelY], a
-	ld a, 3 :: ld [wSpeed], a
+	xor a :: ld [wSelectMenu], a
+	ld a, MOTION_SMOOTH
+	call _MotionSetMode
+	ld hl, wMotionMode
 	wrambpop
 
 	call ScrollInit
@@ -31,115 +39,254 @@ modeMapView_Enter::
 modeMapView_Process::
 	wrambpush bank("{MODE_COMMON}")
 	ld a, [wInput.pressed]
-	and PADF_SELECT
-	call nz, _SpeedUp
+	bit PADB_SELECT, a
+	jr z, :+
+	ld a, 1 :: ld [wSelectMenu], a
+:
+	ld a, [wSelectMenu]
+	and a
+	call nz, _SelectMenu
 
-	ld a, [wInput.state]
-	ld b, a
-
-	ld a, [wSpeed] :: ld d, a
-	xor a
-	bit PADB_LEFT, b
-	jr z, :+
-	sub d
-:
-	bit PADB_RIGHT, b
-	jr z, :+
-	add d
-:
-	ld d, a
-	ld hl, wVelX
-	ld e, [hl]
-	call _accelerate
-	ld [hl+], a
-	call _ScrollDelta
-	ld [wScroll.dx], a
-
-	ld a, [wSpeed] :: ld d, a
-	xor a
-	bit PADB_UP, b
-	jr z, :+
-	sub d
-:
-	bit PADB_DOWN, b
-	jr z, :+
-	add d
-:
-	ld d, a
-	ld e, [hl]
-	call _accelerate
-	ld [hl], a
-	call _ScrollDelta
-	ld [wScroll.dy], a
+	call _Motion
+	ld a, d :: ld [wScroll.dy], a
+	ld a, e :: ld [wScroll.dx], a
 
 	wrambpop
 
 	call ScrollUpdate
+
 	ld a, [wScroll.y + 0] :: ld [wSCY], a
 	ld a, [wScroll.x + 0] :: ld [wSCX], a
 
 	jp MapUpdate
 
 
-_SpeedUp:
-	ld a, [wSpeed]
-	inc a :: and $03
-	jr nz, :+
-	ld a, 2
+_SelectMenu::
+	ld a, [wInput.released]
+	bit PADB_SELECT, a
+	jr z, :+
+	xor a :: ld [wSelectMenu], a
+	ret
 :
-	ld [wSpeed], a
+	ld a, [wInput.pressed]
+	bit PADB_START, a
+	jp nz, _Clear
+	bit PADB_RIGHT, a
+	jp nz, _MotionModeNext
 	ret
 
 
-;; @param A: velocity
-;; @ret A: delta
-_ScrollDelta:
-	and a :: ret z
-	cp $80
-	jr c, .positive
-.negative:
-	cpl :: inc a
-	sra a :: sra a
-	cpl :: inc a
-	ret
-.positive:
-	sra a :: sra a
-	ret
+_Clear:
+	ld hl, wMapBgChr
+	ld bc, 1024
+	ld a, 95
+	jp MemFillLarge
 
 
-;; @param D: delta
-;; @param E: velocity
+_motionSmoothSpeeds:
+	db 7, 5
+	db 10, 7
+	db 17, 12
+def _NSPEEDS equ (@ - _motionSmoothSpeeds) / 2
+def MOTION_SMOOTH_SPEED_DEFAULT equ 1
+
+
+;; @param B: acceleration
+;; @param C: velocity
 ;; @ret A: velocity
-;; @mut: AF, DE
-_accelerate:
-	ld a, e
-	and a
-	jr nz, :+
-	ld a, d
-	ret
-:
-	ld a, d
+;; @mut: AF, BC, D
+_motionSmoothAccelerate:
+	; if accel == 0, do drag only
+	ld a, b
 	and a
 	jr z, .drag
-	; compare sign of delta and velocity & add delta twice if opposite
-	xor e :: rlca :: sbc a :: and d
-	add d
-	add e
-	ld e, a
+
+	; if v0 == 0, just take accel as v1
+	ld a, c
+	and a
+	jr z, .use_v1
+
+	; forwardaccel: set if accel in same direction as velocity
+	ld a, b
+	xor c :: cpl :: ld d, a 
+
+	; if accel opposes velocity, accel more
+	bit 7, d
+	jr nz, :+
+	sla b
+:
+
+	; v1 = v0 + accel
+	ld a, c :: add b :: ld b, a
+
+	; vflip: set if sign(v1) != sign(v0)
+	xor c
+	; if forwardaccel AND vflip: overflowed
+	and d :: rlca
+	jr nc, .use_v1
+	; overflowed, take max speed with sign of accel & v0
+.clampMax:
+	ld a, $7F ; maxSpeed
+	bit 7, c
+	jr z, .positive
+	ld a, $81 ; -maxSpeed
+	jr .negative
+
+.use_v1:
+	ld c, b
 .drag:
-	ld a, e
+	ld a, c
 	cp $80
 	jr c, .positive
 .negative:
-	; yep
 	cpl :: inc a
 	call .positive
 	cpl :: inc a
 	ret
 .positive:
+	; limit max speed
+	cp $80
+	jr c, :+
+	ld a, $7F
+:
+
 	dec a
-	ld d, a
-	sra d :: sra d :: sra d :: sra d
-	sub d
+	ld b, a
+	sra b :: sra b :: sra b :: sra b
+	sub b
+	ret
+
+
+;; @param A: velocity
+;; @ret A: scaled scroll delta
+_motionSmoothScrollDelta:
+	and a :: ret z
+	cp $80
+	jr c, .positive
+.negative:
+	or $0F :: swap a
+	ret
+.positive:
+	; scale -velocity for consistent value range between +/-
+	cpl :: inc a
+	or $0F :: swap a
+	cpl :: inc a
+	ret
+
+
+_err_mode_out_of_range:
+	ld b, b
+	jr _err_mode_out_of_range
+	ret
+
+
+;; @ret D,E: Y,X scroll delta
+;; @mut: AF, BC, DE, HL
+_Motion:
+	ld de, 0 ; scroll delta is zero by default
+	ld hl, wMotionMode
+	ld a, [hl+]
+	cp MOTION__COUNT
+	jr nc, _err_mode_out_of_range
+	push hl
+	rst RST_SwitchJump
+	dw .step
+	dw .smooth
+
+
+;; @ret D,E: Y,X scroll delta
+;; @mut: AF, B, DE, HL
+.step:
+	pop hl
+
+	ld a, [hl+] :: ld e, a ; step size
+	ld d, e
+	ld a, [wInput.pressed] :: ld b, a
+	jp Vecdir8FromKeys
+
+
+;; @ret D,E: Y,X scroll delta
+;; @mut: AF, BC, DE, HL
+.smooth:
+	pop hl
+
+	ld a, [hl+] ; speed setting
+	cp _NSPEEDS
+	jr c, :+
+	xor a
+:
+	add a ; double index to get offset
+	ld de, _motionSmoothSpeeds
+	add e :: ld e, a
+	adc d :: sub e :: ld d, a
+	ld a, [de] :: inc de ; axial
+	ld b, a ; temp
+	ld a, [de] ; diag
+	ld d, a :: ld e, b
+	ld a, [wInput.state] :: ld b, a
+	call Vecdir8FromKeys
+
+	; direction input accelY
+	ld b, d
+	ld c, [hl] ; velY
+	call _motionSmoothAccelerate
+	ld [hl+], a
+
+	; direction input accelX
+	ld b, e
+	ld c, [hl] ; velX
+	call _motionSmoothAccelerate
+	ld [hl-], a ; need HL - 1 to get velY again
+
+	call _motionSmoothScrollDelta
+	ld e, a ; scroll delta X
+
+	ld a, [hl] ; velY
+	call _motionSmoothScrollDelta
+	ld d, a ; scroll delta Y
+
+	ret
+
+
+_MotionModeNext:
+	ld a, [wMotionMode]
+	inc a
+	cp MOTION__COUNT
+	jr c, _MotionSetMode
+	xor a
+
+	; FALLTHROUGH
+
+;; @param A: mode
+_MotionSetMode:
+	cp MOTION__COUNT
+	jr nc, _err_mode_out_of_range
+	ld hl, wMotionMode
+	ld [hl+], a
+	push hl
+	rst RST_SwitchJump
+	dw .step
+	dw .smooth
+
+
+.step:
+	pop hl
+	ld a, 8 ; step size
+	ld [hl+], a
+	xor a
+	ld [hl+], a
+	ld [hl+], a
+	ret
+
+
+.smooth:
+	pop hl
+	; default speed
+	ld a, MOTION_SMOOTH_SPEED_DEFAULT
+	ld [hl+], a
+	; zero velocity
+	xor a
+	ld [hl+], a
+	ld [hl+], a
 	ret
 
