@@ -1,0 +1,29 @@
+
+section "RST_SwitchJump", rom0[$0030]
+;; Indexed branch into table stored at the callsite.
+;; Supports tables (list of addresses) with up to 128 elements.
+;; Table is indexed relative to the (return address at the) callsite.
+;; This routine does not return.
+;;
+;; E.g.g.s.:
+;;     rst RST_SwitchJump
+;;     dw func0
+;;     dw func1
+;;     ; ...
+;;
+;; @param A: index (must be less than 128)
+;; @mut: AF, HL
+RST_SwitchJump::
+	; offset = index * 2
+	add a
+	; return address / table address
+	pop hl
+	; add offset
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	; read destination and hop to it
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a
+	jp hl
+
