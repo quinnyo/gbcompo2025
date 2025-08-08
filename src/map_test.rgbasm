@@ -6,7 +6,34 @@ map_test::
 	; dw .other_stuff
 .chunk_0:: ; <0, 0> (256)
 	dw .chunk_0_atrb
-	db BR_SOLID, 255,   0
+	db BR_SOLID,  33,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
 	db BR_TERM
 .chunk_0_atrb::
 	db BR_SOLID, 255,   0
@@ -90,21 +117,36 @@ map_test::
 	db BR_SOLID,   0,   3
 	db BR_SOLID,  13,   0
 	db BR_SOLID,   2,   3
-	db BR_SOLID,  47,   0
+	db BR_SOLID,  25,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   2
+	db BR_SOLID,  19,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   7,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   2
+	db BR_SOLID,   3,   0
 	db BR_SOLID,   1,   1
 	db BR_SOLID,  13,   0
 	db BR_SOLID,   1,   1
-	db BR_SOLID,  13,   0
+	db BR_SOLID,   7,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   2
+	db BR_SOLID,   3,   0
 	db BR_SOLID,   1,   1
 	db BR_SOLID,  13,   0
 	db BR_SOLID,   1,   1
-	db BR_SOLID,  13,   0
+	db BR_SOLID,   7,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   2
+	db BR_SOLID,   3,   0
 	db BR_SOLID,   1,   1
 	db BR_SOLID,  13,   0
 	db BR_SOLID,   1,   1
-	db BR_SOLID,  13,   0
-	db BR_SOLID,   1,   1
-	db BR_SOLID,  11,   0
+	db BR_SOLID,   7,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   2
+	db BR_SOLID,   1,   0
 	db BR_SOLID,   3,   1
 	db BR_SOLID,   9,   0
 	db BR_TERM
@@ -124,7 +166,57 @@ map_test::
 	db BR_SOLID,   0,   3
 	db BR_SOLID,  14,   0
 	db BR_SOLID,   2,   3
-	db BR_SOLID, 168,   0
+	db BR_SOLID,  11,   0
+	db BR_SOLID,   0,   3
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   2
+	db BR_SOLID,   0,   3
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   2
+	db BR_SOLID,   0,   3
+	db BR_SOLID,  11,   0
+	db BR_SOLID,   0,   3
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   2
+	db BR_SOLID,   0,   3
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   2
+	db BR_SOLID,   0,   3
+	db BR_SOLID,  11,   0
+	db BR_SOLID,   0,   3
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   2
+	db BR_SOLID,   0,   3
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   2
+	db BR_SOLID,   0,   3
+	db BR_SOLID,  11,   0
+	db BR_SOLID,   0,   3
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   2
+	db BR_SOLID,   0,   3
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   2
+	db BR_SOLID,   0,   3
+	db BR_SOLID,  11,   0
+	db BR_SOLID,   0,   3
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   2
+	db BR_SOLID,   0,   3
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   2
+	db BR_SOLID,   0,   3
+	db BR_SOLID,   8,   0
 	db BR_SOLID,   0,   3
 	db BR_SOLID,   1,   0
 	db BR_TERM
@@ -195,7 +287,38 @@ map_test::
 	db BR_TERM
 .chunk_5:: ; <0, 1> (256)
 	dw .chunk_5_atrb
-	db BR_SOLID, 255,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
 	db BR_TERM
 .chunk_5_atrb::
 	db BR_SOLID, 255,   0
@@ -411,7 +534,38 @@ map_test::
 	db BR_TERM
 .chunk_10:: ; <0, 2> (256)
 	dw .chunk_10_atrb
-	db BR_SOLID, 244,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   2,   0
 	db BR_SOLID,  10,   1
 	db BR_TERM
 .chunk_10_atrb::
@@ -538,63 +692,100 @@ map_test::
 	db BR_SOLID,   0,   1
 	db BR_SOLID,  14,   0
 	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
+	db BR_SOLID,   4,   0
 	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
+	db BR_SOLID,   8,   0
 	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   4,   1
-	db BR_SOLID,  10,   0
-	db BR_SOLID,   4,   1
-	db BR_SOLID,  10,   0
-	db BR_SOLID,   4,   1
-	db BR_SOLID,  10,   0
-	db BR_SOLID,   4,   1
-	db BR_SOLID,  10,   0
+	db BR_SOLID,   4,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   7,   0
 	db BR_SOLID,   0,   1
+	db BR_SOLID,   5,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   5,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   6,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   6,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,   3,   0
+	db BR_SOLID,   7,   1
 	db BR_TERM
 .chunk_14_atrb::
 	db BR_SOLID, 255,   0
 	db BR_TERM
 .chunk_15:: ; <0, 3> (256)
 	dw .chunk_15_atrb
-	db BR_SOLID,   4,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   2,   0
 	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   2,   0
 	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   2,   0
 	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   2,   0
 	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   2,   0
 	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   2,   0
 	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   2,   0
 	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   2,   0
 	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   2,   0
 	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   2,   0
 	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   2,   0
 	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   2,   0
 	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   2,   0
 	db BR_SOLID,   0,   1
 	db BR_SOLID,   7,   0
-	db BR_SOLID,   1,   1
-	db BR_SOLID,   4,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   2,   0
 	db BR_SOLID,   1,   1
 	db BR_SOLID,   5,   0
-	db BR_SOLID,   2,   1
-	db BR_SOLID,   4,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,   2,   0
 	db BR_SOLID,   2,   1
 	db BR_SOLID,   3,   0
-	db BR_SOLID,   3,   1
-	db BR_SOLID,   4,   0
+	db BR_SOLID,   5,   1
+	db BR_SOLID,   2,   0
 	db BR_SOLID,   3,   1
 	db BR_SOLID,   0,   0
 	db BR_SOLID,   5,   1
@@ -654,9 +845,7 @@ map_test::
 	db BR_SOLID,   0,   1
 	db BR_SOLID,   6,   0
 	db BR_SOLID,   0,   1
-	db BR_SOLID,   1,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,   3,   0
+	db BR_SOLID,   6,   0
 	db BR_SOLID,   0,   1
 	db BR_SOLID,   1,   0
 	db BR_SOLID,   0,   3
@@ -683,130 +872,192 @@ map_test::
 	db BR_SOLID,   3,   0
 	db BR_SOLID,   8,   1
 	db BR_SOLID,   6,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,   3,   0
+	db BR_SOLID,   4,   1
 	db BR_TERM
 .chunk_18_atrb::
 	db BR_SOLID, 255,   0
 	db BR_TERM
 .chunk_19:: ; <4, 3> (256)
 	dw .chunk_19_atrb
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  15,   0
-	db BR_SOLID,   9,   1
-	db BR_SOLID,   5,   0
-	db BR_SOLID,   8,   2
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   5,   1
+	db BR_SOLID,  12,   0
 	db BR_SOLID,   2,   1
+	db BR_SOLID,  45,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  12,   0
+	db BR_SOLID,   8,   1
 	db BR_SOLID,   5,   0
-	db BR_SOLID,   0,   3
-	db BR_SOLID,   1,   0
-	db BR_SOLID,   0,   3
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   4,   2
+	db BR_SOLID,   0,   1
 	db BR_SOLID,   4,   0
-	db BR_SOLID,   2,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   2,   1
-	db BR_SOLID,  16,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   1,   2
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   0,   3
+	db BR_SOLID,   7,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,  13,   0
 	db BR_SOLID,   0,   1
 	db BR_SOLID,   1,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  11,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,   1,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,   1,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,   8,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,   1,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,   1,   0
-	db BR_SOLID,   0,   1
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   0,   2
+	db BR_SOLID,   5,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   4,   0
+	db BR_SOLID,   0,   2
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   4,   0
+	db BR_SOLID,   1,   1
 	db BR_SOLID,   3,   0
-	db BR_SOLID,  19,   1
-	db BR_SOLID,  15,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   1,   2
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   4,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   7,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   1,   2
+	db BR_SOLID,   9,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   5,   1
 	db BR_TERM
 .chunk_19_atrb::
-	db BR_SOLID, 255,   0
+	db BR_SOLID, 158,   0
+	db BR_SOLID,   0,  64
+	db BR_SOLID,  76,   0
+	db BR_SOLID,   1,  64
+	db BR_SOLID,  16,   0
 	db BR_TERM
 .chunk_20:: ; <5, 3> (256)
 	dw .chunk_20_atrb
-	db BR_SOLID,  63,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   2,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   2,   1
-	db BR_SOLID,  14,   0
+	db BR_SOLID,  23,   1
+	db BR_SOLID,   3,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   5,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,   1,   0
 	db BR_SOLID,   1,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,   9,   0
-	db BR_SOLID,   3,   2
+	db BR_SOLID,   7,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,   0,   0
 	db BR_SOLID,   1,   1
-	db BR_SOLID,   9,   0
+	db BR_SOLID,   7,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   7,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   7,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   4,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   5,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   0,   2
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   4,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   0,   2
+	db BR_SOLID,   7,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   6,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   0,   0
 	db BR_SOLID,   5,   1
-	db BR_SOLID,  25,   0
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   9,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   5,   1
+	db BR_SOLID,   3,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   2,   1
 	db BR_TERM
 .chunk_20_atrb::
-	db BR_SOLID, 207,   0
-	db BR_SOLID,   3,  64
-	db BR_SOLID,  43,   0
+	db BR_SOLID, 128,   0
+	db BR_SOLID,   0,  64
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   0,  64
+	db BR_SOLID, 110,   0
 	db BR_TERM
 .chunk_21:: ; <0, 4> (256)
 	dw .chunk_21_atrb
-	db BR_SOLID,   4,   0
-	db BR_SOLID,  10,   1
-	db BR_SOLID,   3,   0
-	db BR_SOLID,  11,   1
+	db BR_SOLID,   1,   1
 	db BR_SOLID,   2,   0
 	db BR_SOLID,  12,   1
 	db BR_SOLID,   1,   0
-	db BR_SOLID,   2,   1
+	db BR_SOLID,  13,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,  17,   1
 	db BR_SOLID,   1,   0
 	db BR_SOLID,   6,   1
-	db BR_SOLID,   3,   0
-	db BR_SOLID,   1,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   3,   1
 	db BR_SOLID,   3,   0
 	db BR_SOLID,   2,   1
-	db BR_SOLID,   6,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  13,   0
+	db BR_SOLID,   4,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  12,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  12,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  12,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  12,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  12,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  12,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  12,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  12,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  12,   0
 	db BR_SOLID,   1,   1
 	db BR_SOLID,  13,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
+	db BR_SOLID,   1,   1
 	db BR_SOLID,  13,   0
 	db BR_TERM
 .chunk_21_atrb::
@@ -831,13 +1082,10 @@ map_test::
 	db BR_SOLID,   0,   3
 	db BR_SOLID,   1,   0
 	db BR_SOLID,   0,   3
-	db BR_SOLID,  47,   0
-	db BR_SOLID,   0,   1
+	db BR_SOLID,  62,   0
+	db BR_SOLID,   1,   1
 	db BR_SOLID,  12,   0
 	db BR_SOLID,   2,   1
-	db BR_SOLID,  11,   0
-	db BR_SOLID,   1,   1
-	db BR_SOLID,   1,   0
 	db BR_TERM
 .chunk_22_atrb::
 	db BR_SOLID, 255,   0
@@ -876,8 +1124,13 @@ map_test::
 	db BR_SOLID,   1,   0
 	db BR_SOLID,   0,   3
 	db BR_SOLID,  33,   0
-	db BR_SOLID,  15,   1
-	db BR_SOLID,  31,   0
+	db BR_SOLID,  34,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   2,   1
 	db BR_TERM
 .chunk_23_atrb::
 	db BR_SOLID, 255,   0
@@ -886,134 +1139,417 @@ map_test::
 	dw .chunk_24_atrb
 	db BR_SOLID,   3,   1
 	db BR_SOLID,   6,   0
-	db BR_SOLID,   0,   1
+	db BR_SOLID,   8,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   0,   3
 	db BR_SOLID,   3,   0
+	db BR_SOLID,   8,   1
+	db BR_SOLID,   6,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   6,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   2,   0
 	db BR_SOLID,   3,   1
 	db BR_SOLID,   1,   0
 	db BR_SOLID,   0,   3
 	db BR_SOLID,   3,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,   3,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   1,   0
 	db BR_SOLID,   3,   1
 	db BR_SOLID,   6,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,   3,   0
-	db BR_SOLID,   3,   1
-	db BR_SOLID,   6,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,   3,   0
 	db BR_SOLID,   3,   1
 	db BR_SOLID,   1,   0
-	db BR_SOLID,   0,   3
-	db BR_SOLID,   3,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,   3,   0
-	db BR_SOLID,   3,   1
-	db BR_SOLID,   6,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,   4,   0
 	db BR_SOLID,   0,   2
 	db BR_SOLID,   8,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,   9,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   6,   0
 	db BR_SOLID,   0,   3
 	db BR_SOLID,   3,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,   3,   0
-	db BR_SOLID,   0,   3
-	db BR_SOLID,   1,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,  10,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  12,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   2,   0
 	db BR_SOLID,   0,   3
 	db BR_SOLID,   1,   0
 	db BR_SOLID,   0,   3
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   0,   3
 	db BR_SOLID,   3,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  12,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,  10,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,  12,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,  12,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   3,   1
 	db BR_SOLID,   3,   0
-	db BR_SOLID,  11,   1
-	db BR_SOLID,  35,   0
 	db BR_TERM
 .chunk_24_atrb::
 	db BR_SOLID, 255,   0
 	db BR_TERM
-.chunk_25:: ; <0, 5> (256)
+.chunk_25:: ; <4, 4> (256)
 	dw .chunk_25_atrb
+	db BR_SOLID,   1,   1
 	db BR_SOLID,   0,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   1,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   1,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   1,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   1,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   3,   1
-	db BR_SOLID,  14,   0
 	db BR_SOLID,   6,   1
-	db BR_SOLID,  14,   0
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,   3,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   7,   1
+	db BR_SOLID,   3,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   6,   1
+	db BR_SOLID,   7,   0
+	db BR_SOLID,   6,   1
+	db BR_SOLID,   7,   0
 	db BR_SOLID,   1,   1
-	db BR_SOLID,  15,   0
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,  10,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,  12,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  10,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  10,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  12,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   3,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   7,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  11,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,  12,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   2,   0
 	db BR_TERM
 .chunk_25_atrb::
 	db BR_SOLID, 255,   0
 	db BR_TERM
-.chunk_26:: ; <1, 5> (256)
+.chunk_26:: ; <5, 4> (256)
 	dw .chunk_26_atrb
-	db BR_SOLID,  11,   0
 	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  13,   0
+	db BR_SOLID,   5,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   5,   0
+	db BR_SOLID,   5,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   5,   0
+	db BR_SOLID,   5,   1
+	db BR_SOLID,   1,   0
 	db BR_SOLID,   1,   1
-	db BR_SOLID,  13,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  13,   0
+	db BR_SOLID,   6,   0
+	db BR_SOLID,   5,   1
+	db BR_SOLID,   0,   0
 	db BR_SOLID,   1,   1
-	db BR_SOLID,  13,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  14,   0
-	db BR_SOLID,   0,   1
-	db BR_SOLID,  13,   0
+	db BR_SOLID,   6,   0
+	db BR_SOLID,   5,   1
+	db BR_SOLID,   0,   0
 	db BR_SOLID,   1,   1
-	db BR_SOLID,  11,   0
+	db BR_SOLID,   7,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  12,   0
 	db BR_SOLID,   2,   1
 	db BR_SOLID,  11,   0
-	db BR_SOLID,   1,   1
-	db BR_SOLID,  11,   0
-	db BR_SOLID,   2,   1
-	db BR_SOLID,  10,   0
-	db BR_SOLID,   2,   1
-	db BR_SOLID,  10,   0
-	db BR_SOLID,   2,   1
-	db BR_SOLID,  28,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   5,   1
+	db BR_SOLID,   7,   0
+	db BR_SOLID,   7,   1
+	db BR_SOLID,   5,   0
+	db BR_SOLID,   9,   1
+	db BR_SOLID,   4,   0
+	db BR_SOLID,  10,   1
+	db BR_SOLID,   4,   0
+	db BR_SOLID,  10,   1
+	db BR_SOLID,   3,   0
+	db BR_SOLID,  11,   1
+	db BR_SOLID,   3,   0
+	db BR_SOLID,  11,   1
 	db BR_TERM
 .chunk_26_atrb::
+	db BR_SOLID, 255,   0
+	db BR_TERM
+.chunk_27:: ; <0, 5> (256)
+	dw .chunk_27_atrb
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  12,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  12,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  12,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,  11,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,  10,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,  10,   0
+	db BR_SOLID,   5,   1
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   8,   1
+	db BR_SOLID,   6,   0
+	db BR_SOLID,  14,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,  31,   1
+	db BR_TERM
+.chunk_27_atrb::
+	db BR_SOLID, 255,   0
+	db BR_TERM
+.chunk_28:: ; <1, 5> (256)
+	dw .chunk_28_atrb
+	db BR_SOLID,  11,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,  11,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,  11,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,  10,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,  10,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,  10,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,  10,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,  10,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,  11,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  11,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,   8,   0
+	db BR_SOLID,   7,   1
+	db BR_SOLID,   6,   0
+	db BR_SOLID,   9,   1
+	db BR_SOLID,   3,   0
+	db BR_SOLID,  11,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,  45,   1
+	db BR_TERM
+.chunk_28_atrb::
+	db BR_SOLID, 255,   0
+	db BR_TERM
+.chunk_29:: ; <2, 5> (256)
+	dw .chunk_29_atrb
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   5,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  14,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID, 124,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   4,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   6,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,  63,   1
+	db BR_TERM
+.chunk_29_atrb::
+	db BR_SOLID, 255,   0
+	db BR_TERM
+.chunk_30:: ; <3, 5> (256)
+	dw .chunk_30_atrb
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   3,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID, 128,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,  13,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   3,   0
+	db BR_SOLID,  82,   1
+	db BR_TERM
+.chunk_30_atrb::
+	db BR_SOLID, 255,   0
+	db BR_TERM
+.chunk_31:: ; <4, 5> (256)
+	dw .chunk_31_atrb
+	db BR_SOLID,  10,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   8,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,   8,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   9,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,  11,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   8,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   4,   0
+	db BR_SOLID,   8,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   9,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   0,   1
+	db BR_SOLID,   0,   0
+	db BR_SOLID,  31,   1
+	db BR_TERM
+.chunk_31_atrb::
+	db BR_SOLID, 255,   0
+	db BR_TERM
+.chunk_32:: ; <5, 5> (256)
+	dw .chunk_32_atrb
+	db BR_SOLID,   3,   0
+	db BR_SOLID,  11,   1
+	db BR_SOLID,   4,   0
+	db BR_SOLID,  10,   1
+	db BR_SOLID,   5,   0
+	db BR_SOLID,  11,   1
+	db BR_SOLID,   5,   0
+	db BR_SOLID,  10,   1
+	db BR_SOLID,   6,   0
+	db BR_SOLID,  10,   1
+	db BR_SOLID,   5,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   5,   0
+	db BR_SOLID,   4,   1
+	db BR_SOLID,   1,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   5,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,   2,   0
+	db BR_SOLID,   1,   1
+	db BR_SOLID,   6,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,  11,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  12,   0
+	db BR_SOLID,   2,   1
+	db BR_SOLID,  11,   0
+	db BR_SOLID,   3,   1
+	db BR_SOLID,  10,   0
+	db BR_SOLID,   8,   1
+	db BR_SOLID,   4,   0
+	db BR_SOLID,  38,   1
+	db BR_TERM
+.chunk_32_atrb::
 	db BR_SOLID, 255,   0
 	db BR_TERM
 .chunk_table:: db 6
@@ -1075,7 +1611,7 @@ map_test::
 		dw .chunk_19
 		db 5
 		dw .chunk_20
-	.row4: db 4
+	.row4: db 6
 		db 0
 		dw .chunk_21
 		db 1
@@ -1084,8 +1620,20 @@ map_test::
 		dw .chunk_23
 		db 3
 		dw .chunk_24
-	.row5: db 2
-		db 0
+		db 4
 		dw .chunk_25
-		db 1
+		db 5
 		dw .chunk_26
+	.row5: db 6
+		db 0
+		dw .chunk_27
+		db 1
+		dw .chunk_28
+		db 2
+		dw .chunk_29
+		db 3
+		dw .chunk_30
+		db 4
+		dw .chunk_31
+		db 5
+		dw .chunk_32
