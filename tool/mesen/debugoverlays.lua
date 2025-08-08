@@ -377,6 +377,7 @@ Scroll.fieldfmt = {
 }
 
 
+
 -------- Collide --------
 
 Rect = st_create("Rect")
@@ -483,51 +484,56 @@ MapChunkSlot.readArray = function(startAddress, memType, count)
 	return out
 end
 
-local bufferIdIndex = {}
-local labelsMapBufferChr = {}
-local labelsMapBufferAtrb = {}
-for i = 1, 9 do
-	local label0 = Emutil.getLabel(string.format("wMapBufferChr%d", i - 1))
-	if label0 then
-		bufferIdIndex[(label0.address >> 8) & MapChunkSlot.SLOT_BUFFER] = i
-	end
-	table.insert(labelsMapBufferChr, label0)
-	local label1 = Emutil.getLabel(string.format("wMapBufferAtrb%d", i - 1))
-	table.insert(labelsMapBufferAtrb, label1)
-end
-
 MapTool = {
 	CHUNK_SIZE = 16 * 16,
 	CHUNK_SLOTS_COUNT = 9,
 	SCRATCH_SLOTS_COUNT = 3,
-
-	tile_size = 3,
-	originX = 0,
-	originY = 0,
-
-	labels = {
-		slots = Emutil.getLabel("hMapChunkSlots"),
-		chr_buffers = labelsMapBufferChr,
-		atrb_buffers = labelsMapBufferAtrb,
-	},
-
-	readState = function(self)
-		if self.labels.slots then
-			local l = self.labels.slots
-			self.slots = MapChunkSlot.readArray(l.address, l.memType, self.CHUNK_SLOTS_COUNT)
-		end
-
-		local chr_buffers = {}
-		for _, label in ipairs(self.labels.chr_buffers) do
-			table.insert(chr_buffers, Emutil.readBytes(label.address, label.memType, self.CHUNK_SIZE))
-		end
-		self.chr_buffers = chr_buffers
-	end,
-
-	gridDisplayPos = function(self, column, row)
-		return self.originX + column * self.tile_size, self.originY + row * self.tile_size
-	end
 }
+MapTool.create = function()
+	local bufferIdIndex = {}
+	local labelsMapBufferChr = {}
+	local labelsMapBufferAtrb = {}
+	for i = 1, 9 do
+		local label0 = Emutil.getLabel(string.format("wMapBufferChr%d", i - 1))
+		if label0 then
+			bufferIdIndex[(label0.address >> 8) & MapChunkSlot.SLOT_BUFFER] = i
+		end
+		table.insert(labelsMapBufferChr, label0)
+		local label1 = Emutil.getLabel(string.format("wMapBufferAtrb%d", i - 1))
+		table.insert(labelsMapBufferAtrb, label1)
+	end
+
+	local inst = {
+		tile_size = 3,
+		originX = 0,
+		originY = 0,
+		bufferIdIndex = bufferIdIndex,
+
+		labels = {
+			slots = Emutil.getLabel("hMapChunkSlots"),
+			chr_buffers = labelsMapBufferChr,
+			atrb_buffers = labelsMapBufferAtrb,
+		},
+
+		readState = function(self)
+			if self.labels.slots then
+				local l = self.labels.slots
+				self.slots = MapChunkSlot.readArray(l.address, l.memType, MapTool.CHUNK_SLOTS_COUNT)
+			end
+
+			local chr_buffers = {}
+			for _, label in ipairs(self.labels.chr_buffers) do
+				table.insert(chr_buffers, Emutil.readBytes(label.address, label.memType, MapTool.CHUNK_SIZE))
+			end
+			self.chr_buffers = chr_buffers
+		end,
+
+		gridDisplayPos = function(self, column, row)
+			return self.originX + column * self.tile_size, self.originY + row * self.tile_size
+		end
+	}
+	return inst
+end
 
 
 -------- Map SynXfer --------
@@ -560,6 +566,28 @@ SynXfer.fieldfmt = {
 	destIndex = "%4X",
 	srcIndex = "%3d",
 }
+
+
+
+-------- Scroll Fronts --------
+
+local function frontNorth(viewY)
+	return 6 + ((viewY - 7) & 0x0F)
+end
+
+local function frontSouth(viewY)
+	return 25 + ((viewY + 9) & 0x0F)
+end
+
+local function frontWest(viewX)
+	-- [5..20]
+	return 5 + ((viewX - 6) & 0x0F)
+end
+
+local function frontEast(viewX)
+	-- [26..41]
+	return 26 + ((viewX + 10) & 0x0F)
+end
 
 
 
@@ -603,73 +631,91 @@ end
 
 local overlay = createOverlay({ x = 12, y = 12 }, 4)
 
-local wScroll = Scroll:getLabelAddress("wScroll")
-local monScroll = st_monitor(Scroll, wScroll.address, wScroll.memType)
-
 local config = {
 	showMapSync = false,
 }
 
+local state = {}
 
-local function frontNorth(viewY)
-	return 6 + ((viewY - 7) & 0x0F)
-end
-
-local function frontSouth(viewY)
-	return 25 + ((viewY + 9) & 0x0F)
-end
-
-local function frontWest(viewX)
-	-- [5..20]
-	return 5 + ((viewX - 6) & 0x0F)
-end
-
-local function frontEast(viewX)
-	-- [26..41]
-	return 26 + ((viewX + 10) & 0x0F)
-end
 
 local function frontThing(viewY, viewX)
 	local frontN = frontNorth(viewY)
 	local frontS = frontSouth(viewY)
 	local frontW = frontWest(viewX)
 	local frontE = frontEast(viewX)
-	local xNS, northY = MapTool:gridDisplayPos(4, frontN)
-	local _, southY = MapTool:gridDisplayPos(0, frontS)
-	local westX, yWE = MapTool:gridDisplayPos(frontW, 4)
-	local eastX, _ = MapTool:gridDisplayPos(frontE, 0)
+	local xNS, northY = state.mapTool:gridDisplayPos(4, frontN)
+	local _, southY = state.mapTool:gridDisplayPos(0, frontS)
+	local westX, yWE = state.mapTool:gridDisplayPos(frontW, 4)
+	local eastX, _ = state.mapTool:gridDisplayPos(frontE, 0)
 	overlay:drawLine(xNS, northY, 128, northY, 0x2080FF00)
 	overlay:drawLine(xNS, southY, 128, southY, 0x2000FF80)
 	overlay:drawLine(westX, yWE, westX, yWE + 128, 0x20FF8000)
 	overlay:drawLine(eastX, yWE, eastX, yWE + 128, 0x20FF0080)
 end
 
-local function onEndFrame()
-	overlay:select()
-	overlay:drawWindow()
 
-	MapTool:readState()
+local function scrollThing()
+	local scroll = Scroll:readFromLabel("wScroll")
+	if scroll then
+		-- draw view rect on map
+		local viewRow = math.floor(scroll.y / 8)
+		local viewCol = math.floor(scroll.x / 8)
+		local viewX, viewY = state.mapTool:gridDisplayPos(viewCol, viewRow)
+		local viewDispW = 20 * state.mapTool.tile_size
+		local viewDispH = 18 * state.mapTool.tile_size
+		overlay:drawRectangle2(viewX, viewY, viewDispW, viewDispH, 0x30EEEEEE)
+		local viewCentreRow = 16 + ((viewRow + 9) & 0x0F)
+		local viewCentreCol = 16 + ((viewCol + 10) & 0x0F)
+		local viewCentreX, viewCentreY = state.mapTool:gridDisplayPos(viewCentreCol, viewCentreRow)
+		overlay:drawRectangle2(viewCentreX - viewDispW / 2, viewCentreY - viewDispH / 2, viewDispW, viewDispH, 0x30B0F030)
+		frontThing(viewRow, viewCol)
+
+		local px = 220
+		local py = 0
+		local s = st_fmt(scroll)
+		local dy, dx
+		if state.monScroll then
+			dy = iAbsMax(state.monScroll.changes.dy, 0)
+			dx = iAbsMax(state.monScroll.changes.dx, 0)
+			s = s .. string.format(" dx,dy: %3d,%3d", dx, dy)
+			state.monScroll:tick()
+		else
+			state.monScroll = st_monitor(Scroll, scroll._addr, scroll._memType)
+		end
+		overlay:drawString(px, py, s)
+		if dx then
+			overlay:drawVector(px + 16, py + 52 + 16, dx, dy, 15, 16, 0xEE80DD, 0xA0303030)
+		end
+	end
+end
+
+
+local function mapChunkThing(mapTool)
 	-- draw chunk cache
-	if MapTool.chr_buffers and #MapTool.chr_buffers == 9 then
-		local chunkDispSize = 16 * MapTool.tile_size
+	if mapTool.chr_buffers and #mapTool.chr_buffers == 9 then
+		local chunkDispSize = 16 * mapTool.tile_size
 		local _, dispH = overlay:getSize()
-		MapTool.originX = 0
-		MapTool.originY = dispH - chunkDispSize * 3
+		mapTool.originX = 0
+		mapTool.originY = dispH - chunkDispSize * 3
 
 		for cy = 0, 2 do
-			local py = MapTool.originY + cy * chunkDispSize
+			local py = mapTool.originY + cy * chunkDispSize
 			for cx = 0, 2 do
-				local px = MapTool.originX + cx * chunkDispSize
+				local px = mapTool.originX + cx * chunkDispSize
 				local idx = 1 + cy * 3 + cx
-				local slot = MapTool.slots[idx]
+				local slot = mapTool.slots[idx]
+				local bufferIdx = mapTool.bufferIdIndex[slot.buffer & MapChunkSlot.SLOT_BUFFER]
+				local chrs = mapTool.chr_buffers[bufferIdx]
 				if slot.nochunk then
 					overlay:drawRectangle(px, py, chunkDispSize, chunkDispSize, 0x10603030, true)
 					overlay:drawLine(px, py, px + chunkDispSize, py + chunkDispSize, 0xC09010)
 					overlay:drawLine(px + chunkDispSize, py, px, py + chunkDispSize, 0xC09010)
+				elseif not chrs or #chrs == 0 then
+					overlay:drawRectangle(px, py, chunkDispSize, chunkDispSize, 0x10505020, true)
+					overlay:drawLine(px, py, px + chunkDispSize, py + chunkDispSize, 0xB0B010)
+					overlay:drawLine(px + chunkDispSize, py, px, py + chunkDispSize, 0xB0B010)
 				else
-					local bufferIdx = bufferIdIndex[slot.buffer & MapChunkSlot.SLOT_BUFFER]
-					local chrs = MapTool.chr_buffers[bufferIdx]
-					overlay:drawTilemap(px, py, chrs, 16, 16, MapTool.tile_size)
+					overlay:drawTilemap(px, py, chrs, 16, 16, mapTool.tile_size)
 				end
 
 				local sflags = slot.rendered and "R" or "..."
@@ -677,6 +723,15 @@ local function onEndFrame()
 			end
 		end
 	end
+end
+
+
+local function onEndFrame()
+	overlay:select()
+	overlay:drawWindow()
+
+	state.mapTool:readState()
+	mapChunkThing(state.mapTool)
 
 	-- map sync transfers
 	if config.showMapSync then
@@ -691,42 +746,12 @@ local function onEndFrame()
 		end
 	end
 
-
 --	local surfW = overlay:getSurfaceSize()
 --	for x = 0, surfW, 64 do
 --		overlay:drawString(x, -8, tostring(x))
 --	end
 
-	local scroll = Scroll:readFromLabel("wScroll")
-	if scroll then
-		-- draw view rect on map
-		local viewRow = math.floor(scroll.y / 8)
-		local viewCol = math.floor(scroll.x / 8)
-		local viewX, viewY = MapTool:gridDisplayPos(viewCol, viewRow)
-		local viewDispW = 20 * MapTool.tile_size
-		local viewDispH = 18 * MapTool.tile_size
-		overlay:drawRectangle2(viewX, viewY, viewDispW, viewDispH, 0x30EEEEEE)
-		local viewCentreRow = 16 + ((viewRow + 9) & 0x0F)
-		local viewCentreCol = 16 + ((viewCol + 10) & 0x0F)
-		local viewCentreX, viewCentreY = MapTool:gridDisplayPos(viewCentreCol, viewCentreRow)
-		overlay:drawRectangle2(viewCentreX - viewDispW / 2, viewCentreY - viewDispH / 2, viewDispW, viewDispH, 0x30B0F030)
-		frontThing(viewRow, viewCol)
-
-		local px = 220
-		local py = 0
-		local s = st_fmt(scroll)
-		local dy, dx
-		if monScroll then
-			dy = iAbsMax(monScroll.changes.dy, 0)
-			dx = iAbsMax(monScroll.changes.dx, 0)
-			s = s .. string.format(" dx,dy: %3d,%3d", dx, dy)
-			monScroll:tick()
-		end
-		overlay:drawString(px, py, s)
-		if dx then
-			overlay:drawVector(px + 16, py + 52 + 16, dx, dy, 15, 16, 0xEE80DD, 0xA0303030)
-		end
-	end
+	scrollThing()
 
 	local worldBounds = Rect:readFromLabel("wCollideBounds")
 	overlay:drawString(120, 0, worldBounds and st_fmt(worldBounds, "wCollideBounds") or "noworldBounds!")
@@ -736,6 +761,55 @@ local function onEndFrame()
 end
 
 
+function Setup()
+	ClearState()
+
+	state.callbacks = {}
+	state.addEventCallback = function(target, eventType)
+		local evToken = emu.addEventCallback(target, eventType)
+		table.insert(state.callbacks, { evToken = evToken, eventType = eventType, target = target })
+	end
+
+	state.mapTool = MapTool.create()
+
+	local wScroll = Scroll:getLabelAddress("wScroll")
+	if wScroll then
+		state.monScroll = st_monitor(Scroll, wScroll.address, wScroll.memType)
+	end
+
+	state.doneSetup = true
+
+	state.addEventCallback(onEndFrame, emu.eventType.endFrame)
+	state.addEventCallback(function()
+		ClearState()
+	end, emu.eventType.reset)
+
+	state.addEventCallback(function()
+		ClearState()
+	end, emu.eventType.scriptEnded)
+end
+
+
+function ClearState()
+	if state.callbacks then
+		for _,v in ipairs(state.callbacks) do
+			emu.removeEventCallback(v.evToken, v.eventType)
+		end
+	end
+	state = {}
+end
+
+
+--- This is the runonceatron3300
+local runonceEv = nil
+local function runonce()
+	emu.displayMessage("runonceatron3300", "runoncening...")
+	emu.removeEventCallback(runonceEv, emu.eventType.startFrame)
+	runonceEv = nil
+	Setup()
+end
+runonceEv = emu.addEventCallback(runonce, emu.eventType.startFrame)
+
+
 emu.displayMessage("Something", "Hello.")
-emu.addEventCallback(onEndFrame, emu.eventType.endFrame);
 
