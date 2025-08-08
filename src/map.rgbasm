@@ -78,6 +78,7 @@ hMapChunkSlotsScratch: ds 3
 ;; The index of the next chunk slot to update
 hMapSlotIdx: db
 
+; TODO: Remove these. They don't need to be stored & aren't much work to calculate.
 hMapSrcOriginY: db
 hMapSrcOriginX: db
 
@@ -176,8 +177,8 @@ MapSyncFrontRow::
 	; row X position
 	ld a, [wScroll.column + 0]
 	dec a ; viewX - 1 so corners get painted
-	and $1F :: ldh [_destX], a
 	ld b, a
+	and $1F :: ldh [_destX], a
 
 	ld a, e :: and $1F :: ldh [_destY], a
 
@@ -193,8 +194,8 @@ MapSyncFrontColumn:
 	; column Y position
 	ld a, [wScroll.row + 0]
 	dec a ; viewY - 1 so corners get painted
-	and $1F :: ldh [_destY], a
 	ld b, a
+	and $1F :: ldh [_destY], a
 
 	ld a, e :: and $1F :: ldh [_destX], a
 
@@ -254,13 +255,13 @@ SynXferInitialLayout:
 
 
 ;; Transfer a row from cache to the bgmap buffers.
-;; @param B: destX
+;; @param B: row start X coordinate
 ;; @param D: srcY
 ;; @mut: AF, BC, DE, HL
 MapSyncRow:
 	; calculate srcX
 	ld a, b
-	sub 6 :: and $0F :: add 6
+	sub 5 :: and $0F :: add 5
 	ld e, a
 	ld c, 23
 	call SynXferInitialLayout
@@ -295,7 +296,7 @@ MapSyncRow:
 ;; @param B: common buffer offset
 ;; @param C: low byte pointer to slot status
 ;; @param HL: pointer to SynXfer
-;;;;;;;;;;; @mut: AF, DE, HL
+;; @mut: AF, C, DE, HL
 _FinaliseRowXfer:
 	; status -- slot index & flags
 	ld a, c :: sub low(hMapChunkSlots)
@@ -348,13 +349,13 @@ _FinaliseRowXfer:
 
 
 ;; Transfer a column from cache to the bgmap buffers.
-;; @param B: destY
+;; @param B: column start Y coordinate
 ;; @param D: srcX
 ;; @mut: AF, BC, DE, HL
 MapSyncColumn:
 	; calculate srcY: starting row, top row of view rect
 	ld a, b
-	sub 7 :: and $0F :: add 7
+	sub 6 :: and $0F :: add 6
 	ld e, a
 	ld c, 21
 	call SynXferInitialLayout
@@ -389,7 +390,7 @@ MapSyncColumn:
 ;; @param B: common buffer offset ... srcX
 ;; @param C: low byte pointer to slot status
 ;; @param HL: pointer to xfer params
-;;;;;;;;;;; @mut: AF, DE, HL
+;; @mut: AF, C, DE, HL
 _FinaliseColumnXfer:
 	; status -- slot index & flags
 	ld a, c :: sub low(hMapChunkSlots)
