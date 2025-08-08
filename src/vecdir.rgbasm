@@ -1,0 +1,99 @@
+include "hardware.inc"
+
+/*
+integer Axial / Diag pairs sorted by Diag error: Diag distance to (Axial * 0.707)
+
+ 58 /  41 (-0.006000)
+ 41 /  29 (+0.013000)
+ 17 /  12 (-0.019000)
+ 75 /  53 (-0.025000)
+ 24 /  17 (+0.032000)
+ 34 /  24 (-0.038000)
+ 65 /  46 (+0.045000)
+  7 /   5 (+0.051000)
+ 51 /  36 (-0.057000)
+ 48 /  34 (+0.064000)
+ 10 /   7 (-0.070000)
+ 68 /  48 (-0.076000)
+ 31 /  22 (+0.083000)
+ 27 /  19 (-0.089000)
+ 72 /  51 (+0.096000)
+ 14 /  10 (+0.102000)
+ 44 /  31 (-0.108000)
+ 55 /  39 (+0.115000)
+  3 /   2 (-0.121000)
+ 61 /  43 (-0.127000)
+ 38 /  27 (+0.134000)
+ 20 /  14 (-0.140000)
+ 78 /  55 (-0.146000)
+ 79 /  56 (+0.147000)
+ 21 /  15 (+0.153000)
+ 37 /  26 (-0.159000)
+ 62 /  44 (+0.166000)
+  4 /   3 (+0.172000)
+ 54 /  38 (-0.178000)
+ 45 /  32 (+0.185000)
+ 13 /   9 (-0.191000)
+ 71 /  50 (-0.197000)
+ 28 /  20 (+0.204000)
+ 30 /  21 (-0.210000)
+ 69 /  49 (+0.217000)
+ 11 /   8 (+0.223000)
+ 47 /  33 (-0.229000)
+ 52 /  37 (+0.236000)
+  6 /   4 (-0.242000)
+ 64 /  45 (-0.248000)
+*/
+
+
+section "Vecdir8FromKeys", rom0
+;; Construct a vector to represent directional input.
+;; The result is a signed integer for each axis, with each being:
+;; - zero if neither or both keys for this axis are active,
+;; - *axial length* (+/-) if only this axis has an active key,
+;; - *diagonal length* (+/-) if both axes have an active key,
+;;
+;; The layout of the input flags and the sign of the directions is as follows:
+;;   [BIT: DIR (SIGN)]
+;;      7: DOWN  (+)
+;;      6: UP    (-)
+;;      5: LEFT  (-)
+;;      4: RIGHT (+)
+;;
+;; @param B: input state
+;; @param E: axial length
+;; @param D: diagonal length
+;; @ret D,E: Y,X direction
+;; @mut: AF, DE
+Vecdir8FromKeys::
+	; if both axes are active, use diagonal length
+	ld a, b :: and PADF_DOWN|PADF_UP
+	jr z, :+
+	ld a, b :: and PADF_LEFT|PADF_RIGHT
+	jr z, :+
+	ld e, d
+:
+
+	xor a
+	bit PADB_UP, b
+	jr z, :+
+	sub e
+:
+	bit PADB_DOWN, b
+	jr z, :+
+	add e
+:
+	ld d, a
+
+	xor a
+	bit PADB_LEFT, b
+	jr z, :+
+	sub e
+:
+	bit PADB_RIGHT, b
+	jr z, :+
+	add e
+:
+	ld e, a
+	ret
+
