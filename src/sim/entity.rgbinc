@@ -4,7 +4,7 @@ def Q_ENTITY_INC_b4moRE1M equ 1
 
 def ENTITY_COUNT_MAX equ 16
 
-def GRAVITY_100 equ $0_6
+def GRAVITY_DEFAULT equ $0_3
 ; Maximum magnitude of either velocity component (each axis is clamped independently)
 def ENT_VELOCITY_MAX equ 100
 

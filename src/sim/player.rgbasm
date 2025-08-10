@@ -4,36 +4,55 @@ include "sim/entity.rgbinc"
 
 def bVKEY_FLAP        equ 0
 def bVKEY_AUTOFLAP    equ 1
-def bVKEY_DRIVE_LEFT  equ 6
-def bVKEY_DRIVE_RIGHT equ 7
 
 def FLAP_FULL equ $0D
 def FLAP_AUTO equ $0C
 def AUTOFLAP_THRESHOLD equ $02
 
+
 section "wPlayer", wram0
 wPlayer::
 	.vkeys: db
-	.drive_horiz: db
+
+
+section "hPlayer", hram
+;; Direct directional movement vector, Y axis
+hPlayerDriveY: db
+;; 'Drive' movement control vector, X axis
+hPlayerDriveX: db
 
 
 section "Player", rom0
 PlayerInit::
+	xor a
+	ld [wPlayer.vkeys], a
+	ldh [hPlayerDriveY], a
+	ldh [hPlayerDriveX], a
 	ret
 
 
 ;; Player entity controller: per-tick update function
 ;; @mut: AF, BC, D, HL
 PlayerUpdate::
-	; HACK: I just wrote this,
-	; and I've been lazy.
-	; So read this comment,
-	; TODO/FIXME/MAYBE:
+	; NOTE:
 	; This is hardcoded to work on the first entity in wEntity. This might be
 	;   fine, as the player entity can probably just always be that one, but I
 	;   never actually decided to do that, so it seemed worth mentioning.
 
 	call PlayerInputUpdate
+
+	; Directional movement
+	ld hl, wEntity
+	entity_index Entity_AccY
+	ld [hl], d
+	entity_index Entity_AccX
+	ld [hl], e
+
+	ret
+
+/*
+;; @param B: vkeys
+PlayerFlap:
 	; Keep the 'ctrl' field available in C, and save any changes made to it down below.
 	ld a, [wEntity + Entity_Ctrl] :: ld c, a
 
@@ -64,42 +83,29 @@ PlayerUpdate::
 
 	ld hl, wEntity + Entity_Ctrl
 	ld a, c :: ld [hl+], a
-
-	; Propel/move/drive on X axis!
-	ld a, [wPlayer.drive_horiz]
-	add a :: add a
-	assert Entity_Ctrl + 1 == Entity_AccX
-	ld [hl+], a
-	; TODO: horizontal motion things, with Entity:
-	; TODO: apply horizontal move in air with flap only!
-	; TODO: horiz acceleration depending on state/mode
-	; TODO: decelerate based on input
-	; TODO: handle input opposed to velocity
 	ret
+*/
 
 
 ;; Read input, update vkeys
 ;; @ret B: vkeys
-;; @mut: AF, BC
+;; @ret D,E: Drive Y,X
+;; @mut: AF, BC, DE
 PlayerInputUpdate:
-	ldh a, [hKeys] :: ld c, a
-	; left/right
-	xor a
-	bit PADB_LEFT, c
+;	ld de, (12 << 8) | 17
+	ld de, (5 << 8) | 7
+;	ld de, (2 << 8) | 3
+	ldh a, [hKeys] :: ld b, a
+	call Vecdir8FromKeys
+	ld a, d :: or e
 	jr z, :+
-	dec a
+	dec d :: dec d ; antigravity
 :
-	bit PADB_RIGHT, c
-	jr z, :+
-	inc a
-:
-	; If neither or both L,R pressed, A will be zero. Or LEFT: $FF, RIGHT: $01
-	; Save signed direction
-	ld [wPlayer.drive_horiz], a
-	; Rotate and mask to get desired vkeys bit pattern: {L***_***R} ~~> {RL00_0000}
-	rrca :: and $C0
+	ld a, d :: ldh [hPlayerDriveY], a
+	ld a, e :: ldh [hPlayerDriveX], a
+
 	; B will hold the new vkeys state...
-	ld b, a
+	ld b, 0
 
 	; autoflap
 	bit PADB_A, c

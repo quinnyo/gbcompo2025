@@ -3,9 +3,11 @@ include "collide.rgbinc"
 include "coord.rgbinc"
 
 
-section "wSim", wram0
-wSim::
+section "hSim", hram
+hSim::
 	.gravity:: db
+	.tick: db
+	.global_accel: db
 
 
 section "wEntity", wram0, align[8]
@@ -61,12 +63,29 @@ EntityInit::
 
 	call EntityTesto
 
-	ld a, GRAVITY_100 :: ld [wSim.gravity], a
+	ld a, GRAVITY_DEFAULT
+	ldh [hSim.gravity], a
+	xor a
+	ldh [hSim.tick], a
+	ldh [hSim.global_accel], a
 	ret
 
 
-; @mut: AF, BC, HL
+; @mut: AF, BC, DE, HL
 EntityUpdate::
+;	ldh a, [hSim.global_accel] :: ld b, a
+	ld b, 0
+	; Should apply gravity?
+	ldh a, [hSim.tick]
+	bit 0, a
+	jr z, :+
+	ldh a, [hSim.gravity]
+	ld b, a
+:
+	ldh a, [hSim.global_accel]
+	add b
+	ldh [hSim.global_accel], a
+
 	ld hl, wEntity
 .loop
 	bit ENTINFOB_ALIVE, [hl] :: jr z, .next
@@ -84,7 +103,8 @@ EntityUpdate::
 
 	; Update motion Y, add gravity and flap as constant accel
 	entity_index Entity_AccY
-	ld a, [wSim.gravity] :: add b :: call _motion_go
+	ldh a, [hSim.global_accel]
+	add b :: call _motion_go
 	ld a, c :: ldh [hCollide.py+0], a
 	ld a, b :: ldh [hCollide.py+1], a
 
@@ -128,6 +148,12 @@ EntityUpdate::
 assert sizeof("wEntity") == 256
 	entity_index szEntity
 	jp nc, .loop
+
+	ldh a, [hSim.tick]
+	inc a
+	ldh [hSim.tick], a
+	xor a
+	ldh [hSim.global_accel], a
 	ret
 
 
@@ -176,6 +202,18 @@ _motion_go:
 	ld b, [hl]
 	ld [hl+], a
 
+	; Scale velocity before applying it
+	ld a, b
+	rlca
+	jr nc, :+
+	dec b
+	sra b :: sra b :: sra b; :: sra b
+	inc b
+	jr .apply_velocity
+:
+	sra b :: sra b :: sra b; :: sra b
+
+.apply_velocity
 	; Update position (16 bit + signed 8 bit)
 	ld a, b
 	add [hl]
@@ -244,6 +282,54 @@ _fric_1_32:
 	; negative: invert first
 	cpl :: inc a
 	rlca :: rlca :: rlca :: and $06
+	inc a
+	ret
+
+_fric_1_8:
+	and a :: ret z
+	cp $80
+	jr nc, .negative
+	; positive: divide first
+	rrca :: rrca :: rrca :: and $1E
+	cpl; :: inc a
+	;dec a
+	ret
+.negative
+	; negative: invert first
+	cpl :: inc a
+	rrca :: rrca :: rrca :: and $1E
+	inc a
+	ret
+
+_fric_1_4:
+	and a :: ret z
+	cp $80
+	jr nc, .negative
+	; positive: divide first
+	rrca :: rrca :: and $3E
+	cpl; :: inc a
+	;dec a
+	ret
+.negative
+	; negative: invert first
+	cpl :: inc a
+	rrca :: rrca :: and $3E
+	inc a
+	ret
+
+_fric_1_2:
+	and a :: ret z
+	cp $80
+	jr nc, .negative
+	; positive: divide first
+	rrca :: and $7E
+	cpl; :: inc a
+	;dec a
+	ret
+.negative
+	; negative: invert first
+	cpl :: inc a
+	rrca :: and $7E
 	inc a
 	ret
 
