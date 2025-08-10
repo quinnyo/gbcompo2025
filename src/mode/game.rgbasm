@@ -25,6 +25,7 @@ modeGame_Enter::
 	call PlayerInit
 	call EntityInit
 	call CollideInit
+	call MapEnable
 	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
 	ret
 
@@ -64,6 +65,8 @@ modeGame_Process::
 	call ScrollUpdate
 	ld a, [wScroll.y + 0] :: ld [wSCY], a
 	ld a, [wScroll.x + 0] :: ld [wSCX], a
+
+	call MapUpdate
 
 /*
 	; paint trail ~~ coord verify/test
