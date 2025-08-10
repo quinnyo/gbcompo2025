@@ -210,24 +210,6 @@ _clampo:
 	ret
 
 
-/*
-; Move the signed value in A towards zero by one.
-; In other words, increment values less than zero, decrement values more than zero.
-; @param A: value
-; @ret A: new value
-_step_to_zero:
-	and a
-	ret z
-	cp $80
-	jr c, :+
-	inc a
-	ret
-:
-	dec a
-	ret
-*/
-
-
 ; Calculate simple friction (1/16) for the given velocity.
 ; The result is an acceleration (with magnitude in the range `[1..abs(vel)]`) opposed to the direction (sign) of the input velocity, or zero if the velocity is zero.
 ; @param A: vel
@@ -239,8 +221,8 @@ _fric_1_16:
 	jr nc, .negative
 	; positive: divide first
 	swap a :: and $0E
-	cpl :: inc a
-	dec a
+	cpl; :: inc a
+	;dec a
 	ret
 .negative
 	; negative: invert first
@@ -255,8 +237,8 @@ _fric_1_32:
 	jr nc, .negative
 	; positive: divide first
 	rlca :: rlca :: rlca :: and $06
-	cpl :: inc a
-	dec a
+	cpl; :: inc a
+	;dec a
 	ret
 .negative
 	; negative: invert first
