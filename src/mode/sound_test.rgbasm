@@ -23,7 +23,7 @@ modeSoundTest_Enter::
 modeSoundTest_Process::
 	wrambpush bank("{MODE_COMMON}")
 
-	ld a, [wInput.pressed]
+	ldh a, [hKeysPressed]
 	bit PADB_A, a
 	jr z, :+
 	ld a, [wSfxSelect]

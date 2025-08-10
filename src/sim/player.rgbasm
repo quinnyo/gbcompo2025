@@ -82,7 +82,7 @@ PlayerUpdate::
 ;; @ret B: vkeys
 ;; @mut: AF, BC
 PlayerInputUpdate:
-	ld a, [wInput.state] :: ld c, a
+	ldh a, [hKeys] :: ld c, a
 	; left/right
 	xor a
 	bit PADB_LEFT, c
@@ -108,7 +108,7 @@ PlayerInputUpdate:
 :
 
 	; manual flap
-	ld a, [wInput.pressed]
+	ldh a, [hKeysPressed]
 	bit PADB_A, a
 	jr z, :+
 	set bVKEY_FLAP, b

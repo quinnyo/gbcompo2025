@@ -35,7 +35,7 @@ modeGame_Process::
 
 /*
 	; debugfly: override player input
-	ld a, [wInput.state]
+	ldh a, [hKeys]
 	ld b, a
 	xor a
 	bit PADB_UP, b

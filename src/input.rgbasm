@@ -1,19 +1,21 @@
 include "hardware.inc"
 
 
-section "Input State", wram0
-wInput::
-	.state:: db
-	.pressed:: db
-	.released:: db
+section "Input State", hram
+;; Current input state -- keys that are depressed.
+hKeys:: db
+;; Keys that were pressed in the most recent update.
+hKeysPressed:: db
+;; Keys that were released in the most recent update.
+hKeysReleased:: db
 
 
 section "Input", rom0
 InputInit::
 	xor a
-	ld [wInput.state], a
-	ld [wInput.pressed], a
-	ld [wInput.released], a
+	ldh [hKeys], a
+	ldh [hKeysPressed], a
+	ldh [hKeysReleased], a
 	ret
 
 
@@ -21,16 +23,16 @@ InputInit::
 ; @param B: new input state
 ; @mut: A, C
 InputUpdate::
-	ld a, [wInput.state]
+	ldh a, [hKeys]
 	xor b
 	ld c, a ; C = keys that changed
 	and b ; A = keys that changed to pressed
-	ld [wInput.pressed], a
+	ldh [hKeysPressed], a
 	ld a, b ; A = new state
-	ld [wInput.state], a
+	ldh [hKeys], a
 	cpl
 	and c
-	ld [wInput.released], a
+	ldh [hKeysReleased], a
 	ret
 
 
