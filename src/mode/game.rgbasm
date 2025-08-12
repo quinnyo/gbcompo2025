@@ -62,10 +62,11 @@ modeGame_Process::
 */
 
 	call EntityUpdate
+	call _ViewTargetThing
+
 	call ScrollUpdate
 	ld a, [wScroll.y + 0] :: ld [wSCY], a
 	ld a, [wScroll.x + 0] :: ld [wSCX], a
-
 	call MapUpdate
 
 /*
@@ -108,101 +109,93 @@ modeGame_Process::
 	wrambpop
 */
 
-	call _ViewTargetThing
+	; After scrolling, adjust target object position
+	ld a, [wTargetThing.y] :: ld c, a
+	ldh a, [hScrollAppliedY]
+	cpl :: inc a :: add c :: add 8 :: ld c, a
+	ld a, [wTargetThing.x] :: ld b, a
+	ldh a, [hScrollAppliedX]
+	cpl :: inc a :: add b :: ld b, a
 
 	; dirty test to show entity position
-	ld a, [wTargetThing.y]
-	add 16
-	ld c, a
-	ld a, [wTargetThing.x]
-	add 8
-	ld b, a
 	ld e, 16
 	ld d, 0
 	ld hl, wOAM1
-	ld a, c
-	ld [hl+], a
-	ld a, b
-	ld [hl+], a
-	ld a, e
-	ld [hl+], a
-	ld a, d
-	ld [hl+], a
+	ld a, c :: ld [hl+], a
+	ld a, b :: ld [hl+], a
+	ld a, e :: ld [hl+], a
+	ld a, d :: ld [hl+], a
 	inc e :: inc e
-	ld a, c
-	ld [hl+], a
-	ld a, b
-	add 8
-	ld [hl+], a
-	ld a, e
-	ld [hl+], a
-	ld a, d
-	ld [hl+], a
+	ld a, c :: ld [hl+], a
+	ld a, b :: add 8 :: ld [hl+], a
+	ld a, e :: ld [hl+], a
+	ld a, d :: ld [hl+], a
 
 	ret
 
 
-def TARGET_FENCE_TOP equ 48
-def TARGET_FENCE_BOTTOM equ 144 - 24
-def TARGET_FENCE_LEFT equ 48
-def TARGET_FENCE_RIGHT equ 160 - 48
+;; Scroll view if target is more than this distance from the screen centre.
+def SCROLL_FENCE equ 24
+
+
+;; @param C: dCentre -- target position relative to view centre
+;; @ret A: scroll delta
+_ScrollFenceThing:
+	ld a, c
+	and a
+	ret z
+	rlca
+	jr c, .negative
+.positive
+	ld a, c
+	sub SCROLL_FENCE
+	ret nc
+	xor a
+	ret
+.negative
+	ld a, c
+	sub -SCROLL_FENCE
+	ret c
+	xor a
+	ret
+
+
 _ViewTargetThing:
-	; scroll target position
-	ld a, [wScroll.y + 0] :: ld l, a
-	ld a, [wScroll.y + 1] :: ld h, a
+	; player entity Y position
 	ld a, [wEntity + 8 + 0] :: ld c, a
 	ld a, [wEntity + 8 + 1] :: ld b, a
-	coord_sub bc, WORLD_ORIGIN
+	assert WORLD_ORIGIN == $0100
+	dec b ; subtract WORLD_ORIGIN
 	coord_int16 bc
-	; screenpos = entitypos - scrollpos
-	ld a, c
-	sub l
-	ld c, a
-	ld a, b
-	sbc h
-	ld b, a
-	ld a, c
-	jr z, :+
-	xor a
-:
-;	add 16
-	ld [wTargetThing.y], a
 
-	coord_sub bc, TARGET_FENCE_TOP
-	jr c, .keepy ; keep if negative
-	coord_sub bc, TARGET_FENCE_BOTTOM - TARGET_FENCE_TOP
-	jr c, :+ ; keep if positive
-.keepy
-	ld a, c :: ld [wScroll.dy], a
-:
+	; view rect centre
+	ld a, [wScroll.y + 0]
+	add 144 / 2 :: ld e, a
+	ld a, [wScroll.y + 1]
+	adc e :: sub e :: ld d, a
 
-	ld a, [wScroll.x + 0] :: ld l, a
-	ld a, [wScroll.x + 1] :: ld h, a
+	coord_sub bc, de
+	ld a, c :: add 144 / 2 :: ld [wTargetThing.y], a
+	call _ScrollFenceThing
+	ld [wScroll.dy], a
+
+	; player entity X position
 	ld a, [wEntity + 4 + 0] :: ld c, a
 	ld a, [wEntity + 4 + 1] :: ld b, a
-	coord_sub bc, WORLD_ORIGIN
+	assert WORLD_ORIGIN == $0100
+	dec b ; subtract WORLD_ORIGIN
 	coord_int16 bc
-	; screenpos = entitypos - scrollpos
-	ld a, c
-	sub l
-	ld c, a
-	ld a, b
-	sbc h
-	ld b, a
-	ld a, c
-	jr z, :+
-	xor a
-:
-;	add 8
-	ld [wTargetThing.x], a
 
-	coord_sub bc, TARGET_FENCE_LEFT
-	jr c, .keepx
-	coord_sub bc, TARGET_FENCE_RIGHT - TARGET_FENCE_LEFT
-	jr c, :+
-.keepx
-	ld a, c :: ld [wScroll.dx], a
-:
+	; view rect centre
+	ld a, [wScroll.x + 0]
+	add 160 / 2 :: ld e, a
+	ld a, [wScroll.x + 1]
+	adc e :: sub e
+
+	coord_sub bc, de
+	ld a, c :: add 160 / 2 :: ld [wTargetThing.x], a
+	call _ScrollFenceThing
+	ld [wScroll.dx], a
 
 	ret
 

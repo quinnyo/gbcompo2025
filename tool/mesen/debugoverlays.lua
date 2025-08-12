@@ -357,9 +357,11 @@ Scroll = st_create("Scroll")
 st_field(Scroll, "dy", 1, true)
 st_field(Scroll, "y", 2)
 st_field(Scroll, "row", 2)
+st_field(Scroll, "y_front_dist", 1)
 st_field(Scroll, "dx", 1, true)
 st_field(Scroll, "x", 2)
 st_field(Scroll, "column", 2)
+st_field(Scroll, "x_front_dist", 1)
 
 
 local fmt_scroll_pos = function(dot)
@@ -371,9 +373,9 @@ end
 
 Scroll.fieldfmt = {
 	y = fmt_scroll_pos,
-	frontier_row = "%d",
+	row = "%d g",
 	x = fmt_scroll_pos,
-	frontier_column = "%d",
+	column = "%d g",
 }
 
 

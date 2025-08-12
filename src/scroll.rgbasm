@@ -53,8 +53,8 @@ section "hScroll", hram
 hScrollStat:: db
 hScrollFrontY:: db
 hScrollFrontX:: db
-
-_front_dist: db
+hScrollAppliedY:: db
+hScrollAppliedX:: db
 
 
 section "wScroll", wram0
@@ -65,6 +65,7 @@ wScroll::
 	.y:: dw
 	;; View scroll grid row
 	.row:: dw
+	.y_front_dist: db
 
 	;; Pending view position delta (X axis)
 	.dx:: db
@@ -72,6 +73,7 @@ wScroll::
 	.x:: dw
 	;; View scroll grid column
 	.column:: dw
+	.x_front_dist: db
 
 
 section "Scroll", rom0
@@ -84,6 +86,12 @@ ScrollInit::
 	xor a
 	ldh [hScrollFrontY], a
 	ldh [hScrollFrontX], a
+	ldh [hScrollAppliedY], a
+	ldh [hScrollAppliedX], a
+	ld a, VIEW_ROWS + 1
+	ld [wScroll.y_front_dist], a
+	ld a, VIEW_COLUMNS + 1
+	ld [wScroll.x_front_dist], a
 	ret
 
 
@@ -119,29 +127,27 @@ ScrollUpdate::
 	and ~(ScrollStat_Transient)
 	ld b, a ; B will be the new value for hScrollStat
 
-	ld a, VIEW_ROWS + 1 :: ldh [_front_dist], a
 	ld hl, wScroll.dy
 	call .UpdateAxis
+	ld a, c :: ldh [hScrollAppliedY], a
 	jr nc, :+
 	; Store updated front & set changed flag if it actually changed.
-	ld c, a
 	ldh a, [hScrollFrontY]
-	cp c
+	cp d
 	jr z, :+
-	ld a, c :: ldh [hScrollFrontY], a
+	ld a, d :: ldh [hScrollFrontY], a
 	set bScrollStat_ChangeFrontY, b
 :
 
-	ld a, VIEW_COLUMNS + 1 :: ldh [_front_dist], a
 	ld hl, wScroll.dx
 	call .UpdateAxis
+	ld a, c :: ldh [hScrollAppliedX], a
 	jr nc, :+
 	; Store updated front & set changed flag if it actually changed.
-	ld c, a
 	ldh a, [hScrollFrontX]
-	cp c
+	cp d
 	jr z, :+
-	ld a, c :: ldh [hScrollFrontX], a
+	ld a, d :: ldh [hScrollFrontX], a
 	set bScrollStat_ChangeFrontX, b
 :
 
@@ -160,7 +166,8 @@ ScrollUpdate::
 
 
 ;; @param HL: pointer to scroll axis state
-;; @ret A: new front position (only valid with F.C)
+;; @ret D: new front position (only valid with F.C)
+;; @ret C: effective delta
 ;; @ret F.C: set to indicate success
 ;; @ret F.Z: set if zero delta
 ;; @mut: AF, C, DE, HL
@@ -173,6 +180,23 @@ ScrollUpdate::
 	; Apply delta
 	ld a, [hl+] :: ld e, a
 	ld a, [hl-] :: ld d, a
+
+	; clamp delta if pos < 256
+	and a
+	jr nz, :+
+	; if delta < 0
+	bit 7, c
+	jr z, :+
+	xor a :: sub c
+	cp e
+	jr c, :+
+	; clamp delta to -position
+	xor a :: sub e :: ld c, a
+	ret z ; effective delta is zero, nothing to do
+	ld e, 0
+	jr .delta_applied
+:
+
 	inc d ; work on pos.hi + 1 to handle underflow
 	; signed addition ~~ if delta < 0, dec D to emulate delta having high byte of $FF
 	ld a, c
@@ -192,9 +216,11 @@ ScrollUpdate::
 	ld de, $0100
 :
 	dec d ; undo the inc from before applying the delta, D = pos.hi
+.delta_applied
 
 	ld a, e :: ld [hl+], a
 	ld a, d :: ld [hl+], a
+
 	; dot to grid
 	ld a, e
 	srl d :: rra
@@ -206,13 +232,12 @@ ScrollUpdate::
 	ld a, e :: ld [hl+], a
 	ld a, d :: ld [hl+], a
 
-	; Advance frontier
-	; add -1 if delta is negative or +FRONTIER offset if positive
+	; Advance front
+	; add -1 if delta is negative or +FRONT offset if positive
 	ld a, c :: rlca :: sbc a
-	jr nz, :+
-	ldh a, [_front_dist]
-:
+	or [hl] ; front_dist
 	add e
+	ld d, a
 	scf ; F.C for success
 	ret
 

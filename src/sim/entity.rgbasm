@@ -183,35 +183,35 @@ _motion_go:
 	add [hl] :: ld b, a
 	; Clear the accumulator
 	xor a :: ld [hl+], a
-
-	; Update velocity -- apply friction and acceleration.
-	ld a, [hl]
-	; TODO: select friction,drag model appropriate to current state.
-	call _fric_1_16
-	; Apply friction
-	add [hl]
 	; Apply accel
 	; TODO: handle potential overflow (vel + accel)
+	ld a, [hl]
 	add b
-	; Limit velocity
+	; Apply friction
 	ld c, a
-	ld a, ENT_VELOCITY_MAX
-	call _clampo
-	ld a, c
+	call _fric_1_4
+	add c
+
+;	; Limit velocity
+;	ld c, a
+;	ld a, ENT_VELOCITY_MAX
+;	call _clampo
+;	ld a, c
+
 	; Grab the "old" velocity value before writing the updated one.
 	ld b, [hl]
 	ld [hl+], a
 
-	; Scale velocity before applying it
-	ld a, b
-	rlca
-	jr nc, :+
-	dec b
-	sra b :: sra b :: sra b; :: sra b
-	inc b
-	jr .apply_velocity
-:
-	sra b :: sra b :: sra b; :: sra b
+;	; Scale velocity before applying it
+;	ld a, b
+;	rlca
+;	jr nc, :+
+;	dec b
+;	sra b; :: sra b; :: sra b; :: sra b
+;	inc b
+;	jr .apply_velocity
+;:
+;	sra b; :: sra b; :: sra b; :: sra b
 
 .apply_velocity
 	; Update position (16 bit + signed 8 bit)
