@@ -53,6 +53,14 @@ section "assets/character_test.chr.pal", romx
 incbin "assets/character_test.chr.pal"
 
 
+section "assets/enviro1.chr", romx, align[4]
+incbin "assets/enviro1.chr"
+
+
+section "assets/enviro1.chr.pal", romx
+incbin "assets/enviro1.chr.pal"
+
+
 section "Main", rom0
 Boot:
 	; A = 11(CGB,AGB)
@@ -106,16 +114,16 @@ Main::
 	;ld de, rModes_modeSoundTest
 	call ModeSetActive
 
-	ld b, bank("assets/iconoglyphs.chr")
-	ld de, startof("assets/iconoglyphs.chr")
-	ld c, sizeof("assets/iconoglyphs.chr") / 16
-	ld hl, $8000
-	call VxLoadRom
+;	ld b, bank("assets/iconoglyphs.chr")
+;	ld de, startof("assets/iconoglyphs.chr")
+;	ld c, sizeof("assets/iconoglyphs.chr") / 16
+;	ld hl, $8000
+;	call VxLoadRom
 
 	ld b, bank("assets/fonty8.chr")
 	ld de, startof("assets/fonty8.chr")
 	ld c, sizeof("assets/fonty8.chr") / 16
-	ld hl, $9000
+	ld hl, $9001
 	call VxLoadRom
 
 	ldh a, [rLCDC]

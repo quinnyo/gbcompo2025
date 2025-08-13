@@ -7,22 +7,59 @@ include "banker.rgbinc"
 
 
 section union "{MODE_COMMON}", wramx
-_timer: db
+_load_step: db
 
 
 section "modeDefault", romx
 modeDefault_Enter::
 	wrambopen bank("{MODE_COMMON}")
-	ld a, 1 :: ld [_timer], a
+	xor a :: ld [_load_step], a
+
+	ld de, startof("assets/enviro1.chr.pal")
+	ld c, sizeof("assets/enviro1.chr.pal") / 8
+	ld b, 0
+	ld h, bank("assets/enviro1.chr.pal")
+	call PalettesLoadRomx
+
 	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
 	ret
 
 
 modeDefault_Process::
 	wrambopen bank("{MODE_COMMON}")
-	ld hl, _timer
-	dec [hl]
+
+	ldh a, [hVx.task_count]
+	and a
 	ret nz
+
+	ld hl, _load_step
+	ld a, [hl]
+	cp 3
+	ret nc
+	inc [hl]
+	rst RST_SwitchJump
+	dw .load0
+	dw .load1
+	dw .load2
+
+.load0
+	ld b, bank("assets/enviro1.chr")
+	ld de, startof("assets/enviro1.chr")
+	ld c, sizeof("assets/enviro1.chr") / 2 / 16 - 1
+	ld hl, $9000
+	call VxLoadRom
+	ret
+
+.load1
+	ld b, bank("assets/enviro1.chr")
+	ld de, startof("assets/enviro1.chr") + sizeof("assets/enviro1.chr") / 2
+	ld c, sizeof("assets/enviro1.chr") / 2 / 16 - 1
+	ld hl, $9000 + sizeof("assets/enviro1.chr") / 2
+	call VxLoadRom
+	ret
+
+.load2
 	ld de, rModes_modeGame
 	jp ModeSetActive
+	ret
 
