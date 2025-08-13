@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+redo-always
+
 # find source images to convert
 mapfile -t CHRSRCS < <(find src/assets -name '*.png' -type f | sort)
 

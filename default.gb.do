@@ -6,7 +6,6 @@ redo-ifchange config.sh
 
 redo-ifchange rgbdsver
 
-# Ensure assets build first
 redo-ifchange assets
 
 redo-ifchange "${1}.sources"
