@@ -102,9 +102,21 @@ Main::
 	call RombInit
 	call WrambInit
 
+	; give in and enable double speed mode!
+	ldh a, [rSPD]
+	and $80
+	jr nz, :+
+	; for some reason, clear IE & input select
+	xor a :: ldh [rIE], a
+	ld a, $30 :: ldh [rP1], a
+	ld a, 1 :: ldh [rSPD], a
+	stop
+:
+
 	call VBlankInit
 	call InputInit
 	call PalettesInit
+	call CurtainInit
 	call MapInit
 	call VramxInit
 	call audio_init
@@ -138,6 +150,7 @@ Main::
 	call InputUpdate
 	call ModeUpdate
 	call VramxSync
+	call CurtainUpdate
 
 .vsync
 	ld hl, wVBlankCount
@@ -149,8 +162,8 @@ Main::
 	jr z, .vsync_wait
 
 	di
-	call PalettesSync
 	call VramxBeginUpdate
+	call PalettesSync
 	ei
 
 :

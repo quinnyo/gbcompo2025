@@ -59,7 +59,6 @@ modeDefault_Process::
 	ret
 
 .load2
-	ld de, rModes_modeGame
+	ld de, rModes_modeTitle
 	jp ModeSetActive
-	ret
 

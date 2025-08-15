@@ -3,6 +3,11 @@ include "stuff.rgbinc"
 include "banker.rgbinc"
 
 
+rsreset
+export def bPalettes_SYNC_ALL rb 1
+export def Palettes_SYNC_ALL equ 1 << bPalettes_SYNC_ALL
+
+
 def szCOLOUR equ 2
 def PALETTE_LENGTH equ 4
 def szPALETTE equ PALETTE_LENGTH * szCOLOUR
@@ -41,6 +46,11 @@ rPalettesOB::
 	.end
 
 
+section "hPalettes", hram
+hPalettes:: db
+hPalettesFadeMask:: dw
+
+
 section "wPalettes", wram0, align[8]
 ;; Palette buffer -- working copy of palette data.
 ;; Signal that a palette should be re-uploaded by setting bit 15 of the first colour in the palette.
@@ -67,6 +77,11 @@ PalettesInit::
 
 	; scanindex
 	ld a, low(wPalettes.bg) + 1 :: ld [wPalettes.scanindex], a
+
+	ld a, $FF
+	ldh [hPalettesFadeMask + 0], a
+	ldh [hPalettesFadeMask + 1], a
+	ld a, Palettes_SYNC_ALL :: ldh [hPalettes], a
 	ret
 
 
@@ -117,8 +132,12 @@ PalettesLoadRomx::
 
 
 ;; Upload palette data
-;; @mut AF, BC, HL
+;; @mut AF, BC, DE, HL
 PalettesSync::
+	ldh a, [hPalettes]
+	bit bPalettes_SYNC_ALL, a
+	jr nz, PalettesSyncAll
+
 	ld hl, wPalettes.scanindex
 	ld l, [hl]
 	ld b, 8 ; maximum scan iters
@@ -158,4 +177,31 @@ endr
 	inc l
 	ld a, l :: and $7F :: ld l, a
 	jr .scan
+
+
+;; @mut: AF, BC, DE, HL
+PalettesSyncAll::
+	ldh a, [hPalettesFadeMask + 0] :: ld e, a
+	ldh a, [hPalettesFadeMask + 1] :: ld d, a
+	ld hl, wPalettes.bg
+	ld c, cBGPI
+	call .load
+	ld hl, wPalettes.ob
+	inc c ; OBPI
+.load:
+	ld a, $80 ; index 0, auto-advance on
+	ldh [c], a
+	inc c ; PI ~~> PD
+rept 32
+	ld a, [hl+]
+	and e
+	ldh [c], a
+	ld a, [hl+]
+	and d
+	ldh [c], a
+endr
+	ldh a, [hPalettes]
+	res bPalettes_SYNC_ALL, a
+	ldh [hPalettes], a
+	ret
 

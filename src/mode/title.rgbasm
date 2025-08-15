@@ -1,0 +1,38 @@
+include "hardware.inc"
+include "mode.rgbinc"
+include "banker.rgbinc"
+
+
+	mode_def modeTitle
+
+
+section union "{MODE_COMMON}", wramx
+
+
+section "modeTitle", romx
+modeTitle_Enter::
+	wrambopen bank("{MODE_COMMON}")
+
+	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
+	ret
+
+
+modeTitle_Process::
+	wrambopen bank("{MODE_COMMON}")
+
+	; Do nothing if curtain is not in the OPEN state.
+	ldh a, [hCurtain]
+	and Curtain_STATE
+	cp Curtain_OPEN
+	ret nz
+
+	; Wait for key press to start mode transition.
+	ldh a, [hKeysPressed]
+	and PADF_START | PADF_A
+	jr z, :+
+	ld de, rModes_modeGamePrep
+	jp CurtainModeTransitionBegin
+:
+
+	ret
+

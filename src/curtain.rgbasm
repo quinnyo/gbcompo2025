@@ -1,0 +1,169 @@
+;; Curtain screen/mode transition manager.
+
+include "hardware.inc"
+include "banker.rgbinc"
+include "stuff.rgbinc"
+
+
+rsreset
+;; Set if curtain position is in a steady state, i.e. not changing.
+export def bCurtain_STEADY rb 1
+;; Indicates curtain position. `0`: open/opening, `1`: closed/closing.
+export def bCurtain_POSITION rb 1
+;; Set to enable mode transition. Once curtain is closed, active mode will be
+;; set to `hCurtainDestinationMode`.
+export def bCurtain_MODE_CHANGE rb 1
+
+export def Curtain_STEADY     equ 1 << bCurtain_STEADY
+export def Curtain_POSITION   equ 1 << bCurtain_POSITION
+export def Curtain_MODE_CHANGE equ 1 << bCurtain_MODE_CHANGE
+
+export def Curtain_STATE   equ Curtain_STEADY | Curtain_POSITION
+export def Curtain_OPENING equ 0
+export def Curtain_OPEN    equ Curtain_STEADY
+export def Curtain_CLOSING equ Curtain_POSITION
+export def Curtain_CLOSED  equ Curtain_STEADY | Curtain_POSITION
+
+
+section "hCurtain", hram
+hCurtain:: db
+hCurtainX: db
+hCurtainLimit: db
+hCurtainDestinationMode: dw
+
+
+section "PaletteFade", romx
+_Fade6:
+	dw_rgb555 %11111,%11111,%11111
+	dw_rgb555 %11110,%11110,%11110
+	dw_rgb555 %11100,%11100,%11100
+	dw_rgb555 %11000,%11000,%11000
+	dw_rgb555 %10000,%10000,%10000
+	dw_rgb555 %00000,%00000,%00000
+
+
+section "Curtain", rom0
+CurtainInit::
+	ld a, Curtain_OPEN :: ldh [hCurtain], a
+	xor a :: ldh [hCurtainX], a
+	ld a, 5 :: ldh [hCurtainLimit], a
+	ld a, $FF
+	ldh [hCurtainDestinationMode + 0], a
+	ldh [hCurtainDestinationMode + 1], a
+	ret
+
+
+CurtainUpdate::
+	ldh a, [hCurtain]
+assert Curtain_STATE == 3
+	and Curtain_STATE ; mask position state only: 0..3
+	rst RST_SwitchJump
+	dw .opening
+	dw .open
+	dw .closing
+	dw .closed
+
+.opening
+	ldh a, [hCurtainX]
+	and a
+	jr z, _CurtainDoOpen
+	dec a
+	ldh [hCurtainX], a
+	jr _CurtainDoX
+.open
+	ret
+.closing
+	ldh a, [hCurtainLimit] :: ld d, a
+	ldh a, [hCurtainX]
+	cp d
+	jr nc, _CurtainDoClose
+	inc a
+	ldh [hCurtainX], a
+	jr _CurtainDoX
+.closed
+	ret
+
+
+;; Begin closing curtain
+CurtainClose::
+	ldh a, [hCurtain]
+	and ~Curtain_STATE
+	or Curtain_CLOSING
+	ldh [hCurtain], a
+
+	ld a, 5 :: ldh [hCurtainLimit], a
+
+	ret
+
+
+;; Begin opening curtain
+CurtainOpen::
+	ldh a, [hCurtain]
+	and ~Curtain_STATE
+	or Curtain_OPENING
+	ldh [hCurtain], a
+
+	ret
+
+
+;; @param DE: destination mode (rModes_*)
+CurtainModeTransitionBegin::
+	ld a, e :: ldh [hCurtainDestinationMode + 0], a
+	ld a, d :: ldh [hCurtainDestinationMode + 1], a
+	ldh a, [hCurtain]
+	or Curtain_MODE_CHANGE
+	ldh [hCurtain], a
+
+	jr CurtainClose
+
+
+_CurtainDoOpen:
+	ldh a, [hCurtain]
+	and ~(Curtain_STATE)
+	or Curtain_OPEN
+	ldh [hCurtain], a
+
+	ret
+
+
+;; X updated
+_CurtainDoX:
+	ldh a, [hCurtainLimit] :: ld d, a
+	ldh a, [hCurtainX]
+	cp d
+	jr c, :+
+	; clamp
+	ld a, 5
+:
+	add a ; index * 2
+	ld hl, _Fade6
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	rombopen bank(_Fade6)
+	ld c, low(hPalettes)
+	ldh a, [c]
+	set bPalettes_SYNC_ALL, a
+	ldh [c], a :: inc c
+	ld a, [hl+] :: ldh [c], a :: inc c
+	ld a, [hl+] :: ldh [c], a
+
+	ret
+
+
+_CurtainDoClose:
+	; Do mode change if enabled.
+	ldh a, [hCurtain]
+	and Curtain_MODE_CHANGE
+	jr z, :+
+	ldh a, [hCurtainDestinationMode + 0] :: ld e, a
+	ldh a, [hCurtainDestinationMode + 1] :: ld d, a
+	call ModeSetActive
+:
+	; Update state/flags -- set position state CLOSED & clear MODE_CHANGE flag.
+	ldh a, [hCurtain]
+	and ~(Curtain_STATE | Curtain_MODE_CHANGE)
+	or Curtain_CLOSED
+	ldh [hCurtain], a
+
+	ret
+

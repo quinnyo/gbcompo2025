@@ -4,11 +4,12 @@ include "mode.rgbinc"
 include "coord.rgbinc"
 
 
+	mode_def modeGamePrep
 	mode_def modeGame
 
 
-section "modeGame", romx
-modeGame_Enter::
+section "modeGamePrep", romx
+modeGamePrep_Enter::
 	ld b, bank("assets/character_test.chr")
 	ld de, startof("assets/character_test.chr")
 	ld c, sizeof("assets/character_test.chr") / 16 - 1
@@ -26,6 +27,25 @@ modeGame_Enter::
 	call EntityInit
 	call CollideInit
 	call MapEnable
+
+	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
+	ret
+
+
+modeGamePrep_Process::
+	; wait for data to load
+	ldh a, [hVx.task_count]
+	and a
+	ret nz
+
+	ld de, rModes_modeGame
+	call ModeSetActive
+
+	jp CurtainOpen
+
+
+section "modeGame", romx
+modeGame_Enter::
 	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
 	ret
 
