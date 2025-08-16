@@ -6,12 +6,103 @@ include "banker.rgbinc"
 	mode_def modeTitle
 
 
+macro import_screen
+	pushs \1, romx, align[4]
+	\2_chr:: incbin \1
+	def sizeof_\2_chr equ @ - \2_chr
+	def \2_CHR_COUNT equ sizeof_\2_chr / 16
+	pops
+
+	pushs strcat(\1, ".idx"), romx
+	\2_idx:: incbin strcat(\1, ".idx")
+	def sizeof_\2_idx equ @ - \2_idx
+	pops
+
+	pushs strcat(\1, ".atrb"), romx
+	\2_atrb:: incbin strcat(\1, ".atrb")
+	def sizeof_\2_atrb equ @ - \2_atrb
+	pops
+
+	pushs strcat(\1, ".pal"), romx
+	\2_pal:: incbin strcat(\1, ".pal")
+	def sizeof_\2_pal equ @ - \2_pal
+	pops
+endm
+
+
+macro load_chr
+if !def(CHR_REMAIN)
+	def CHR_REMAIN equ sizeof(\1) / 16
+endc
+
+	def _src_index equ sizeof(\1) / 16 - CHR_REMAIN
+
+	def _start_addr equ (\2)
+	def _end_addr equ (\3)
+	def _max_count equ (_end_addr - _start_addr) / 16
+
+if CHR_REMAIN > _max_count
+	def _chr_count equ _max_count
+else
+	def _chr_count equ CHR_REMAIN
+endc
+	redef CHR_REMAIN equ CHR_REMAIN - _chr_count
+
+	ld b, bank(\1)
+	ld de, startof(\1) + _src_index * 16
+	ld c, _chr_count - 1
+	ld hl, _start_addr
+	call VxLoadRom
+
+	purge _start_addr, _end_addr, _max_count, _src_index, _chr_count
+	if CHR_REMAIN == 0
+		purge CHR_REMAIN
+	endc
+endm
+
+
+	import_screen "assets/screen_Title.chr", screen_Title
+
+
+
 section union "{MODE_COMMON}", wramx
 
 
 section "modeTitle", romx
 modeTitle_Enter::
 	wrambopen bank("{MODE_COMMON}")
+
+	xor a :: ld [wSCY], a :: ld [wSCX], a
+
+	ld h, bank("assets/screen_Title.chr.pal")
+	ld de, startof("assets/screen_Title.chr.pal")
+	ld c, sizeof("assets/screen_Title.chr.pal") / 8
+	ld b, 0
+	call PalettesLoadRomx
+
+	load_chr "assets/screen_Title.chr", $9000, $9800
+	if def(CHR_REMAIN)
+		load_chr "assets/screen_Title.chr", $8800, $9000
+		assert !def(CHR_REMAIN)
+	endc
+
+	ld de, startof("assets/screen_Title.chr.idx")
+	ld a, bank("assets/screen_Title.chr.idx")
+	ldh [hMemSrcBank], a
+	ld bc, (18 << 8) | 20
+	ld a, low(wMapBgChr) :: ldh [hMemParamHL + 0], a
+	ld a, high(wMapBgChr) :: ldh [hMemParamHL + 1], a
+	ld hl, MemCopySubBgMap
+	call MemCallRomx
+
+	ld de, startof("assets/screen_Title.chr.atrb")
+	ld a, bank("assets/screen_Title.chr.atrb")
+	ldh [hMemSrcBank], a
+	ld bc, (18 << 8) | 20
+	ld a, low(wMapBgAtrb) :: ldh [hMemParamHL + 0], a
+	ld a, high(wMapBgAtrb) :: ldh [hMemParamHL + 1], a
+	ld hl, MemCopySubBgMap
+	call MemCallRomx
 
 	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
 	ret

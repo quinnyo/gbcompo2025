@@ -1,3 +1,12 @@
+include "banker.rgbinc"
+
+
+section "hMem", hram
+hMemSrcBank:: db
+hMemParamHL:: dw
+hMemStrideGap:: db
+
+
 section "Mem", rom0
 ;; Copy up to 256 bytes from one location to another.
 ;; @param C: length, 0 is interpreted as 256
@@ -63,3 +72,66 @@ MemFillLarge::
 	dec b
 	jr nz, :-
 	ret
+
+
+;; Copy from a contiguous source to another location with spacing applied.
+;; After every block, the destination pointer is advanced by the stride gap.
+;; No changes are made to the stride gap regions.
+;; @param [hMemStrideGap]: stride gap size
+;; @param C: block size
+;; @param B: block count
+;; @param DE: source
+;; @param HL: destination
+;; @mut: AF, BC, DE, HL
+MemCopyBlocks::
+.bloop
+	; copy block
+	push bc ; stash block size
+:
+	ld a, [de] :: inc de
+	ld [hl+], a
+	dec c
+	jr nz, :-
+
+	; skip stride gap
+	ldh a, [hMemStrideGap]
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+
+	pop bc ; restore block size
+
+	dec b
+	jr nz, .bloop
+	ret
+
+
+;; Copy from contiguous submap (tilemap with columns < 32) to 32 column bgmap buffer.
+;; @param C: submap columns
+;; @param B: submap rows
+;; @param DE: source
+;; @param HL: destination
+MemCopySubBgMap::
+	ld a, 32
+	sub c
+	jr c, .err_submap_oversize
+	ldh [hMemStrideGap], a
+	jr MemCopyBlocks
+.err_submap_oversize:
+	ld b, b
+	jr .err_submap_oversize
+
+
+;; Do banking before calling another function.
+;; @param [hMemParamHL]: target function param HL
+;; @param [hMemSrcBank]: source data bank
+;; @param HL: target function
+MemCallRomx::
+	rombopen
+	ldh a, [hMemSrcBank]
+	ld [ROMB_LO], a
+
+	push hl
+	ldh a, [hMemParamHL + 0] :: ld l, a
+	ldh a, [hMemParamHL + 1] :: ld h, a
+	ret ; return to HL
+

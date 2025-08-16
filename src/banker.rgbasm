@@ -56,3 +56,53 @@ StackInit:
 	dec c
 	jr nz, :-
 	ret
+
+
+/*
+section "BankerRombPush", rom0
+;; @param B: Destination ROMX bank
+;; @mut: AF, HL
+BankerRombPush::
+	ld hl, wBankerRomb
+
+	; bounds check
+	ld a, [hl]
+	and a
+	jr z, .err_stack_overflow
+
+	; stash current bank
+	dec [hl]
+	ld l, [hl]
+	ld a, [RomBankId]
+	ld [hl], a
+
+	; switch bank
+	ld a, b
+	ld [ROMB_LO], a
+	ret
+.err_stack_overflow:
+	ld b, b
+	jr .err_stack_overflow
+
+
+section "BankerRombPop", rom0
+;; @mut: AF, HL
+BankerRombPop::
+	ld hl, wBankerRomb
+	ld a, [hl]
+
+	cp low(wBankerRomb.stack) + BANKER_STACK_SIZE
+	jr nc, .err_stack_empty
+
+	inc [hl]
+	ld l, a
+
+	; restore bank
+	ld a, [hl]
+	ld [ROMB_LO], a
+	ret
+.err_stack_empty:
+	ld b, b
+	jr .err_stack_empty
+*/
+
