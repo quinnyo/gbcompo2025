@@ -1,9 +1,10 @@
 ;; Free up HRAM by moving the system stack to WRAM, because that's allowed!
-;; Just `ld sp, wStack.bottom` at startup!
+;; Just `ld sp, wStack + WSTACK_SIZE` at startup!
 
-def WSTACK_SIZE equ 32
+
+export def WSTACK_SIZE equ 32
+
 
 section "wStack", wram0
 wStack:: ds WSTACK_SIZE
-	.bottom::
 

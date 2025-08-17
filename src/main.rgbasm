@@ -88,7 +88,7 @@ Boot:
 	jp z, MonochromeTears
 
 Main::
-	ld sp, wStack.bottom
+	ld sp, wStack + WSTACK_SIZE
 
 	di
 
