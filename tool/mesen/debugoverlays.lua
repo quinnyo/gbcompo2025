@@ -189,6 +189,21 @@ local function st_field(t, name, size, signed)
 end
 
 
+local function st_readFields(addr, memType, spec)
+	local data = {}
+	for _, field in ipairs(spec) do
+		if field.size == 1 then
+			data[field.name] = emu.read(addr + field.ofs, memType, field.signed)
+		elseif field.size == 2 then
+			data[field.name] = emu.read16(addr + field.ofs, memType, field.signed)
+		elseif field.size == 4 then
+			data[field.name] = emu.read32(addr + field.ofs, memType, field.signed)
+		end
+	end
+	return data
+end
+
+
 local function st_read(st, addr, memType, ident)
 	local data = {}
 	data._st = st
@@ -408,6 +423,17 @@ Emutil.lbRead = function(label, signed)
 	return Emutil.read(label.address, label.memType, signed)
 end
 
+Emutil.readFields = function(label, spec)
+	if type(label) == "string" then
+		label = Emutil.getLabel(label, true)
+	end
+	if not label then
+		Emutil.error("readFields failed.")
+		return
+	end
+	return st_readFields(label.address, label.memType, spec)
+end
+
 Emutil.readBytes = function(startAddress, memType, length, signed)
 	signed = signed or false
 	local addr = startAddress
@@ -420,9 +446,12 @@ Emutil.readBytes = function(startAddress, memType, length, signed)
 	return bytes
 end
 
-Emutil.getLabel = function(symbol)
+Emutil.getLabel = function(symbol, failedError)
 	local label = Emutil.getLabelAddress(symbol)
 	if not label then
+		if failedError then
+			Emutil.error(string.format("Label '%s' was not found", symbol))
+		end
 		return nil
 	end
 	label.symbol = symbol
@@ -439,6 +468,15 @@ end
 
 Emutil.getCpuCycleCount = function()
 	return Emutil.getState()["cpu.cycleCount"]
+end
+
+Emutil.log = function(msg)
+	emu.log(msg)
+end
+
+Emutil.error = function(msg)
+	Emutil.log("Emutil.error: " .. msg)
+	error("Emutil.error: " .. msg)
 end
 
 
@@ -589,6 +627,65 @@ end
 local function frontEast(viewX)
 	-- [26..41]
 	return 26 + ((viewX + 10) & 0x0F)
+end
+
+
+
+-------- Curtain --------
+
+StCurtain = st_create("Curtain")
+st_field(StCurtain, "status", 1)
+st_field(StCurtain, "x", 1)
+st_field(StCurtain, "limit", 1)
+st_field(StCurtain, "destinationMode", 2)
+
+Curtain = {
+--	flags = { STEADY, POSITION, MODE_CHANGE },
+	F_STEADY = 1,
+	F_POSITION = 2,
+	F_STATE = 3,
+	F_MODE_CHANGE = 4,
+	mainState = {
+		"OPENING",
+		"OPEN",
+		"CLOSING",
+		"CLOSED",
+	},
+}
+
+Curtain.read = function(label)
+	label = label or "hCurtain"
+	local data = Emutil.readFields(label, StCurtain)
+	if not data then
+		Emutil.error("Curtain.read failed")
+		return
+	end
+	local iMainState = data.status & Curtain.F_STATE
+	local inst = {
+		rawData = data,
+		iMainState = iMainState,
+		mainState = Curtain.mainState[iMainState + 1],
+		modeChange = data.status & Curtain.F_MODE_CHANGE ~= 0,
+		progress = 0,
+	}
+
+	if data.status & Curtain.F_STEADY ~= 0 then
+		if data.status & Curtain.F_POSITION ~= 0 then
+			-- CLOSING
+			inst.progress = data.limit - data.x
+		else
+			-- OPENING
+			inst.progress = -data.x
+		end
+	else
+	end
+
+	inst.stateText = string.format("%s (%+d)", inst.mainState, inst.progress)
+	for i, field in ipairs(StCurtain) do
+		local value = data[field.name]
+		inst.stateText = inst.stateText .. string.format("\n%s: %s", field.name, value)
+	end
+	return inst
 end
 
 
@@ -760,6 +857,11 @@ local function onEndFrame()
 
 	local ent = get_entity(0)
 	overlay:drawString(0, 40, ent and st_fmt(ent) or "noent!")
+
+	local curtain = Curtain.read()
+	if curtain then
+		overlay:drawString(40, 0, curtain.stateText)
+	end
 end
 
 

@@ -25,6 +25,10 @@ export def Curtain_CLOSING equ Curtain_POSITION
 export def Curtain_CLOSED  equ Curtain_STEADY | Curtain_POSITION
 
 
+def CURTAIN_X_FADE_SHIFT equ 2
+def CURTAIN_LIMIT equ 5 << CURTAIN_X_FADE_SHIFT
+
+
 section "hCurtain", hram
 hCurtain:: db
 hCurtainX: db
@@ -46,7 +50,7 @@ section "Curtain", rom0
 CurtainInit::
 	ld a, Curtain_OPEN :: ldh [hCurtain], a
 	xor a :: ldh [hCurtainX], a
-	ld a, 5 :: ldh [hCurtainLimit], a
+	ld a, CURTAIN_LIMIT :: ldh [hCurtainLimit], a
 	ld a, $FF
 	ldh [hCurtainDestinationMode + 0], a
 	ldh [hCurtainDestinationMode + 1], a
@@ -76,12 +80,14 @@ assert Curtain_STATE == 3
 	ldh a, [hCurtainLimit] :: ld d, a
 	ldh a, [hCurtainX]
 	cp d
-	jr nc, _CurtainDoClose
+	jp nc, _CurtainDoClose
 	inc a
 	ldh [hCurtainX], a
 	jr _CurtainDoX
 .closed
-	ret
+	ldh a, [hCurtainLimit]
+	ldh [hCurtainX], a
+	jr _CurtainDoX
 
 
 ;; Begin closing curtain
@@ -91,7 +97,7 @@ CurtainClose::
 	or Curtain_CLOSING
 	ldh [hCurtain], a
 
-	ld a, 5 :: ldh [hCurtainLimit], a
+	ld a, CURTAIN_LIMIT :: ldh [hCurtainLimit], a
 
 	ret
 
@@ -117,6 +123,22 @@ CurtainModeTransitionBegin::
 	jr CurtainClose
 
 
+;; Close the curtain immediately (no transition/fade).
+CurtainForceClose::
+	call CurtainClose
+	ldh a, [hCurtainLimit]
+	ldh [hCurtainX], a
+	jr CurtainUpdate
+
+
+CurtainForceOpen::
+	call CurtainOpen
+	xor a
+	ldh [hCurtainX], a
+	jr CurtainUpdate
+
+
+;; Enter OPEN state.
 _CurtainDoOpen:
 	ldh a, [hCurtain]
 	and ~(Curtain_STATE)
@@ -133,8 +155,11 @@ _CurtainDoX:
 	cp d
 	jr c, :+
 	; clamp
-	ld a, 5
+	ld a, CURTAIN_LIMIT
 :
+rept CURTAIN_X_FADE_SHIFT
+	srl a
+endr
 	add a ; index * 2
 	ld hl, _Fade6
 	add l :: ld l, a
@@ -150,6 +175,7 @@ _CurtainDoX:
 	ret
 
 
+;; Enter CLOSED state.
 _CurtainDoClose:
 	; Do mode change if enabled.
 	ldh a, [hCurtain]

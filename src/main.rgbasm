@@ -117,6 +117,7 @@ Main::
 	call InputInit
 	call PalettesInit
 	call CurtainInit
+	call CurtainForceClose
 	call MapInit
 	call VramxInit
 	call audio_init
@@ -150,7 +151,6 @@ Main::
 	call InputUpdate
 	call ModeUpdate
 	call VramxSync
-	call CurtainUpdate
 
 .vsync
 	ld hl, wVBlankCount
@@ -172,6 +172,7 @@ Main::
 	jr nc, :-
 
 	call audio_update
+	call CurtainUpdate
 
 	jp .loop
 
