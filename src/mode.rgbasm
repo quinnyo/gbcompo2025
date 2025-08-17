@@ -1,4 +1,5 @@
 include "mode.rgbinc"
+include "hardware.inc"
 include "banker.rgbinc"
 
 
@@ -19,7 +20,7 @@ wActiveMode:: ds szMode
 
 section "Mode", rom0
 ModeInit::
-	ld a, MODE_STATE_NULL
+	ld a, MODE_STATE_ENTER
 	ldh [hModeState], a
 	ret
 
@@ -39,25 +40,62 @@ ModeSetActive::
 
 
 ModeUpdate::
+	; get mode impl bank
+	ld hl, wActiveMode
+	ld a, [hl+] :: ld b, a
+
+	; check/decode mode's current state
 	ldh a, [hModeState]
-	dec a :: jr z, ActiveModeProcess
-	dec a :: jr z, ActiveModeEnter
+	sla a ; Shift EXTRA flag into F.C & multiply INDEX by two.
+	ld c, a
+	jr nc, :+
+	; EXTRA state: dereference extra function table pointer
+	ld hl, wActiveMode + Mode_extra_funcs
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a
+
+	; if extra function table pointer is $FFFF, abort/error
+	and h :: inc a
+	jr z, .err_no_extra_funcs ; if H == L == $FF
+:
+
+	; add offset to function table pointer
+	ld a, c :: add l :: ld l, a
+	adc h :: sub l :: ld h, a
+
+	; invoke state handler function
+	wrambpush bank("{MODE_COMMON}")
+	rombpush b
+	call _goto_hl
+	rombpop
+	wrambpop
 	ret
+.err_no_extra_funcs:
+	ld b, b
+	jr .err_no_extra_funcs
 
 
-ActiveModeEnter::
-	ld hl, wActiveMode + Mode_fn_enter
-	jr _CallActiveMode
-
-
-ActiveModeProcess::
-	ld hl, wActiveMode + Mode_fn_process
-
-	; FALLTHROUGH
-
+;; Read function pointer from memory and jump to it.
 ;; @param HL: address of function pointer
-_CallActiveMode:
-	rombopen [wActiveMode + Mode_impl_bank]
+_goto_hl:
 	ld a, [hl+] :: ld h, [hl] :: ld l, a
 	jp hl
+
+
+;; Generic impl for common mode setup/loading pattern.
+;; Check if Vx tasks are complete & if so, increment mode state.
+;; @ret F.C: set if all tasks completed
+ModeLoadWaitVx::
+	ldh a, [hVx.task_count]
+	and a
+	ret nz
+
+	; increment mode state
+	ldh a, [hModeState]
+	inc a
+	ldh [hModeState], a
+
+	scf ; F.C = tasks complete
+	ret
 

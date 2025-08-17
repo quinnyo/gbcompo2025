@@ -2,10 +2,19 @@ if !def(Q_MODE_INC_9oUcDich)
 def Q_MODE_INC_9oUcDich equ 1
 
 
+;; Core states enum.
+;; NOTE: order must match order of functions in Mode struct.
 rsreset
-def MODE_STATE_NULL rb 1
-def MODE_STATE_PROCESS rb 1
 def MODE_STATE_ENTER rb 1
+def MODE_STATE_PROCESS rb 1
+
+;; Mask state index (used as index to state handler func table).
+;; Bits used for state index
+def MODE_STATE_INDEX equ $7F
+;; Set to indicate custom 'extra' state. A pointer to the state handler
+;; function will be found in the mode's extra functions table.
+def bMODE_STATE_EXTRA equ 7
+def MODE_STATE_EXTRA equ 1 << bMODE_STATE_EXTRA
 
 
 ;; Name of the WRAM union section common to all modes.
@@ -15,10 +24,15 @@ def MODE_COMMON equs "wModeCommon"
 rsreset
 ;; ROM bank that contains all of the mode's implementing functions.
 def Mode_impl_bank rb 1
-;; Address of the mode's `Enter` function.
+;; Core function table (stored inline)
+def Mode_core_funcs rb 0
+;; Address of the mode's `Enter` state handler function.
 def Mode_fn_enter rb 2
-;; Address of the mode's `Process` function.
+;; Address of the mode's `Process` state handler function.
 def Mode_fn_process rb 2
+;; Pointer to optional functions table (handler functions for EXTRA states).
+;; Set to $FFFF if unused.
+def Mode_extra_funcs rb 2
 def szMode rb 0
 
 
@@ -29,15 +43,22 @@ def szMode rb 0
 def MODES_SECTION equs "rModes"
 
 
-;; mode_def NAME
+;; mode_def NAME, [EXTRA_FUNCS]
 ;; Add an entry to the modes table.
-;; NAME is used as a label prefix to find the implementation.
+;; NAME: used as a label prefix to find the implementation.
+;; EXTRA_FUNCS: pointer to optional functions table (EXTRA state handlers).
 macro mode_def
+	assert _NARG == 1 || _NARG == 2
 	section fragment "{MODES_SECTION}", romx
 	rModes_\1::
 		.impl_bank: db bank(\1_Enter)
 		.fn_enter: dw \1_Enter
 		.fn_process: dw \1_Process
+	if _NARG == 2
+		.extra_funcs: dw \2
+	else
+		.extra_funcs: dw $FFFF
+	endc
 endm
 
 

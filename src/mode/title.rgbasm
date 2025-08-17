@@ -3,7 +3,7 @@ include "mode.rgbinc"
 include "banker.rgbinc"
 
 
-	mode_def modeTitle
+	mode_def modeTitle, modeTitle_ExtraFuncs
 
 
 macro import_screen
@@ -64,13 +64,29 @@ endm
 	import_screen "assets/screen_Title.chr", screen_Title
 
 
-
-section union "{MODE_COMMON}", wramx
-
-
 section "modeTitle", romx
+modeTitle_ExtraFuncs::
+	dw _wait0
+	dw _waitCurtain
+
+_wait0:
+	call ModeLoadWaitVx :: ret nc
+
+	; Open the curtain
+	jp CurtainOpen
+
+_waitCurtain:
+	ldh a, [hCurtain]
+	and Curtain_STATE
+	cp Curtain_OPEN
+	ret nz
+
+	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
+	ret
+
+
 modeTitle_Enter::
-	wrambopen bank("{MODE_COMMON}")
+	call CurtainForceClose
 
 	xor a :: ld [wSCY], a :: ld [wSCX], a
 
@@ -104,19 +120,11 @@ modeTitle_Enter::
 	ld hl, MemCopySubBgMap
 	call MemCallRomx
 
-	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
+	ld a, MODE_STATE_EXTRA :: ldh [hModeState], a
 	ret
 
 
 modeTitle_Process::
-	wrambopen bank("{MODE_COMMON}")
-
-	; Do nothing if curtain is not in the OPEN state.
-	ldh a, [hCurtain]
-	and Curtain_STATE
-	cp Curtain_OPEN
-	ret nz
-
 	; Wait for key press to start mode transition.
 	ldh a, [hKeysPressed]
 	and PADF_START | PADF_A
