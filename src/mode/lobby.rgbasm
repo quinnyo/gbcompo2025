@@ -4,14 +4,14 @@ include "banker.rgbinc"
 include "chrimp.rgbinc"
 
 
-	mode_def modeTitle, modeTitle_ExtraFuncs
+	mode_def modeLobby, modeLobby_ExtraFuncs
 
 
-	import_screen "assets/screen_Title.chr", screen_Title
+	import_screen "assets/screen_Lobby.chr", screen_Lobby
 
 
-section "modeTitle", romx
-modeTitle_ExtraFuncs::
+section "modeLobby", romx
+modeLobby_ExtraFuncs::
 	dw _wait0
 	dw _waitCurtain
 
@@ -31,25 +31,23 @@ _waitCurtain:
 	ret
 
 
-modeTitle_Enter::
-	call CurtainForceClose
-
+modeLobby_Enter::
 	xor a :: ld [wSCY], a :: ld [wSCX], a
 
-	ld h, bank("assets/screen_Title.chr.pal")
-	ld de, startof("assets/screen_Title.chr.pal")
-	ld c, sizeof("assets/screen_Title.chr.pal") / 8
+	ld h, bank("assets/screen_Lobby.chr.pal")
+	ld de, startof("assets/screen_Lobby.chr.pal")
+	ld c, sizeof("assets/screen_Lobby.chr.pal") / 8
 	ld b, 0
 	call PalettesLoadRomx
 
-	load_chr $9000, $9800, "assets/screen_Title.chr"
+	load_chr $9000, $9800, "assets/screen_Lobby.chr"
 	if def(CHR_REMAIN)
 		load_chr $8800, $9000
-		assert !def(CHR_REMAIN), "screen_Title has too many tiles. Probably optimise the source image."
+		assert !def(CHR_REMAIN), "screen_Lobby has too many tiles. Probably optimise the source image."
 	endc
 
-	ld de, startof("assets/screen_Title.chr.idx")
-	ld a, bank("assets/screen_Title.chr.idx")
+	ld de, startof("assets/screen_Lobby.chr.idx")
+	ld a, bank("assets/screen_Lobby.chr.idx")
 	ldh [hMemSrcBank], a
 	ld bc, (18 << 8) | 20
 	ld a, low(wMapBgChr) :: ldh [hMemParamHL + 0], a
@@ -57,8 +55,8 @@ modeTitle_Enter::
 	ld hl, MemCopySubBgMap
 	call MemCallRomx
 
-	ld de, startof("assets/screen_Title.chr.atrb")
-	ld a, bank("assets/screen_Title.chr.atrb")
+	ld de, startof("assets/screen_Lobby.chr.atrb")
+	ld a, bank("assets/screen_Lobby.chr.atrb")
 	ldh [hMemSrcBank], a
 	ld bc, (18 << 8) | 20
 	ld a, low(wMapBgAtrb) :: ldh [hMemParamHL + 0], a
@@ -70,14 +68,15 @@ modeTitle_Enter::
 	ret
 
 
-modeTitle_Process::
+modeLobby_Process::
 	; Wait for key press to start mode transition.
 	ldh a, [hKeysPressed]
-	and PADF_START | PADF_A
+	and PADF_DOWN | PADF_A
 	jr z, :+
-	ld de, rModes_modeLobby
+	ld de, rModes_modeGamePrep
 	jp CurtainModeTransitionBegin
 :
 
 	ret
+
 
