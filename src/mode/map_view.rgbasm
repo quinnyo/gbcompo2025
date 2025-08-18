@@ -30,7 +30,7 @@ modeMapView_Enter::
 	wrambpop
 
 	call ScrollInit
-	call MapEnable
+	call MapOpen
 
 	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
 	ret

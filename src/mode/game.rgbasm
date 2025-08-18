@@ -73,7 +73,7 @@ modeGamePrep_Enter::
 	call PlayerInit
 	call EntityInit
 	call CollideInit
-	call MapEnable
+	call MapOpen
 
 	ld a, MODE_STATE_EXTRA :: ldh [hModeState], a
 	ret

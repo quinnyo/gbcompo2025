@@ -73,6 +73,11 @@ modeLobby_Process::
 	ldh a, [hKeysPressed]
 	and PADF_DOWN | PADF_A
 	jr z, :+
+	; TODO: actual map select
+	ld de, map_c1
+	ld a, bank(map_c1)
+	call MapSelect
+
 	ld de, rModes_modeGamePrep
 	jp CurtainModeTransitionBegin
 :

@@ -62,12 +62,35 @@ def szSynXfer rb 0
 def SYN_XFER_COUNT equ 3
 
 
-section "hMap", hram
-;; Bank of the selected map
-hMapBank:: db
-;; Selected map address
-hMapAddr:: dw
+/***************************************
+**               MapCtl               **
+***************************************/
 
+;; Set when selected map changed / map closed.
+;; Cleared when attempting to open a map.
+def bMapCtl_CLEAR equ 5
+;; Selected map opened successfully.
+def bMapCtl_OPEN equ 6
+;; Map processing enabled switch.
+def bMapCtl_PROCEN equ 7
+
+def MapCtl_CLEAR equ 1 << bMapCtl_CLEAR
+def MapCtl_OPEN equ 1 << bMapCtl_OPEN
+def MapCtl_PROCEN equ 1 << bMapCtl_PROCEN
+
+
+section "hMapCtl", hram
+hMapCtl: db
+
+
+section "hMapSelect", hram
+;; Bank of the selected map
+hMapSelectBank: db
+;; Selected map address
+hMapSelectAddr: dw
+
+
+section "hMapRender", hram
 hMapViewChunkY: db
 hMapViewChunkX: db
 hMapViewChunkNewY: db
@@ -83,7 +106,7 @@ hMapSrcOriginY: db
 hMapSrcOriginX: db
 
 
-section "hXfer", hram
+section "hMapSynXfer", hram
 _destY: db
 _destX: db
 
@@ -116,34 +139,63 @@ for I, MAP_CHUNK_BUFFER_COUNT
 	def CHUNK_BUFFER_{d:I} equ high(_addr) & SLOT_BUFFER
 
 	section "wMapBufferChr{d:I}", wramx[_addr], bank[MAP_CHR_BUFFER_BANK]
-	wMapBufferChr{d:I}:: ds MAP_CHUNK_SIZE
+	wMapBufferChr{d:I}: ds MAP_CHUNK_SIZE
 
 	section "wMapBufferAtrb{d:I}", wramx[_addr], bank[MAP_ATRB_BUFFER_BANK]
-	wMapBufferAtrb{d:I}:: ds MAP_CHUNK_SIZE
+	wMapBufferAtrb{d:I}: ds MAP_CHUNK_SIZE
 
 	purge _addr
 endr
 
 
-section "MapEnable", rom0
+section "MapOpen", rom0
+;; Enter/open the selected map. Flushes the cache.
+;; Enables Map processing if successful.
+;; @mut: AF, BC, HL
+MapOpen::
+	call MapReset
+
+	ldh a, [hMapCtl] :: ld b, a
+	res bMapCtl_CLEAR, b
+
+	ldh a, [hMapSelectAddr + 0] :: ld l, a
+	ldh a, [hMapSelectAddr + 1] :: ld h, a
+	; check for address $FFFF (no map selected)
+	and l :: inc a
+	jr z, :+
+	; address looks ok, ...
+	set bMapCtl_PROCEN, b
+:
+
+	ld a, b :: ldh [hMapCtl], a
+	ret
+
+
+section "MapClose", rom0
+;; Exit/close the map, disable Map processing.
 ;; @mut: AF
-MapEnable::
-	ld a, bank(map_test) :: ldh [hMapBank], a
-	ld a, low(map_test) :: ldh [hMapAddr + 0], a
-	ld a, high(map_test) :: ldh [hMapAddr + 1], a
+MapClose::
+	ld a, MapCtl_CLEAR :: ldh [hMapCtl], a
 	ret
 
 
 section "MapSelect", rom0
+;; Set the selected map. Disables Map processing.
+;; @param DE: map address
+;; @param A: map bank
+;; @mut: AF
 MapSelect::
-	ret
+	ldh [hMapSelectBank], a
+	ld a, e :: ldh [hMapSelectAddr + 0], a
+	ld a, d :: ldh [hMapSelectAddr + 1], a
+
+	jp MapClose
 
 
 section "MapUpdate", rom0
 MapUpdate::
-	; Map address of $FFxx is 'unset'
-	ldh a, [hMapAddr + 1]
-	inc a
+	ldh a, [hMapCtl]
+	and MapCtl_PROCEN
 	ret z
 
 	call MapUpdateViewChunk
@@ -585,8 +637,8 @@ MapUpdateSlot:
 	ld e, a
 
 	; Chunk lookup
-	ld hl, hMapAddr
-	ld a, [hl+] :: ld h, [hl] :: ld l, a ; hMapAddr
+	ld hl, hMapSelectAddr
+	ld a, [hl+] :: ld h, [hl] :: ld l, a ; hMapSelectAddr
 	ld a, [hl+] :: ld h, [hl] :: ld l, a ; map.chunk_table
 	call MapChunkLookup
 	ret nc
@@ -618,7 +670,7 @@ MapUpdateSlot:
 section "MapUpdateCache", rom0
 MapUpdateCache:
 	rombpush
-	ldh a, [hMapBank]
+	ldh a, [hMapSelectBank]
 	ld [$2000], a
 	wrambpush
 
@@ -729,6 +781,7 @@ _UpdateSlotsX:
 	jp _ResetAllSlots
 
 
+;; @mut: A
 _ResetAllSlots:
 for I, MAP_CHUNK_BUFFER_COUNT
 	ld a, CHUNK_BUFFER_{d:I} :: ldh [hMapChunkSlots + I], a
@@ -926,7 +979,41 @@ endr
 */
 
 
+section "MapReset", rom0
+;; Clear map state, cache, etc.
+;; NOTE: This does **not** reset the selected map! (`hMapSelectAddr`, `hMapSelectBank`).
+;; @mut: AF, BC, HL
+MapReset::
+	ld a, $FF
+	ldh [hMapViewChunkY], a
+	ldh [hMapViewChunkX], a
+	ld a, $80
+	ldh [hMapViewChunkNewY], a
+	ldh [hMapViewChunkNewX], a
+
+	call _ResetAllSlots
+
+	xor a :: ldh [hMapSlotIdx], a
+
+	ld b, SYN_XFER_COUNT * szSynXfer
+	ld a, SynXfer_EMPTY
+	ld c, low(_Xfer0)
+:
+	ldh [c], a :: inc c
+	dec b
+	jr nz, :-
+
+	xor a
+	ldh [hMapSrcOriginX], a
+	ldh [hMapSrcOriginY], a
+
+	rombopen bank(xMapBufferInit)
+	jp xMapBufferInit
+
+
 section "xMapBufferInit", romx
+;; Clear the BG map buffers.
+;; @mut AF, BC, HL
 xMapBufferInit::
 	; Clear BG map
 	wrambpush bank(wMapBgChr)
@@ -956,33 +1043,13 @@ xMapBufferInit::
 
 
 section "MapInit", rom0
+;; @mut: AF, BC, HL
 MapInit::
-	ld a, $FF
-	ldh [hMapBank], a
-	ldh [hMapAddr + 0], a
-	ldh [hMapAddr + 1], a
-	ldh [hMapViewChunkY], a
-	ldh [hMapViewChunkX], a
-	ld a, $80
-	ldh [hMapViewChunkNewY], a
-	ldh [hMapViewChunkNewX], a
-
-	call _ResetAllSlots
-
-	xor a :: ldh [hMapSlotIdx], a
-
-	ld b, SYN_XFER_COUNT * szSynXfer
-	ld a, SynXfer_EMPTY
-	ld c, low(_Xfer0)
-:
-	ldh [c], a :: inc c
-	dec b
-	jr nz, :-
-
 	xor a
-	ldh [hMapSrcOriginX], a
-	ldh [hMapSrcOriginY], a
-
-	rombopen bank(xMapBufferInit)
-	jp xMapBufferInit
+	ldh [hMapSelectBank], a
+	ld a, $FF
+	ldh [hMapSelectAddr + 0], a
+	ldh [hMapSelectAddr + 1], a
+	ld a, MapCtl_CLEAR :: ldh [hMapCtl], a
+	jp MapReset
 
