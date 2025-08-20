@@ -1,0 +1,72 @@
+
+export def bSprite_ESC equ 7
+export def Sprite_END equ $80
+
+;; Sprob coordinates are unsigned values in range [0..64) with the origin point being at the Render origin - 32
+export def SprobCoordMax equ 64
+export def SprobCoordOffset equ 32
+
+
+section "hSprx", hram
+hSprxOriginY:: db
+hSprxOriginX:: db
+
+
+section "Sprx", rom0
+;; @param HL: Sprx to render
+;; @param B,C: Y,X render position
+SprxRender::
+	ld a, b :: sub SprobCoordOffset :: ldh [hSprxOriginY], a
+	ld a, c :: sub SprobCoordOffset :: ldh [hSprxOriginX], a
+
+:
+	; peek the first sprob byte
+	bit bSprite_ESC, [hl]
+	jr nz, .proc_esc
+	ldh a, [hSprxOriginY] :: ld b, a
+	ldh a, [hSprxOriginX] :: ld c, a
+	call SprobRender
+	jr :-
+
+	ret
+.proc_esc:
+	; There's only one escape code: END -- terminate the sprite descriptor.
+	ret
+
+
+;; Push one Sprob to OAM
+;; @param HL: pointer to Sprob
+;; @param B,C: Y,X Sprobspace origin
+;; @ret HL: pointer at end of Sprob
+SprobRender:
+	ld a, [hl+] :: add b :: ld b, a
+	ld a, [hl+] :: add c :: ld c, a
+	ld a, [hl+] :: ld d, a
+	ld a, [hl+] :: ld e, a
+	push hl
+	call ObdoSingle
+	pop hl
+	ret
+
+
+/*
+section "SprxTestSprxs", rom0
+sprNil:
+	db Sprite_END
+spr1:
+	; <0, 0> should be RenderPos - <32, 32>
+	db 0, 0, 0, 1
+	db 0, 63, 2, 2
+	db 63, 63, 4, 3
+	db 63, 0, 6, 4
+	db Sprite_END
+spr2:
+	db 24 + 16, 24 + 8, 16, 0
+	db 24 + 16, 32 + 8, 18, 0
+	db Sprite_END
+spr3:
+	db 24 + 16, 24 + 8, 16, 1
+	db 24 + 16, 32 + 8, 18, 2
+	db Sprite_END
+*/
+
