@@ -61,6 +61,14 @@ section "assets/enviro1.chr.pal", romx
 incbin "assets/enviro1.chr.pal"
 
 
+section "assets/enviro0.chr", romx, align[4]
+incbin "assets/enviro0.chr"
+
+
+section "assets/enviro0.chr.pal", romx
+incbin "assets/enviro0.chr.pal"
+
+
 section "Main", rom0
 Boot:
 	; A = 11(CGB,AGB)

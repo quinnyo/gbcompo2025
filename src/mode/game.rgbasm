@@ -20,9 +20,9 @@ _load0:
 	call ModeLoadWaitVx :: ret nc
 
 	; BG tiles part 1
-	ld b, bank("assets/enviro1.chr")
-	ld de, startof("assets/enviro1.chr")
-	ld c, sizeof("assets/enviro1.chr") / 2 / 16 - 1
+	ld b, bank("assets/enviro0.chr")
+	ld de, startof("assets/enviro0.chr")
+	ld c, sizeof("assets/enviro0.chr") / 2 / 16 - 1
 	ld hl, $9000
 	jp VxLoadRom
 
@@ -31,10 +31,10 @@ _load1:
 	call ModeLoadWaitVx :: ret nc
 
 	; BG tiles part 2
-	ld b, bank("assets/enviro1.chr")
-	ld de, startof("assets/enviro1.chr") + sizeof("assets/enviro1.chr") / 2
-	ld c, sizeof("assets/enviro1.chr") / 2 / 16 - 1
-	ld hl, $9000 + sizeof("assets/enviro1.chr") / 2
+	ld b, bank("assets/enviro0.chr")
+	ld de, startof("assets/enviro0.chr") + sizeof("assets/enviro0.chr") / 2
+	ld c, sizeof("assets/enviro0.chr") / 2 / 16 - 1
+	ld hl, $9000 + sizeof("assets/enviro0.chr") / 2
 	jp VxLoadRom
 
 
@@ -42,10 +42,10 @@ _load2:
 	call ModeLoadWaitVx :: ret nc
 
 	; BG palettes
-	ld de, startof("assets/enviro1.chr.pal")
-	ld c, sizeof("assets/enviro1.chr.pal") / 8
+	ld de, startof("assets/enviro0.chr.pal")
+	ld c, sizeof("assets/enviro0.chr.pal") / 8
 	ld b, 0
-	ld h, bank("assets/enviro1.chr.pal")
+	ld h, bank("assets/enviro0.chr.pal")
 	jp PalettesLoadRomx
 
 
