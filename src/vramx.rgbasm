@@ -261,7 +261,7 @@ VramxBeginUpdate::
 ;; @mut: AF
 VramxSync::
 	ldh a, [hVx.status]
-	and a :: ret z
+	and a :: jp z, _QueueCheckReset
 
 :
 	ldh a, [rHDMA5]
@@ -272,7 +272,7 @@ VramxSync::
 
 _Deactivate:
 	xor a :: ldh [hVx.status], a
-	ret
+	jp _QueueCheckReset
 
 
 ;; @param H: size
@@ -302,6 +302,23 @@ _QueueAlloc:
 	scf
 	ret
 
+
+;; Reset queue if it has been completed.
+;; @mut: AF, HL
+_QueueCheckReset:
+	; NOTE: The whole queue thing is pretty bad. The obvious way to improve it
+	;   is to implement a ring buffer so the queue can operate continuously.
+
+	; Unfinished task_count == 0 && length > 0, there were tasks and they have been completed.
+	ldh a, [hVx.task_count]
+	and a
+	ret nz
+
+	ldh a, [hVxQueue.length]
+	and a
+	ret z
+
+	; FALLTHROUGH
 
 ;; @mut: AF, HL
 _QueueReset:
