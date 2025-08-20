@@ -1,13 +1,16 @@
 include "hardware.inc"
 
 
-def OBUF_SIZE equ OAM_COUNT * sizeof_OAM_ATTRS
-
-
 section "wVBlank", wram0
 wSCY:: db
 wSCX:: db
 wVBlankCount:: db
+
+
+section "hVBlank", hram
+;; High byte address of OAM buffer acting as OAM DMA source.
+;; Set to zero to skip VBlank OAM sync.
+hVBlankObuf:: db
 
 
 section "VBlankInterrupt", rom0[$40]
@@ -28,8 +31,9 @@ VBlankHandler::
 	inc [hl]
 
 	; OAM DMA transfer
-	ld a, high(wOAM1)
-	call hObufLoadDMA
+	ldh a, [hVBlankObuf]
+	and a
+	call nz, hObufLoadDMA
 
 	pop hl
 	pop af
@@ -42,25 +46,16 @@ assert @ <= $100, "VBlankHandler is too long"
 section "VBlank Impl", rom0
 VBlankInit::
 	xor a
+	ldh [hVBlankObuf], a
 	ld hl, wSCY
 	ld [hl+], a
 	ld [hl+], a
 	ld [hl+], a
 	ld hl, rIE
 	set IEB_VBLANK, [hl]
-	jp ObufInit
 
-
-section union "wOAM1", wram0, align[8]
-; OAM buffer
-wOAM1:: ds OBUF_SIZE
-
-
-section "Obuf", rom0
-ObufInit::
-	ld h, high(wOAM1)
-	call ObufClear
-	ld hl, hObufLoadDMA
+	; Load OAM DMA transfer code
+	ld hl, startof("hObufLoadDMA")
 	ld de, startof("rObufLoadDMA")
 	ld c, sizeof("rObufLoadDMA")
 :
@@ -72,31 +67,18 @@ ObufInit::
 	ret
 
 
-; Clear an OAM buffer.
-; @param H: High byte address of OAM buffer.
-; @mut: AF, L, C
-ObufClear::
-	xor a
-	ld l, a
-	ld c, OBUF_SIZE
-:
-	ld [hl+], a
-	dec c
-	jr nz, :-
-	ret
-
-
 pushs "rObufLoadDMA", rom0
-load "hObufLoadDMA", hram
+load union "hObufLoadDMA", hram
 ; Copy buffer to OAM using DMA.
 ; @param A: High byte address of source buffer.
-hObufLoadDMA::
+hObufLoadDMA:
 	ldh [rDMA], a
 	ld a, OAM_COUNT
 :
 	dec a
 	jr nz, :-
 	ret
+
 endl
 pops
 

@@ -170,26 +170,20 @@ modeGame_Process::
 */
 
 	; After scrolling, adjust target object position
-	ld a, [wTargetThing.y] :: ld c, a
+	ld a, [wTargetThing.y] :: ld b, a
 	ldh a, [hScrollAppliedY]
-	cpl :: inc a :: add c :: add 8 :: ld c, a
-	ld a, [wTargetThing.x] :: ld b, a
-	ldh a, [hScrollAppliedX]
 	cpl :: inc a :: add b :: ld b, a
+	ld a, [wTargetThing.x] :: ld c, a
+	ldh a, [hScrollAppliedX]
+	cpl :: inc a :: add c :: add 8 :: ld c, a
 
 	; dirty test to show entity position
-	ld e, 16
-	ld d, 0
-	ld hl, wOAM1
-	ld a, c :: ld [hl+], a
-	ld a, b :: ld [hl+], a
-	ld a, e :: ld [hl+], a
-	ld a, d :: ld [hl+], a
-	inc e :: inc e
-	ld a, c :: ld [hl+], a
-	ld a, b :: add 8 :: ld [hl+], a
-	ld a, e :: ld [hl+], a
-	ld a, d :: ld [hl+], a
+	ld d, 16
+	ld e, 0
+	call ObdoSingle
+	inc d :: inc d
+	ld a, c :: add 8 :: ld c, a
+	call ObdoSingle
 
 	ret
 

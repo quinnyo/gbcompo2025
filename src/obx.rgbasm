@@ -1,0 +1,113 @@
+include "hardware.inc"
+
+
+def OBUF_SIZE equ OAM_COUNT * sizeof_OAM_ATTRS
+
+
+section union "wOAM1", wram0, align[8]
+; OAM buffer
+wOAM1:: ds OBUF_SIZE
+
+
+section "hObdo", hram
+;; Start position for Obdo to add entries to OAM.
+;; Set non-zero to reserve bytes at the start of the OAM buffer.
+hObdoReserve: db
+;; Current position (low byte pointer) of the OAM write-head.
+hObdoHead: db
+;; High byte address of target OAM buffer.
+hObdoTarget: db
+
+
+section "ObdoSingle", rom0
+;; Write a single OBJ entry to the OAM buffer.
+;; @param B: Y coord
+;; @param C: X coord
+;; @param D: CHR index
+;; @param E: OBJ attributes
+;; @mut: AF, HL
+ObdoSingle::
+	ldh a, [hObdoHead]
+	cp OBUF_SIZE
+	ret nc
+	ld l, a
+	ldh a, [hObdoTarget] :: ld h, a
+
+	ld a, b :: ld [hl+], a
+	ld a, c :: ld [hl+], a
+	ld a, d :: ld [hl+], a
+	ld a, e :: ld [hl+], a
+
+	ld a, l :: ldh [hObdoHead], a
+	ret
+
+
+section "ObdoFinaliseFrame", rom0
+;; Clear unused OAM slots
+ObdoFinaliseFrame::
+	ldh a, [hObdoTarget] :: ld h, a
+	ldh a, [hObdoHead]
+	; ensure we're at the start of an entry (multiple of 4)
+	and $FC :: ld l, a
+	; unused bytes: rem = size - pos
+	ld a, OBUF_SIZE :: sub l
+	ret z ; zero unused, nothing to do.
+	; Using `rrca` like this is OK: we just forced the value to be a multiple of 4,
+	; so the two bits that rotate around (0,1 ~~> 6,7) are zero.
+	; Unused entry count, loop iters: N = rem / 4
+	rrca :: rrca :: ld c, a
+	xor a
+:
+	ld [hl+], a
+	inc l :: inc l :: inc l
+	dec c
+	jr nz, :-
+
+	ld a, l :: ldh [hObdoHead], a
+	ret
+
+
+section "ObdoRewind", rom0
+;; Move the write head to back to the start of the Obdo OAM region.
+ObdoRewind::
+	ldh a, [hObdoReserve]
+	and $FC
+	ldh [hObdoHead], a
+	ret
+
+
+section "ObdoReserve", rom0
+;; Reserve part of the OAM buffer for use outside of Obdo.
+;; @param A: reserve size (bytes)
+ObdoReserve::
+	and $FC
+	ldh [hObdoReserve], a
+	ret
+
+
+section "ObufClear", rom0
+; Clear an OAM buffer.
+; @param H: High byte address of OAM buffer.
+; @mut: AF, L, C
+ObufClear::
+	xor a
+	ld l, a
+	ld c, OBUF_SIZE
+:
+	ld [hl+], a
+	dec c
+	jr nz, :-
+	ret
+
+
+section "ObxInit", rom0
+ObxInit::
+	xor a
+	ldh [hObdoHead], a
+	ldh [hObdoReserve], a
+	ld a, high(wOAM1)
+	ldh [hObdoTarget], a
+	ldh [hVBlankObuf], a
+	ld h, high(wOAM1)
+	jp ObufClear
+

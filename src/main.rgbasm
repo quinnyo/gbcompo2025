@@ -122,6 +122,7 @@ Main::
 :
 
 	call VBlankInit
+	call ObxInit
 	call InputInit
 	call PalettesInit
 	call CurtainInit
@@ -159,6 +160,7 @@ Main::
 	call InputUpdate
 	call ModeUpdate
 	call VramxSync
+	call ObdoFinaliseFrame
 
 .vsync
 	ld hl, wVBlankCount
@@ -181,6 +183,7 @@ Main::
 
 	call audio_update
 	call CurtainUpdate
+	call ObdoRewind
 
 	jp .loop
 
