@@ -1,9 +1,13 @@
 include "hardware.inc"
-include "mode.rgbinc"
 include "banker.rgbinc"
 
 
-	mode_def modeMapView
+;; Required keys held to enable other inputs
+def KEYF_GATE equ PADF_SELECT
+;; Clear the wMapBg buffers
+def KEYB_CLEAR equ PADB_START
+;; Change motion mode (smooth, grid steps)
+def KEYB_MOTION_MODE equ PADB_RIGHT
 
 
 rsreset
@@ -12,66 +16,47 @@ def MOTION_SMOOTH rb 1
 def MOTION__COUNT rb 0
 
 
-section union "{MODE_COMMON}", wramx
-wMotionMode: db
-wMotionParams: db
-wMotionState: ds 2
+rsreset
+def Motion_mode rb 1
+def Motion_params rb 1
+def Motion_state rb 2
+def szMotion rb 0
 
-wSelectMenu: db
+
+section "wMapViewer", wramx
+;; Motion controller state
+wMapViewerMotion: ds szMotion
 
 
-section "modeMapView", romx
-modeMapView_Enter::
-	wrambpush bank("{MODE_COMMON}")
-	xor a :: ld [wSelectMenu], a
+section fragment "modeGame", romx
+MapViewerInit::
+	wrambopen bank("wMapViewer")
+	ld hl, wMapViewerMotion
 	ld a, MOTION_SMOOTH
 	call _MotionSetMode
-	ld hl, wMotionMode
-	wrambpop
-
-	call ScrollInit
-	call MapOpen
-
-	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
 	ret
 
 
-modeMapView_Process::
-	wrambpush bank("{MODE_COMMON}")
-	ldh a, [hKeysPressed]
-	bit PADB_SELECT, a
-	jr z, :+
-	ld a, 1 :: ld [wSelectMenu], a
-:
-	ld a, [wSelectMenu]
-	and a
-	call nz, _SelectMenu
+MapViewerUpdate::
+	wrambopen bank("wMapViewer")
+	ldh a, [hKeys]
+	cpl :: and KEYF_GATE ; F.Z = (KEYS & GATE) == GATE
+	call z, _GatedInput
 
+	ld hl, wMapViewerMotion
 	call _Motion
 	ld a, d :: ld [wScroll.dy], a
 	ld a, e :: ld [wScroll.dx], a
-
-	wrambpop
-
-	call ScrollUpdate
-
-	ld a, [wScroll.y + 0] :: ld [wSCY], a
-	ld a, [wScroll.x + 0] :: ld [wSCX], a
-
-	jp MapUpdate
-
-
-_SelectMenu::
-	ldh a, [hKeysReleased]
-	bit PADB_SELECT, a
-	jr z, :+
-	xor a :: ld [wSelectMenu], a
 	ret
-:
+
+
+_GatedInput:
 	ldh a, [hKeysPressed]
-	bit PADB_START, a
+	bit KEYB_CLEAR, a
 	jp nz, _Clear
-	bit PADB_RIGHT, a
+
+	ld hl, wMapViewerMotion
+	bit KEYB_MOTION_MODE, a
 	jp nz, _MotionModeNext
 	ret
 
@@ -80,6 +65,11 @@ _Clear:
 	ld hl, wMapBgChr
 	ld bc, 1024
 	ld a, 95
+	call MemFillLarge
+	wrambopen bank(wMapBgAtrb)
+	ld hl, wMapBgAtrb
+	ld bc, 1024
+	ld a, $08
 	jp MemFillLarge
 
 
@@ -180,11 +170,11 @@ _err_mode_out_of_range:
 	ret
 
 
+;; @param HL: this Motion state
 ;; @ret D,E: Y,X scroll delta
 ;; @mut: AF, BC, DE, HL
 _Motion:
 	ld de, 0 ; scroll delta is zero by default
-	ld hl, wMotionMode
 	ld a, [hl+]
 	cp MOTION__COUNT
 	jr nc, _err_mode_out_of_range
@@ -248,8 +238,9 @@ _Motion:
 	ret
 
 
+;; @param HL: this Motion state
 _MotionModeNext:
-	ld a, [wMotionMode]
+	ld a, [hl]
 	inc a
 	cp MOTION__COUNT
 	jr c, _MotionSetMode
@@ -258,10 +249,10 @@ _MotionModeNext:
 	; FALLTHROUGH
 
 ;; @param A: mode
+;; @param HL: this Motion state
 _MotionSetMode:
 	cp MOTION__COUNT
 	jr nc, _err_mode_out_of_range
-	ld hl, wMotionMode
 	ld [hl+], a
 	push hl
 	rst RST_SwitchJump

@@ -81,94 +81,30 @@ modeGamePrep_Enter::
 
 
 modeGamePrep_Process::
+	ldh a, [hCurtain]
+	bit bCurtain_STEADY, a
+	ret z
+
 	ld de, rModes_modeGame
 	jp ModeSetActive
 
 
-section "modeGame", romx
+section fragment "modeGame", romx
 modeGame_Enter::
+	call MapViewerInit
 	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
 	ret
 
 
 modeGame_Process::
 	call PlayerUpdate
-
-/*
-	; debugfly: override player input
-	ldh a, [hKeys]
-	ld b, a
-	xor a
-	bit PADB_UP, b
-	jr z, :+
-	dec a
-:
-	bit PADB_DOWN, b
-	jr z, :+
-	inc a
-:
-	add a :: add a :: add a
-	ld [wEntity + 6], a
-	xor a
-	bit PADB_LEFT, b
-	jr z, :+
-	dec a
-:
-	bit PADB_RIGHT, b
-	jr z, :+
-	inc a
-:
-	add a :: add a :: add a
-	ld [wEntity + 2], a
-*/
-
 	call EntityUpdate
-	call _ViewTargetThing
+	call _ViewUpdate
 
 	call ScrollUpdate
 	ld a, [wScroll.y + 0] :: ld [wSCY], a
 	ld a, [wScroll.x + 0] :: ld [wSCX], a
 	call MapUpdate
-
-/*
-	; paint trail ~~ coord verify/test
-	; coord Y -> BG grid offset
-	ld a, [wEntity + 8 + 0]
-	rla
-	ld a, [wEntity + 8 + 1]
-	rla
-	add a ; * 2
-	add a ; * 4
-	add a ; * 8
-	ld l, a
-	ld h, 0
-	add hl, hl ; * 16
-	add hl, hl ; * 32
-
-	; coord X -> BG grid offset
-	ld a, [wEntity + 4 + 0]
-	rla
-	ld a, [wEntity + 4 + 1]
-	rla
-	and $1F
-	add l
-	ld l, a
-	adc h
-	sub l
-	add high(wMapBgAtrb)
-	ld h, a
-
-	; cycle BG tile palette
-	wrambpush bank(wMapBgAtrb)
-	ld a, [hl]
-	ld b, a
-	inc b
-	xor b
-	and $F8
-	xor b
-	ld [hl], a
-	wrambpop
-*/
 
 	; After scrolling, adjust target object position
 	ld a, [wTargetThing.y] :: ld b, a
@@ -189,31 +125,13 @@ modeGame_Process::
 	ret
 
 
-;; Scroll view if target is more than this distance from the screen centre.
-def SCROLL_FENCE equ 24
+_ViewUpdate:
+	; MapViewer overrides view following the target entity.
+	ldh a, [hOptA]
+	bit bOpt_MapViewer, a
+	jp nz, MapViewerUpdate
 
-
-;; @param C: dCentre -- target position relative to view centre
-;; @ret A: scroll delta
-_ScrollFenceThing:
-	ld a, c
-	and a
-	ret z
-	rlca
-	jr c, .negative
-.positive
-	ld a, c
-	sub SCROLL_FENCE
-	ret nc
-	xor a
-	ret
-.negative
-	ld a, c
-	sub -SCROLL_FENCE
-	ret c
-	xor a
-	ret
-
+	; FALLTHROUGH
 
 _ViewTargetThing:
 	; player entity Y position
@@ -248,6 +166,32 @@ _ViewTargetThing:
 	call _ScrollFenceThing
 	ld [wScroll.dx], a
 
+	ret
+
+
+;; Scroll view if target is more than this distance from the screen centre.
+def SCROLL_FENCE equ 24
+
+
+;; @param C: dCentre -- target position relative to view centre
+;; @ret A: scroll delta
+_ScrollFenceThing:
+	ld a, c
+	and a
+	ret z
+	rlca
+	jr c, .negative
+.positive
+	ld a, c
+	sub SCROLL_FENCE
+	ret nc
+	xor a
+	ret
+.negative
+	ld a, c
+	sub -SCROLL_FENCE
+	ret c
+	xor a
 	ret
 
 
