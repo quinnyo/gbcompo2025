@@ -131,6 +131,7 @@ Main::
 	call VramxInit
 	call audio_init
 	call OptInit
+	call QmenuInit
 	call ModeInit
 	ld de, rModes_modeDefault
 	;ld de, rModes_modeMapView
@@ -160,6 +161,7 @@ Main::
 	call InputRead
 	call InputUpdate
 	call VramxSync
+	call QmenuUpdate
 	call ModeUpdate
 	call ObdoFinaliseFrame
 

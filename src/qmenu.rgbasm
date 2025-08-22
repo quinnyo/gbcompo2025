@@ -1,0 +1,52 @@
+include "hardware.inc"
+
+
+def QMENU_HOLD_OPEN_TIME equ 30
+
+
+section "wQmenu", wram0
+wQmenuHoldOpen: db
+
+
+section "Qmenu", rom0
+QmenuInit::
+	xor a :: ld [wQmenuHoldOpen], a
+	ret
+
+
+QmenuUpdate::
+	call QmenuOpen
+	ret nc
+	ldh a, [hKeysPressed]
+	and a
+	ld b, a
+	call nz, QmenuProcessKeyPress
+	ret
+
+
+;; @ret F.C: enable
+QmenuOpen:
+	ldh a, [hKeys] :: ld b, a
+	bit PADB_SELECT, b
+	jr nz, :+
+	xor a
+	ld [wQmenuHoldOpen], a
+	ret
+:
+	ld a, [wQmenuHoldOpen]
+	cp QMENU_HOLD_OPEN_TIME
+	ccf
+	ret c
+	inc a
+	ld [wQmenuHoldOpen], a
+	ret
+
+
+QmenuProcessKeyPress:
+	bit PADB_UP, b
+	jr z, :+
+	ld b, Optid_MapViewer
+	jp OptToggle
+:
+	ret
+
