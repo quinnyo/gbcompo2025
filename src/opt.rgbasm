@@ -1,0 +1,99 @@
+
+rsreset
+;; Disconnect the player entity and allow freely scrolling the view.
+export def Optid_MapViewer rb 1
+;; Display some collision debug info
+export def Optid_CollideInfo rb 1
+
+export def Opt__COUNT rb 0
+
+export def bOpt_MapViewer equ Optid_MapViewer
+export def bOpt_CollideInfo equ Optid_CollideInfo
+export def Opt_MapViewer equ 1 << bOpt_MapViewer
+export def Opt_CollideInfo equ 1 << bOpt_CollideInfo
+
+
+section "hOpt", hram
+hOptA:: db
+
+
+section "OptInit", rom0
+OptInit::
+	xor a :: ldh [hOptA], a
+	ret
+
+
+section "OptGet", rom0
+;; @param B: optid
+;; @ret F.Z: opt state
+;; @mut: AF, BC
+OptGet::
+	call OptLookup
+	ld b, a
+	ldh a, [c]
+	and b
+	ret
+
+
+section "OptSet", rom0
+;; @param B: optid
+;; @mut: AF, BC
+OptSet::
+	call OptLookup
+	ld b, a
+	ldh a, [c]
+	or b
+	ldh [c], a
+	ret
+
+
+section "OptClear", rom0
+;; @param B: optid
+;; @mut: AF, BC
+OptClear::
+	call OptLookup
+	cpl
+	ld b, a
+	ldh a, [c]
+	and b
+	ldh [c], a
+	ret
+
+
+section "OptToggle", rom0
+;; @param B: optid
+;; @mut: AF, BC
+OptToggle::
+	call OptLookup
+	ld b, a
+	ldh a, [c]
+	xor b
+	ldh [c], a
+	ret
+
+
+section "OptLookup", rom0
+;; @param B: opt id
+;; @ret A: opt mask
+;; @ret C: low ptr to hOpt
+;; @mut: AF, C
+OptLookup::
+	ld a, b
+	rrca :: rrca :: rrca
+	and $1F
+	add low(hOptA)
+	ld c, a
+
+	push hl
+	ld hl, OptBitTable
+	ld a, b
+	and $07
+	add l :: ld l, a
+	ld a, [hl]
+	pop hl
+	ret
+
+
+section "OptBitTable", rom0, align[3]
+OptBitTable: db $01, $02, $04, $08, $10, $20, $40, $80
+

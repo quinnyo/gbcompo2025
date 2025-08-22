@@ -130,6 +130,7 @@ Main::
 	call MapInit
 	call VramxInit
 	call audio_init
+	call OptInit
 	call ModeInit
 	ld de, rModes_modeDefault
 	;ld de, rModes_modeMapView
@@ -158,8 +159,8 @@ Main::
 .loop:
 	call InputRead
 	call InputUpdate
-	call ModeUpdate
 	call VramxSync
+	call ModeUpdate
 	call ObdoFinaliseFrame
 
 .vsync
