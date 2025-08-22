@@ -8,6 +8,11 @@ def GRAVITY_DEFAULT equ $0_3
 ; Maximum magnitude of either velocity component (each axis is clamped independently)
 def ENT_VELOCITY_MAX equ 100
 
+;; Y axis adjustment offset for placing Entity sprites
+def ENT_SPRITE_Y_OFF equ 8
+;; X axis adjustment offset for placing Entity sprites
+def ENT_SPRITE_X_OFF equ 0
+
 def szEntity_Info    equ 1
 def szEntity_Ctrl    equ 1
 def szEntity_AccX    equ 1

@@ -2,6 +2,7 @@ include "hardware.inc"
 include "banker.rgbinc"
 include "mode.rgbinc"
 include "coord.rgbinc"
+include "sim/entity.rgbinc"
 
 
 	mode_def modeGamePrep, modeGamePrep_ExtraFuncs
@@ -172,10 +173,10 @@ modeGame_Process::
 	; After scrolling, adjust target object position
 	ld a, [wTargetThing.y] :: ld b, a
 	ldh a, [hScrollAppliedY]
-	cpl :: inc a :: add b :: ld b, a
+	cpl :: inc a :: add b :: add ENT_SPRITE_Y_OFF :: ld b, a
 	ld a, [wTargetThing.x] :: ld c, a
 	ldh a, [hScrollAppliedX]
-	cpl :: inc a :: add c :: add 8 :: ld c, a
+	cpl :: inc a :: add c :: add ENT_SPRITE_X_OFF :: ld c, a
 
 	; dirty test to show entity position
 	ld d, 16
@@ -218,8 +219,6 @@ _ViewTargetThing:
 	; player entity Y position
 	ld a, [wEntity + 8 + 0] :: ld c, a
 	ld a, [wEntity + 8 + 1] :: ld b, a
-	assert WORLD_ORIGIN == $0100
-	dec b ; subtract WORLD_ORIGIN
 	coord_int16 bc
 
 	; view rect centre
@@ -236,8 +235,6 @@ _ViewTargetThing:
 	; player entity X position
 	ld a, [wEntity + 4 + 0] :: ld c, a
 	ld a, [wEntity + 4 + 1] :: ld b, a
-	assert WORLD_ORIGIN == $0100
-	dec b ; subtract WORLD_ORIGIN
 	coord_int16 bc
 
 	; view rect centre
