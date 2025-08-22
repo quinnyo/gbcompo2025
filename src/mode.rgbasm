@@ -6,8 +6,10 @@ include "banker.rgbinc"
 ;; Ensure the modes table is created.
 section fragment "{MODES_SECTION}", romx
 
+
 ;; Ensure the common wram section is created.
 section union "{MODE_COMMON}", wramx
+_nothing: ds 16
 
 
 section "hMode", hram

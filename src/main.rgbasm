@@ -134,7 +134,6 @@ Main::
 	call QmenuInit
 	call ModeInit
 	ld de, rModes_modeDefault
-	;ld de, rModes_modeMapView
 	;ld de, rModes_modeSoundTest
 	call ModeSetActive
 

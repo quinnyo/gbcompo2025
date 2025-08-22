@@ -12,8 +12,13 @@ include "chrimp.rgbinc"
 
 section "modeLobby", romx
 modeLobby_ExtraFuncs::
+rsset MODE_STATE_EXTRA
+def _STATE_EXTRA_WAIT0 rb 1
 	dw _wait0
+def _STATE_EXTRA_WAIT_CURTAIN rb 1
 	dw _waitCurtain
+def _STATE_EXTRA_EXITING rb 1
+	dw _exiting
 
 _wait0:
 	call ModeLoadWaitVx :: ret nc
@@ -28,6 +33,9 @@ _waitCurtain:
 	ret nz
 
 	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
+	ret
+
+_exiting:
 	ret
 
 
@@ -46,6 +54,7 @@ modeLobby_Enter::
 		assert !def(CHR_REMAIN), "screen_Lobby has too many tiles. Probably optimise the source image."
 	endc
 
+	assert bank(wMapBgChr) == 0
 	ld de, startof("assets/screen_Lobby.chr.idx")
 	ld a, bank("assets/screen_Lobby.chr.idx")
 	ldh [hMemSrcBank], a
@@ -55,6 +64,7 @@ modeLobby_Enter::
 	ld hl, MemCopySubBgMap
 	call MemCallRomx
 
+	wrambpush bank(wMapBgAtrb)
 	ld de, startof("assets/screen_Lobby.chr.atrb")
 	ld a, bank("assets/screen_Lobby.chr.atrb")
 	ldh [hMemSrcBank], a
@@ -63,6 +73,7 @@ modeLobby_Enter::
 	ld a, high(wMapBgAtrb) :: ldh [hMemParamHL + 1], a
 	ld hl, MemCopySubBgMap
 	call MemCallRomx
+	wrambpop
 
 	ld a, MODE_STATE_EXTRA :: ldh [hModeState], a
 	ret
@@ -78,10 +89,13 @@ modeLobby_Process::
 	ld a, bank(map_c1)
 	call MapSelect
 
+	; Change to 'exiting' state so we don't need to deal with being mid transition in Process.
+	ld a, _STATE_EXTRA_EXITING :: ldh [hModeState], a
+
+	; Start transition to the game world
 	ld de, rModes_modeGamePrep
 	jp CurtainModeTransitionBegin
 :
 
 	ret
-
 
