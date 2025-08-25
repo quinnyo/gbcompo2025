@@ -40,9 +40,15 @@ PlayerUpdate::
 	;   never actually decided to do that, so it seemed worth mentioning.
 
 	call PlayerInputUpdate
-
-	; Directional movement
 	ld hl, wEntity
+	entity_index Entity_Ctrl
+	; set NOGRAV if active directional input.
+	res bENTCTRL_NOGRAV, [hl]
+	ld a, e :: or d
+	jr z, :+
+	set bENTCTRL_NOGRAV, [hl]
+:
+	; Directional movement
 	entity_index Entity_AccY
 	ld [hl], d
 	entity_index Entity_AccX
@@ -97,10 +103,6 @@ PlayerInputUpdate:
 ;	ld de, (2 << 8) | 3
 	ldh a, [hKeys] :: ld b, a
 	call Vecdir8FromKeys
-	ld a, d :: or e
-	jr z, :+
-	dec d :: dec d ; antigravity
-:
 	ld a, d :: ldh [hPlayerDriveY], a
 	ld a, e :: ldh [hPlayerDriveX], a
 

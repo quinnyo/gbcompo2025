@@ -73,19 +73,6 @@ EntityInit::
 
 ; @mut: AF, BC, DE, HL
 EntityUpdate::
-;	ldh a, [hSim.global_accel] :: ld b, a
-	ld b, 0
-	; Should apply gravity?
-	ldh a, [hSim.tick]
-	bit 0, a
-	jr z, :+
-	ldh a, [hSim.gravity]
-	ld b, a
-:
-	ldh a, [hSim.global_accel]
-	add b
-	ldh [hSim.global_accel], a
-
 	ld hl, wEntity
 .loop
 	bit ENTINFOB_ALIVE, [hl] :: jr z, .next
@@ -100,6 +87,7 @@ EntityUpdate::
 	; Flap!
 	entity_index Entity_Ctrl
 	call _flap_update :: ld b, a
+	call _get_gravity :: add b :: ld b, a
 
 	entity_index Entity_AccY
 	ldh a, [hSim.global_accel]
@@ -144,6 +132,23 @@ _flap_update:
 	dec [hl]
 	; calculate flap impulse/accel
 	cpl :: inc a
+	ret
+
+
+;; Get gravity accel for an entity
+;; @param HL: pointer to entity ctrl field
+;; @ret A: gravity accel to apply
+;; @mut: AF
+_get_gravity:
+	bit bENTCTRL_NOGRAV, [hl]
+	jr nz, .nograv
+	ldh a, [hSim.tick]
+	bit 0, a
+	jr z, .nograv
+	ldh a, [hSim.gravity]
+	ret
+.nograv
+	xor a
 	ret
 
 

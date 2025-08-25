@@ -55,6 +55,9 @@ def ENTINFOF_ALIVE equ 1 << ENTINFOB_ALIVE
 
 ;; Flap effect level & timer
 def mENTCTRL_FLAP  equ $0F
+;; Disable gravity
+def bENTCTRL_NOGRAV equ 4
+def mENTCTRL_NOGRAV equ 1 << bENTCTRL_NOGRAV
 
 
 macro entity_index
