@@ -222,10 +222,34 @@ MapUpdate::
 	ret
 
 
+section "MapSyncVisible", rom0
+;; Force bulk sync of visible region.
+;; @mut: AF, BC, DE, HL
+MapSyncVisible::
+	call MapUpdateViewChunk
+	call MapUpdateCache
+	call MapUpdateCache
+	call MapUpdateCache
+	ld d, 20
+	ld a, [wScroll.row]
+	dec a
+:
+	ld a, e
+	and $1F
+	ld e, a
+	push de
+	call MapSyncFrontRow
+	pop de
+	inc e
+	dec d
+	jr nz, :-
+	ret
+
+
 section "MapSyncFront", rom0
 ;; @param E: Y
 ;; @mut: AF, BC, DE, HL
-MapSyncFrontRow::
+MapSyncFrontRow:
 	; row X position
 	ld a, [wScroll.column + 0]
 	dec a ; viewX - 1 so corners get painted
@@ -676,7 +700,7 @@ MapUpdateCache:
 
 	call _UpdateNext
 	call _UpdateNext
-	;call _UpdateNext
+	call _UpdateNext
 
 	wrambpop
 	rombpop

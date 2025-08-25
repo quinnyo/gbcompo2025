@@ -53,6 +53,8 @@ _load2:
 _done:
 	call ModeLoadWaitVx :: ret nc
 
+	call MapSyncVisible
+
 	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
 	jp CurtainOpen
 
