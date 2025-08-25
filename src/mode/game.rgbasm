@@ -73,8 +73,10 @@ modeGamePrep_Enter::
 	call PalettesLoadRomx
 
 	call ScrollInit
-	call PlayerInit
 	call EntityInit
+	call PlayerInit
+	ld hl, wEntity
+	call PlayerSpawn
 	call CollideInit
 	call MapOpen
 

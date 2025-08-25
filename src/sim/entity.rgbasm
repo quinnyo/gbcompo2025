@@ -15,39 +15,6 @@ wEntity:: ds ENTITY_COUNT_MAX * szEntity
 _pad: ds 256 - (@ - wEntity)
 
 
-section "Entity Testo", rom0
-EntityTesto::
-	ld hl, wEntity
-	ld c, ENTITY_COUNT_MAX
-:
-	ld a, ENTINFOF_ALIVE | $01
-	ld [hl+], a
-	ld a, ENTITY_COUNT_MAX
-	sub c
-	ld [hl+], a
-	; accx
-	ld a, -10 :: ld [hl+], a
-	; velx
-	ld a, -100 :: ld [hl+], a
-	; posx
-	coord_ld_hli_int (WORLD_ORIGIN >> 4) + 90
-	; accy
-	ld a, -10 :: ld [hl+], a
-	; vely
-	ld a, -100 :: ld [hl+], a
-	; posy
-	coord_ld_hli_int (WORLD_ORIGIN >> 4) + 50
-
-	ld a, l
-	and $F0
-	add szEntity
-	ld l, a
-
-	dec c
-	jr nz, :-
-	ret
-
-
 section "Entity", rom0
 EntityInit::
 	ld hl, wEntity
@@ -60,8 +27,6 @@ EntityInit::
 	jr nz, :-
 	dec b
 	jr nz, .entity_pool_loop
-
-	call EntityTesto
 
 	ld a, GRAVITY_DEFAULT
 	ldh [hSim.gravity], a
@@ -167,7 +132,7 @@ _motion_go:
 	add b
 	; Apply friction
 	ld b, a
-	call _fric_1_4
+	call _fric_1_16
 	add b
 
 	; Grab the "old" velocity value before writing the updated one.

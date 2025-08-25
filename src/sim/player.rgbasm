@@ -1,5 +1,6 @@
 include "hardware.inc"
 include "sim/entity.rgbinc"
+include "coord.rgbinc"
 
 
 def bVKEY_FLAP        equ 0
@@ -13,6 +14,7 @@ def AUTOFLAP_THRESHOLD equ $02
 section "wPlayer", wram0
 wPlayer::
 	.vkeys: db
+	.ent: dw
 
 
 section "hPlayer", hram
@@ -28,19 +30,50 @@ PlayerInit::
 	ld [wPlayer.vkeys], a
 	ldh [hPlayerDriveY], a
 	ldh [hPlayerDriveX], a
+	ld a, $FF
+	ld [wPlayer.ent+0], a
+	ld [wPlayer.ent+1], a
+	ret
+
+
+;; @param HL: player entity
+;; @mut: AF, HL
+PlayerSpawn::
+	ld a, l :: ld [wPlayer.ent+0], a
+	ld a, h :: ld [wPlayer.ent+1], a
+
+	ld a, ENTINFOF_ALIVE | $01
+	ld [hl+], a
+	ld a, ENTITY_COUNT_MAX
+	sub c
+	ld [hl+], a
+	; accx
+	ld a, 40 :: ld [hl+], a
+	; velx
+	ld a, 40 :: ld [hl+], a
+	; posx
+	coord_ld_hli_int 8 * 6 ;(WORLD_ORIGIN >> 4) + 90
+	; accy
+	ld a, -20 :: ld [hl+], a
+	; vely
+	ld a, 20 :: ld [hl+], a
+	; posy
+	coord_ld_hli_int 8 * 4 ;(WORLD_ORIGIN >> 4) + 50
+
 	ret
 
 
 ;; Player entity controller: per-tick update function
 ;; @mut: AF, BC, D, HL
 PlayerUpdate::
-	; NOTE:
-	; This is hardcoded to work on the first entity in wEntity. This might be
-	;   fine, as the player entity can probably just always be that one, but I
-	;   never actually decided to do that, so it seemed worth mentioning.
-
+	ld hl, wPlayer.ent
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a
+	; if .ent == $FFFF, abort
+	and h :: inc a
+	ret z
 	call PlayerInputUpdate
-	ld hl, wEntity
 	entity_index Entity_Ctrl
 	; set NOGRAV if active directional input.
 	res bENTCTRL_NOGRAV, [hl]
@@ -99,8 +132,8 @@ PlayerFlap:
 ;; @mut: AF, BC, DE
 PlayerInputUpdate:
 ;	ld de, (12 << 8) | 17
-	ld de, (5 << 8) | 7
-;	ld de, (2 << 8) | 3
+;	ld de, (5 << 8) | 7
+	ld de, (2 << 8) | 3
 	ldh a, [hKeys] :: ld b, a
 	call Vecdir8FromKeys
 	ld a, d :: ldh [hPlayerDriveY], a
