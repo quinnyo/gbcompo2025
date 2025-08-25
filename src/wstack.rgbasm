@@ -2,7 +2,7 @@
 ;; Just `ld sp, wStack + WSTACK_SIZE` at startup!
 
 
-export def WSTACK_SIZE equ 32
+export def WSTACK_SIZE equ 128
 
 
 section "wStack", wram0
