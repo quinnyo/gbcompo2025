@@ -1,0 +1,409 @@
+include "collide.rgbinc"
+
+;; ld_dy value
+macro ld_dy
+	ld d, \#
+endm
+
+
+;; ld_dx value
+macro ld_dx
+	ld e, \#
+endm
+
+
+;; Scale DOTS to 12.4 COORDS.
+def DIMSCALE equ 16
+
+
+section "Collide_enviro0", rom0
+;; @param A: tile ID
+;; @param B,C: Y,X position
+;; @ret D,E: Y,X ejection
+;; @mut: AF, DE
+CollidePointInTile_enviro0::
+	cp 24
+	ret nc
+
+	ld de, 0 ; zero ejection
+
+	and a ; clear F.C
+	rst RST_SwitchJump
+	dw _test_enviro0_0
+	dw _test_enviro0_1
+	dw _test_enviro0_2
+	dw _test_enviro0_3
+	dw _test_enviro0_4
+	dw _test_enviro0_5
+	dw _test_enviro0_6
+	dw _test_enviro0_7
+	dw _test_enviro0_8
+	dw _test_enviro0_9
+	dw _test_enviro0_10
+	dw _test_enviro0_11
+	dw _test_enviro0_12
+	dw _test_enviro0_13
+	dw _test_enviro0_14
+	dw _test_enviro0_15
+	dw _test_enviro0_16
+	dw _test_enviro0_17
+	dw _test_enviro0_18
+	dw _test_enviro0_19
+	dw _test_enviro0_20
+	dw _test_enviro0_21
+	dw _test_enviro0_22
+	dw _test_enviro0_23
+
+
+; chr/enviro0.1bpp:0
+; OPEN
+_test_enviro0_0:
+	ret
+
+; chr/enviro0.1bpp:1
+; y0 ........
+; y1 ........
+; y2 ........
+; y3 ...o....
+; y4 ......11
+; y5 .....111
+; y6 .....111
+; y7 ....1111
+;   x01234567
+def RY_1 equ 3 * DIMSCALE
+def RX_1 equ 3 * DIMSCALE
+_test_enviro0_1:
+	ld a, RY_1 :: sub b :: ret nc
+	ld b, a
+	ld a, RX_1 :: sub c :: ret nc
+	ld_dx a
+	ld_dy b
+	ret
+
+; chr/enviro0.1bpp:2
+; y0 ........
+; y1 ........
+; y2 ........
+; y3 oooooooo
+; y4 1..11111
+; y5 11111111
+; y6 11111111
+; y7 11111111
+;   x01234567
+def RY_2 equ 3 * DIMSCALE
+_test_enviro0_2:
+	ld a, RY_2 :: sub b :: ret nc
+	ld_dy a
+	ret
+
+; chr/enviro0.1bpp:3
+; y0 ........
+; y1 ........
+; y2 ........
+; y3 ....o...
+; y4 1.......
+; y5 111.....
+; y6 1111....
+; y7 1111....
+;   x01234567
+def RY_3 equ 3 * DIMSCALE
+def RX_3 equ 4 * DIMSCALE
+_test_enviro0_3:
+	ld a, RY_3 :: sub b :: ret nc
+	ld b, a
+	ld a, RX_3 :: sub c :: ret c
+	ld_dx a
+	ld_dy b
+	ret
+
+; chr/enviro0.1bpp:4
+; y0 11111111
+; y1 11111111
+; y2 11111111
+; y3 11111111
+; y4 1111111.
+; y5 11111o..
+; y6 11111...
+; y7 1111....
+;   x01234567
+def RY_4 equ 5 * DIMSCALE
+def RX_4 equ 5 * DIMSCALE
+_test_enviro0_4:
+	ld a, RY_4 :: sub b
+	jr c, :+
+	ld_dy a
+:
+	ld a, RX_4 :: sub c :: ret c
+	ld_dx a
+	ret
+
+; chr/enviro0.1bpp:5
+; y0 11111111
+; y1 11111111
+; y2 11111111
+; y3 11111111
+; y4 .1111111
+; y5 ..o11111
+; y6 ....1111
+; y7 ....1111
+;   x01234567
+def RY_5 equ 5 * DIMSCALE
+def RX_5 equ 2 * DIMSCALE
+_test_enviro0_5:
+	ld a, RY_5 :: sub b
+	jr c, :+
+	ld_dy a
+:
+	ld a, RX_5 :: sub c :: ret nc
+	ld_dx a
+	ret
+
+; chr/enviro0.1bpp:6
+; EMPTY/UNUSED
+_test_enviro0_6:
+	ret
+
+; chr/enviro0.1bpp:7
+; EMPTY/UNUSED
+_test_enviro0_7:
+	ret
+
+; chr/enviro0.1bpp:8
+; EMPTY/UNUSED
+_test_enviro0_8:
+	ret
+
+; chr/enviro0.1bpp:9
+; y0 ..o.1111
+; y1 ..o..111
+; y2 ..o..111
+; y3 ..o..111
+; y4 ..o.1111
+; y5 ..o11111
+; y6 ..o11111
+; y7 ..o.1111
+;   x01234567
+def RX_9 equ 2 * DIMSCALE
+_test_enviro0_9:
+	ld a, RX_9 :: sub c :: ret nc
+	ld_dx a
+	ret
+
+; chr/enviro0.1bpp:10
+; y0 11111111
+; y1 11111111
+; y2 11111111
+; y3 11111111
+; y4 11111111
+; y5 11111111
+; y6 11111111
+; y7 11111111
+;   x01234567
+_test_enviro0_10:
+	;ld b, b
+	;;;;;;;;;;;; panic?
+	ret
+
+; chr/enviro0.1bpp:11
+; y0 1111.o..
+; y1 111..o..
+; y2 111..o..
+; y3 1111.o..
+; y4 1111.o..
+; y5 111..o..
+; y6 111..o..
+; y7 1111.o..
+;   x01234567
+def RX_11 equ 5 * DIMSCALE
+_test_enviro0_11:
+	ld a, RX_11 :: sub c :: ret c
+	ld_dx a
+	ret
+
+; chr/enviro0.1bpp:12
+; y0 1111....
+; y1 1111....
+; y2 11111o..
+; y3 111111..
+; y4 11111111
+; y5 11111111
+; y6 11111111
+; y7 11111111
+;   x01234567
+def RY_12 equ 2 * DIMSCALE
+def RX_12 equ 5 * DIMSCALE
+_test_enviro0_12:
+	ld a, RY_12 :: sub b
+	jr nc, :+
+	ld_dy a
+:
+	ld a, RX_12 :: sub c :: ret c
+	ld_dx a
+	ret
+
+; chr/enviro0.1bpp:13
+; y0 ....1111
+; y1 ...11111
+; y2 ..o11111
+; y3 ..111111
+; y4 11111111
+; y5 11111111
+; y6 11111111
+; y7 11111111
+;   x01234567
+def RY_13 equ 2 * DIMSCALE
+def RX_13 equ 2 * DIMSCALE
+_test_enviro0_13:
+	ld a, RY_13 :: sub b
+	jr nc, :+
+	ld_dy a
+:
+	ld a, RX_13 :: sub c :: ret nc
+	ld_dx a
+	ret
+
+; chr/enviro0.1bpp:14
+; EMPTY/UNUSED
+_test_enviro0_14:
+	ret
+
+; chr/enviro0.1bpp:15
+; EMPTY/UNUSED
+_test_enviro0_15:
+	ret
+
+; chr/enviro0.1bpp:16
+; EMPTY/UNUSED
+_test_enviro0_16:
+	ret
+
+; chr/enviro0.1bpp:17
+; y0 ....1111
+; y1 ....1111
+; y2 .....111
+; y3 .......1
+; y4 ...o....
+; y5 ........
+; y6 ........
+; y7 ........
+;   x01234567
+def RY_17 equ 4 * DIMSCALE
+def RX_17 equ 3 * DIMSCALE
+_test_enviro0_17:
+	ld a, RY_17 :: sub b :: ret c
+	ld b, a
+	ld a, RX_17 :: sub c :: ret nc
+	ld_dx a
+	ld_dy b
+	ret
+
+; chr/enviro0.1bpp:18
+; y0 11111111
+; y1 11111111
+; y2 11111111
+; y3 1..11111
+; y4 oooooooo
+; y5 ........
+; y6 ........
+; y7 ........
+;   x01234567
+def RY_18 equ 4 * DIMSCALE
+_test_enviro0_18:
+	ld a, RY_18 :: sub b :: ret c
+	ld_dy a
+	ret
+
+; chr/enviro0.1bpp:19
+; y0 1111....
+; y1 1111....
+; y2 111.....
+; y3 1.......
+; y4 ....o...
+; y5 ........
+; y6 ........
+; y7 ........
+;   x01234567
+def RY_19 equ 4 * DIMSCALE
+def RX_19 equ 4 * DIMSCALE
+_test_enviro0_19:
+	ld a, RY_19 :: sub b :: ret c
+	ld b, a
+	ld a, RX_19 :: sub c :: ret c
+	ld_dx a
+	ld_dy b
+	ret
+
+; chr/enviro0.1bpp:20
+; y0 1111....
+; y1 1111....
+; y2 11`.....
+; y3 1.......
+; y4 ......11
+; y5 .....`11
+; y6 ....1111
+; y7 ....1111
+;   x01234567
+def RY_20A equ 2 * DIMSCALE
+def RX_20A equ 2 * DIMSCALE
+def RY_20B equ 5 * DIMSCALE
+def RX_20B equ 5 * DIMSCALE
+_test_enviro0_20:
+	; NW
+	ld a, RY_20A :: sub b
+	jr c, :+
+	ld b, a
+	ld a, RX_20A :: sub c :: ret c
+	ld_dx a
+	ld_dy b
+	ret
+:
+	; SE
+	ld a, RY_20B :: sub b :: ret nc
+	ld b, a
+	ld a, RX_20B :: sub c :: ret nc
+	ld_dx a
+	ld_dy b
+	ret
+
+; chr/enviro0.1bpp:21
+; y0 ....1111
+; y1 .....111
+; y2 .....`11
+; y3 ......11
+; y4 1.......
+; y5 11`.....
+; y6 111.....
+; y7 1111....
+;   x01234567
+def RY_21A equ 2 * DIMSCALE
+def RX_21A equ 5 * DIMSCALE
+def RY_21B equ 5 * DIMSCALE
+def RX_21B equ 2 * DIMSCALE
+_test_enviro0_21:
+	; NE
+	ld a, RY_21A :: sub b
+	jr c, :+
+	ld b, a
+	ld a, RX_21A :: sub c :: ret nc
+	ld_dx a
+	ld_dy b
+	ret
+:
+	; SW
+	ld a, RY_21B :: sub b :: ret nc
+	ld b, a
+	ld a, RX_21B :: sub c :: ret c
+	ld_dx a
+	ld_dy b
+	ret
+
+; chr/enviro0.1bpp:22
+; EMPTY/UNUSED
+_test_enviro0_22:
+	ret
+
+; chr/enviro0.1bpp:23
+; EMPTY/UNUSED
+_test_enviro0_23:
+	ret
+

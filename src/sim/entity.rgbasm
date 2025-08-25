@@ -93,56 +93,31 @@ EntityUpdate::
 	; Update motion X, zero constant accel
 	entity_index Entity_AccX
 	xor a :: call _motion_go
-	ld a, c :: ldh [hCollide.px+0], a
-	ld a, b :: ldh [hCollide.px+1], a
-	push bc
+	ld a, b :: ldh [hCollide.vx], a
+	ld a, [hl+] :: ldh [hCollide.px+0], a
+	ld a, [hl+] :: ldh [hCollide.px+1], a
 
 	; Flap!
 	entity_index Entity_Ctrl
 	call _flap_update :: ld b, a
 
-	; Update motion Y, add gravity and flap as constant accel
 	entity_index Entity_AccY
 	ldh a, [hSim.global_accel]
 	add b :: call _motion_go
-	ld a, c :: ldh [hCollide.py+0], a
-	ld a, b :: ldh [hCollide.py+1], a
+	ld a, b :: ldh [hCollide.vy], a
+	ld a, [hl+] :: ldh [hCollide.py+0], a
+	ld a, [hl+] :: ldh [hCollide.py+1], a
 
-	; some kind of collision / trainwreck
-	push bc
 	push hl
 	call CollidePoint
 	pop hl
-	; Y
-	pop bc
-	bit bCOLLIDE_RESULT_Y, a
-	jr z, :+
-	entity_index Entity_PosY + 1
 
-	ld a, [wCollideResult.dpy + 0] :: ld e, a
-	ld a, [wCollideResult.dpy + 1] :: ld d, a
-	coord_add bc, de
-	; correct ent position and update collision query point for X axis
-	ld a, b :: ld [hl-], a
-	ldh [hCollide.py+1], a
-	ld a, c :: ld [hl-], a
-	ldh [hCollide.py+0], a
-	xor a :: ld [hl-], a
-:
-	; X
-	pop bc
-	ld a, [wCollideResult.flags]
-	bit bCOLLIDE_RESULT_X, a
-	jr z, :+
-	entity_index Entity_PosX + 1
-
-	ld a, [wCollideResult.dpx + 0] :: ld e, a
-	ld a, [wCollideResult.dpx + 1] :: ld d, a
-	coord_add bc, de
-	ld a, b :: ld [hl-], a
-	ld a, c :: ld [hl-], a
-	xor a :: ld [hl-], a
-:
+	entity_index Entity_PosX
+	ldh a, [hCollide.px+0] :: ld [hl+], a
+	ldh a, [hCollide.px+1] :: ld [hl+], a
+	entity_index Entity_PosY
+	ldh a, [hCollide.py+0] :: ld [hl+], a
+	ldh a, [hCollide.py+1] :: ld [hl+], a
 
 .next
 assert sizeof("wEntity") == 256
@@ -172,12 +147,10 @@ _flap_update:
 	ret
 
 
-; Perform entity motion update (~integration~) on one axis.
 ; @param HL: Pointer to beginning of an Entity motion block.
 ; @param A: constant accel
-; @ret HL: end (exclusive) of motion block.
-; @ret BC: position
-; @mut: AF, BC, HL
+; @ret B: velocity for the current frame
+; @mut: AF, B, HL
 _motion_go:
 	; Add accel accumulator to the constant accel param. Hold on to that.
 	add [hl] :: ld b, a
@@ -188,63 +161,14 @@ _motion_go:
 	ld a, [hl]
 	add b
 	; Apply friction
-	ld c, a
+	ld b, a
 	call _fric_1_4
-	add c
-
-;	; Limit velocity
-;	ld c, a
-;	ld a, ENT_VELOCITY_MAX
-;	call _clampo
-;	ld a, c
+	add b
 
 	; Grab the "old" velocity value before writing the updated one.
 	ld b, [hl]
+	; Write the the new velocity (with friction applied)
 	ld [hl+], a
-
-;	; Scale velocity before applying it
-;	ld a, b
-;	rlca
-;	jr nc, :+
-;	dec b
-;	sra b; :: sra b; :: sra b; :: sra b
-;	inc b
-;	jr .apply_velocity
-;:
-;	sra b; :: sra b; :: sra b; :: sra b
-
-.apply_velocity
-	; Update position (16 bit + signed 8 bit)
-	ld a, b
-	add [hl]
-	ld c, a
-	ld [hl+], a
-	adc [hl]
-	rl b ; Set F.C from sign of velocity
-	sbc c
-	ld b, a
-	ld [hl+], a
-	ret
-
-
-; Clamp the magnitude of a signed value.
-; @param C: value
-; @param A: max magnitude, inclusive
-; @ret C: clamped value
-; @mut: AF, C
-_clampo:
-	bit 7, c :: jr nz, :+
-	; positive value
-	cp c
-	jr .end
-:
-	; negate max to match negative value
-	cpl :: inc a
-	cp c
-	ccf
-.end
-	ret nc ; within bounds
-	ld c, a ; clamp
 	ret
 
 

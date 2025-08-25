@@ -12,7 +12,7 @@ macro _test_query_point
 endm
 
 
-section "wCollide", wram0
+section "wCollideBounds", wram0
 ;; World boundary
 wCollideBounds::
 	.xpos:: dw
@@ -21,23 +21,36 @@ wCollideBounds::
 	.yend:: dw
 
 
+section "wCollideResult", wram0
 wCollideResult::
 	.flags:: db
-	.dpx:: dw
-	.dpy:: dw
+
+
+section "wCollide", wram0
+_vx: db
+_spx: dw
+_vy: db
+_spy: dw
 
 
 section "hCollide", hram
 hCollide::
+	;; Query point, X coord
 	.px:: dw
+	;; Query point, Y coord
 	.py:: dw
+	;; X motion step, (signed 4.4 Coord)
+	.vx:: db
+	;; Y motion step, (signed 4.4 Coord)
+	.vy:: db
 
 
 section "Collide", rom0
 CollideInit::
-	ld hl, hCollide
-	ld a, $FF :: ld [hl+], a :: ld [hl+], a
-	ld a, $FF :: ld [hl+], a :: ld [hl+], a
+	ld hl, startof("hCollide")
+	ld c, sizeof("hCollide")
+	ld a, $FF
+	call MemFillSmall
 
 	ld hl, wCollideBounds
 	xor a :: ld [hl+], a :: ld [hl+], a
@@ -45,10 +58,15 @@ CollideInit::
 	xor a :: ld [hl+], a :: ld [hl+], a
 	ld a, $FF :: ld [hl+], a
 
-	ld hl, wCollideResult
-	xor a :: ld [hl+], a
-	xor a :: ld [hl+], a :: ld [hl+], a
-	xor a :: ld [hl+], a :: ld [hl+], a
+	ld hl, startof("wCollideResult")
+	ld c, sizeof("wCollideResult")
+	xor a
+	call MemFillSmall
+
+	ld hl, startof("wCollide")
+	ld c, sizeof("wCollide")
+	xor a
+	call MemFillSmall
 
 	ld hl, wCollideBounds.xpos
 	coord_ld_hli_int (WORLD_ORIGIN >> 4) + 0
@@ -57,25 +75,154 @@ CollideInit::
 	coord_ld_hli_int (WORLD_ORIGIN >> 4) + 0
 	coord_ld_hli_int (WORLD_ORIGIN >> 4) + 1024
 
-;	1,1 ~ 1024,1024
-;	_test_query_point 0, 0 ; 11, +1
-;	_test_query_point 1, 1 ; 00
-;	_test_query_point 1023, 1023 ; 00
-;	_test_query_point 1024, 1024 ; 11, -1
-;	_test_query_point 1025, 1025 ; 11, -2
-
 	ret
 
 
 ;; Execute the configured point query
-;; @ret HL: pointer to result data
-;; @ret A: result flags
 ;; @mut: AF, BC, DE, HL
 CollidePoint::
 	xor a :: ld [wCollideResult.flags], a
-	call CollidePointOutBounds
-	ld hl, wCollideResult.flags
+
+	ldh a, [hCollide.vx]
+	and a
+	jr z, :+
+	ld [_vx], a
+	xor a :: ld [_vy], a
+	call _MotionStep
+:
+	ldh a, [hCollide.vy]
+	and a
+	jr z, :+
+	ld [_vy], a
+	xor a :: ld [_vx], a
+	call _MotionStep
+:
+	jp CollidePointOutBounds
+
+
+_MotionStep:
+	; apply step delta to Y position
+	ldh a, [hCollide.py+0] :: ld c, a
+	ldh a, [hCollide.py+1] :: ld b, a
+	ld hl, _vy
+	ld a, [hl+] :: ld e, a
+	call __ApplyStep_BC
+	; store result & calculate grid position
+	ld a, c :: ld [hl+], a
+	rla
+	ld a, b :: ld [hl+], a
+	rla
+	and $1F :: ld d, a
+
+push bc
+
+	; apply step delta to X position
+	ldh a, [hCollide.px+0] :: ld c, a
+	ldh a, [hCollide.px+1] :: ld b, a
+	ld hl, _vx
+	ld a, [hl+] :: ld e, a
+	call __ApplyStep_BC
+	; store result & calculate grid position
+	ld a, c :: ld [hl+], a
+	rla
+	ld a, b :: ld [hl+], a
+	rla
+	and $1F :: ld e, a
+
+	; get address of grid cell in map buffer
+	call __LookupTile
+
+pop de
+
+	; cell local position
+	ld a, e :: and $7F :: ld b, a
+	ld a, c :: and $7F :: ld c, a
+	; tile collision
+	ld a, [hl] ; read tile ID
+	call CollidePointInTile_enviro0
+
+	ld hl, _vy
 	ld a, [hl+]
+	and a
+	jr z, :+
+		ld a, [hl+]
+		ld c, a
+		ld b, [hl]
+
+		; sign extend ejection into HL & apply to position
+		ld a, d
+		ld l, a
+		rlca :: sbc a :: ld h, a
+		coord_add bc, hl
+		; update query point position
+		ld a, c :: ldh [hCollide.py+0], a
+		ld a, b :: ldh [hCollide.py+1], a
+		; clear any remaining velocity
+		xor a :: ldh [hCollide.vy], a
+:
+
+	ld hl, _vx
+	ld a, [hl+]
+	and a
+	jr z, :+
+		ld a, [hl+]
+		ld c, a
+		ld b, [hl]
+
+		; sign extend ejection into HL & apply to position
+		ld a, e
+		ld l, a
+		rlca :: sbc a :: ld h, a
+		coord_add bc, hl
+		; update query point position
+		ld a, c :: ldh [hCollide.px+0], a
+		ld a, b :: ldh [hCollide.px+1], a
+		; clear any remaining velocity
+		xor a :: ldh [hCollide.vx], a
+:
+
+	ret
+
+
+;; @param BC: position (12.4 LE Coord)
+;; @param E: step (signed 4.4 Coord)
+;; @ret BC: position + step
+;; @mut: AF, BC, E
+__ApplyStep_BC:
+	; Update position (16 bit + signed 8 bit)
+	ld a, e
+	add c
+	ld c, a
+	adc b
+	rl e ; Set F.C from sign of velocity
+	sbc c
+	ld b, a
+	ret
+
+
+;; @param D,E: Y,X grid coord (mod 32)
+;; @ret A: BG Map tile ID
+;; @ret HL: pointer to BG Map cell
+;; @mut: AF, HL
+__LookupTile:
+	; (Y mod 32) * 32
+	ld a, d
+;	and $1F ; mod 32
+	add a :: add a :: add a ; Y * 8
+	ld l, a
+	ld h, 0
+	add hl, hl :: add hl, hl ; * 32
+	; ... + (X mod 32)
+	ld a, e
+;	and $1F ; mod 32
+	add l
+	ld l, a
+	adc h
+	sub l
+	add high(wMapBgChr)
+	ld h, a
+	ld a, [hl]
+
 	ret
 
 
@@ -89,11 +236,10 @@ CollidePointOutBounds::
 	jr nc, :+
 	ld hl, wCollideResult.flags
 	set bCOLLIDE_RESULT_X, [hl]
+	coord_add bc, de
+	ld a, c :: ldh [hCollide.px+0], a
+	ld a, b :: ldh [hCollide.px+1], a
 :
-	ld hl, wCollideResult.dpx
-	ld a, e :: ld [hl+], a
-	ld a, d :: ld [hl+], a
-
 
 	; Y axis
 	ldh a, [hCollide.py + 0] :: ld c, a
@@ -103,10 +249,10 @@ CollidePointOutBounds::
 	jr nc, :+
 	ld hl, wCollideResult.flags
 	set bCOLLIDE_RESULT_Y, [hl]
+	coord_add bc, de
+	ld a, c :: ldh [hCollide.py+0], a
+	ld a, b :: ldh [hCollide.py+1], a
 :
-	ld hl, wCollideResult.dpy
-	ld a, e :: ld [hl+], a
-	ld a, d :: ld [hl+], a
 
 	ret
 
@@ -116,7 +262,7 @@ CollidePointOutBounds::
 ;; @param BC: query point coord
 ;; @ret DE: offset to crossed boundary (if result positive)
 ;; @ret F.C: result
-;; @mut: AF, BC, DE, HL
+;; @mut: AF, DE, HL
 CollidePointOutRange::
 	ld a, [hl+] :: ld e, a
 	ld a, [hl+] :: ld d, a
