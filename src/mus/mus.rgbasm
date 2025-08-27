@@ -1,0 +1,44 @@
+include "hardware.inc"
+include "banker.rgbinc"
+
+
+section "wMus", wram0
+wMusSongBank:: db
+wMusSong:: dw
+
+
+section "Mus", rom0
+MusInit::
+	xor a :: ld [wMusSongBank], a
+	ld a, $FF :: ld [wMusSong+0], a :: ld [wMusSong+1], a
+	ret
+
+
+;; @param B: bank
+;; @param HL: song
+MusStart::
+	ld a, b :: ld [wMusSongBank], a
+	ld a, l :: ld [wMusSong+0], a
+	ld a, h :: ld [wMusSong+1], a
+	rombopen b
+	jp hUGE_init
+
+
+MusTick::
+	ld hl, wMusSongBank
+	ld a, [hl+] :: ld b, a
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a
+	and h
+	inc a
+	ret z
+	rombopen b
+	jp hUGE_dosound
+
+
+MusStop::
+	xor a :: ld [wMusSongBank], a
+	ld a, $FF :: ld [wMusSong+0], a :: ld [wMusSong+1], a
+	ret
+

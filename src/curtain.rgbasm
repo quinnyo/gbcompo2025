@@ -26,7 +26,6 @@ export def Curtain_CLOSED  equ Curtain_STEADY | Curtain_POSITION
 
 
 def CURTAIN_X_FADE_SHIFT equ 2
-def CURTAIN_LIMIT equ 5 << CURTAIN_X_FADE_SHIFT
 
 
 section "hCurtain", hram
@@ -36,21 +35,31 @@ hCurtainLimit: db
 hCurtainDestinationMode: dw
 
 
-section "PaletteFade", romx
-_Fade6:
+section "Fade8", romx
+Fade8CurtainLimit: db 7 << CURTAIN_X_FADE_SHIFT
+
+PaletteFade8:
 	dw_rgb555 %11111,%11111,%11111
+	dw_rgb555 %11111,%11111,%11110
 	dw_rgb555 %11110,%11110,%11110
+	dw_rgb555 %11110,%11110,%11100
 	dw_rgb555 %11100,%11100,%11100
 	dw_rgb555 %11000,%11000,%11000
 	dw_rgb555 %10000,%10000,%10000
 	dw_rgb555 %00000,%00000,%00000
+
+AudioFade8:
+	db $77, $66, $55, $44, $33, $22, $11, $00
 
 
 section "Curtain", rom0
 CurtainInit::
 	ld a, Curtain_OPEN :: ldh [hCurtain], a
 	xor a :: ldh [hCurtainX], a
-	ld a, CURTAIN_LIMIT :: ldh [hCurtainLimit], a
+	rombpush bank(Fade8CurtainLimit)
+	ld a, [Fade8CurtainLimit]
+	ldh [hCurtainLimit], a
+	rombpop
 	ld a, $FF
 	ldh [hCurtainDestinationMode + 0], a
 	ldh [hCurtainDestinationMode + 1], a
@@ -97,7 +106,10 @@ CurtainClose::
 	or Curtain_CLOSING
 	ldh [hCurtain], a
 
-	ld a, CURTAIN_LIMIT :: ldh [hCurtainLimit], a
+	rombpush bank(Fade8CurtainLimit)
+	ld a, [Fade8CurtainLimit]
+	ldh [hCurtainLimit], a
+	rombpop
 
 	ret
 
@@ -150,21 +162,31 @@ _CurtainDoOpen:
 
 ;; X updated
 _CurtainDoX:
+	rombopen bank("Fade8")
 	ldh a, [hCurtainLimit] :: ld d, a
 	ldh a, [hCurtainX]
 	cp d
 	jr c, :+
 	; clamp
-	ld a, CURTAIN_LIMIT
+	ld a, d
 :
 rept CURTAIN_X_FADE_SHIFT
 	srl a
 endr
-	add a ; index * 2
-	ld hl, _Fade6
+		push af
+
+	ld hl, AudioFade8
 	add l :: ld l, a
 	adc h :: sub l :: ld h, a
-	rombopen bank(_Fade6)
+	ld a, [hl]
+	ldh [rNR50], a
+
+		pop af
+
+	add a ; index * 2
+	ld hl, PaletteFade8
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
 	ld c, low(hPalettes)
 	ldh a, [c]
 	set bPalettes_SYNC_ALL, a
@@ -191,5 +213,5 @@ _CurtainDoClose:
 	or Curtain_CLOSED
 	ldh [hCurtain], a
 
-	ret
+	jp MusStop
 

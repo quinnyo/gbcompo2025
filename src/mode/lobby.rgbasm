@@ -75,6 +75,14 @@ modeLobby_Enter::
 	call MemCallRomx
 	wrambpop
 
+	ld b, bank(musMarchOfTides)
+	ld hl, musMarchOfTides
+	call MusStart
+
+	xor a
+	call audio_play_fx
+
+
 	ld a, MODE_STATE_EXTRA :: ldh [hModeState], a
 	ret
 

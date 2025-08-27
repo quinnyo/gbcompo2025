@@ -130,6 +130,7 @@ Main::
 	call MapInit
 	call VramxInit
 	call audio_init
+	call MusInit
 	call OptInit
 	call QmenuInit
 	call ModeInit
@@ -184,6 +185,7 @@ Main::
 	jr nc, :-
 
 	call audio_update
+	call MusTick
 	call CurtainUpdate
 	call ObdoRewind
 
