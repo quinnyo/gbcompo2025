@@ -51,6 +51,11 @@ hPalettes:: db
 hPalettesFadeMask:: dw
 
 
+section "wPalettePal", wram0
+wPalettePal_BgIdx:: db
+wPalettePal_ObIdx:: db
+
+
 section "wPalettes", wram0, align[8]
 ;; Palette buffer -- working copy of palette data.
 ;; Signal that a palette should be re-uploaded by setting bit 15 of the first colour in the palette.
@@ -64,6 +69,8 @@ wPalettes::
 
 section "Palettes", rom0
 PalettesInit::
+	call PalettePalInit
+
 	; load default palettes
 	rombopen bank("rPalettes")
 	ld b, 0
@@ -204,4 +211,55 @@ endr
 	res bPalettes_SYNC_ALL, a
 	ldh [hPalettes], a
 	ret
+
+
+section "PalettePal", rom0
+PalettePalInit::
+	xor a
+	ld [wPalettePal_BgIdx], a
+	ld [wPalettePal_ObIdx], a
+	ret
+
+
+;; @param B: source ROM bank
+;; @param DE: source
+;; @ret B: palette index
+;; @mut: AF, BC, DE, HL
+PalettePalLoadBgRomx::
+	rombopen b
+
+	; FALLTHROUGH
+
+;; @param DE: source
+;; @ret B: palette index
+;; @mut: AF, BC, DE, HL
+PalettePalLoadBg::
+	ld hl, wPalettePal_BgIdx
+	ld a, [hl]
+	inc [hl]
+	ld b, a
+	ld c, 1
+	jp PalettesLoad
+
+
+;; @param B: source ROM bank
+;; @param DE: source
+;; @ret B: palette index
+;; @mut: AF, BC, DE, HL
+PalettePalLoadObRomx::
+	rombopen b
+
+	; FALLTHROUGH
+
+;; @param DE: source
+;; @ret B: palette index
+;; @mut: AF, BC, DE, HL
+PalettePalLoadOb::
+	ld hl, wPalettePal_ObIdx
+	ld a, [hl]
+	inc [hl]
+	add 8
+	ld b, a
+	ld c, 1
+	jp PalettesLoad
 
