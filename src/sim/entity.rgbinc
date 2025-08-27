@@ -22,6 +22,8 @@ def szEntity_AccY    equ 1
 def szEntity_VelY    equ 1
 def szEntity_PosY    equ 2
 def szEntity_Collide equ 2
+def szEntity_DispX   equ 1
+def szEntity_DispY   equ 1
 
 rsreset
 def Entity_Info    rb szEntity_Info
@@ -33,7 +35,9 @@ def Entity_AccY    rb szEntity_AccY
 def Entity_VelY    rb szEntity_VelY
 def Entity_PosY    rb szEntity_PosY
 def Entity_Collide rb szEntity_Collide
-def _Entity_Pad    rb 4
+def Entity_DispX rb szEntity_DispX
+def Entity_DispY rb szEntity_DispY
+def _Entity_Pad    rb 2
 def szEntity    rb 0
 
 

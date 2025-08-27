@@ -60,17 +60,7 @@ _done:
 
 
 modeGamePrep_Enter::
-	ld b, bank("assets/character_test.chr")
-	ld de, startof("assets/character_test.chr")
-	ld c, sizeof("assets/character_test.chr") / 16 - 1
-	ld hl, $8100
-	call VxLoadRom
-
-	ld de, startof("assets/character_test.chr.pal")
-	ld c, 1
-	ld b, 8
-	ld h, bank("assets/character_test.chr.pal")
-	call PalettesLoadRomx
+	call VisDiverResourceInit
 
 	call ScrollInit
 	call EntityInit
@@ -109,22 +99,7 @@ modeGame_Process::
 	ld a, [wScroll.y + 0] :: ld [wSCY], a
 	ld a, [wScroll.x + 0] :: ld [wSCX], a
 	call MapUpdate
-
-	; After scrolling, adjust target object position
-	ld a, [wTargetThing.y] :: ld b, a
-	ldh a, [hScrollAppliedY]
-	cpl :: inc a :: add b :: add ENT_SPRITE_Y_OFF :: ld b, a
-	ld a, [wTargetThing.x] :: ld c, a
-	ldh a, [hScrollAppliedX]
-	cpl :: inc a :: add c :: add ENT_SPRITE_X_OFF :: ld c, a
-
-	; dirty test to show entity position
-	ld d, 16
-	ld e, 0
-	call ObdoSingle
-	inc d :: inc d
-	ld a, c :: add 8 :: ld c, a
-	call ObdoSingle
+	call PlayerRender
 
 	ret
 
@@ -135,72 +110,5 @@ _ViewUpdate:
 	bit bOpt_MapViewer, a
 	jp nz, MapViewerUpdate
 
-	; FALLTHROUGH
-
-_ViewTargetThing:
-	; player entity Y position
-	ld a, [wEntity + 8 + 0] :: ld c, a
-	ld a, [wEntity + 8 + 1] :: ld b, a
-	coord_int16 bc
-
-	; view rect centre
-	ld a, [wScroll.y + 0]
-	add 144 / 2 :: ld e, a
-	ld a, [wScroll.y + 1]
-	adc e :: sub e :: ld d, a
-
-	coord_sub bc, de
-	ld a, c :: add 144 / 2 :: ld [wTargetThing.y], a
-	call _ScrollFenceThing
-	ld [wScroll.dy], a
-
-	; player entity X position
-	ld a, [wEntity + 4 + 0] :: ld c, a
-	ld a, [wEntity + 4 + 1] :: ld b, a
-	coord_int16 bc
-
-	; view rect centre
-	ld a, [wScroll.x + 0]
-	add 160 / 2 :: ld e, a
-	ld a, [wScroll.x + 1]
-	adc e :: sub e
-
-	coord_sub bc, de
-	ld a, c :: add 160 / 2 :: ld [wTargetThing.x], a
-	call _ScrollFenceThing
-	ld [wScroll.dx], a
-
-	ret
-
-
-;; Scroll view if target is more than this distance from the screen centre.
-def SCROLL_FENCE equ 24
-
-
-;; @param C: dCentre -- target position relative to view centre
-;; @ret A: scroll delta
-_ScrollFenceThing:
-	ld a, c
-	and a
-	ret z
-	rlca
-	jr c, .negative
-.positive
-	ld a, c
-	sub SCROLL_FENCE
-	ret nc
-	xor a
-	ret
-.negative
-	ld a, c
-	sub -SCROLL_FENCE
-	ret c
-	xor a
-	ret
-
-
-section "wTargetThing", wram0
-wTargetThing::
-	.y:: db
-	.x:: db
+	jp PlayerViewTarget
 

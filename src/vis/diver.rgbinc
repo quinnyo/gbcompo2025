@@ -1,0 +1,28 @@
+if !def(Q_VIS_DIVER_INC_Sh5Nerhj)
+def Q_VIS_DIVER_INC_Sh5Nerhj equ 1
+
+
+include "ani.rgbinc"
+
+
+def bVisDiverCtl_SPEED0 equ $00
+def bVisDiverCtl_SPEED1 equ $01
+def bVisDiverCtl_HEADING0 equ $04
+def bVisDiverCtl_HEADING1 equ $05
+def bVisDiverCtl_HEADING2 equ $06
+
+def VisDiverCtl_SPEED equ $03
+def VisDiverCtl_HEADING equ $70
+
+
+rsreset
+def VisDiver_y rb 1
+def VisDiver_x rb 1
+def VisDiver_ctl rb 1
+def VisDiver__RESERVED rb 2
+def VisDiver_ani rb szAni
+def szVisDiver rb 0
+
+
+endc ; Q_VIS_DIVER_INC_Sh5Nerhj
+

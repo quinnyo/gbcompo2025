@@ -1,6 +1,7 @@
 include "hardware.inc"
 include "sim/entity.rgbinc"
 include "coord.rgbinc"
+include "vis/diver.rgbinc"
 
 
 def bVKEY_FLAP        equ 0
@@ -15,6 +16,7 @@ section "wPlayer", wram0
 wPlayer::
 	.vkeys: db
 	.ent: dw
+	.vis:: ds szVisDiver
 
 
 section "hPlayer", hram
@@ -33,7 +35,9 @@ PlayerInit::
 	ld a, $FF
 	ld [wPlayer.ent+0], a
 	ld [wPlayer.ent+1], a
-	ret
+
+	ld hl, wPlayer.vis
+	jp VisDiverReset
 
 
 ;; @param HL: player entity
@@ -88,6 +92,111 @@ PlayerUpdate::
 	ld [hl], e
 
 	ret
+
+
+;; @ret HL: pointer to player entity (if F.NZ)
+;; @ret F.Z: null entity
+PlayerGetEntity::
+	ld hl, wPlayer.ent
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a
+	; if .ent == $FFFF, abort
+	and h :: inc a
+	ret
+
+
+PlayerRender::
+	call PlayerGetEntity
+	ret z
+
+	; After scrolling, adjust display position
+	entity_index Entity_DispX
+	ld a, [hl+] :: ld c, a
+	ldh a, [hScrollAppliedX]
+	cpl :: inc a :: add c :: add ENT_SPRITE_X_OFF :: ld c, a
+	assert Entity_DispY == Entity_DispX + 1
+	ld a, [hl+] :: ld b, a
+	ldh a, [hScrollAppliedY]
+	cpl :: inc a :: add b :: add ENT_SPRITE_Y_OFF :: ld b, a
+
+	ld hl, wPlayer.vis
+	; update position
+	ld a, b :: ld [hl+], a
+	ld a, c :: ld [hl-], a
+	call VisDiverUpdate
+
+	ret
+
+
+PlayerViewTarget::
+	call PlayerGetEntity
+	ret z
+
+	; player entity Y position
+	entity_index Entity_PosY
+	ld a, [hl+] :: ld c, a
+	ld a, [hl+] :: ld b, a
+	coord_int16 bc
+
+	; view rect centre
+	ld a, [wScroll.y + 0]
+	add 144 / 2 :: ld e, a
+	ld a, [wScroll.y + 1]
+	adc e :: sub e :: ld d, a
+
+	coord_sub bc, de
+	entity_index Entity_DispY
+	ld a, c :: add 144 / 2 :: ld [hl], a
+	call _ScrollFenceThing
+	ld [wScroll.dy], a
+
+	; player entity X position
+	entity_index Entity_PosX
+	ld a, [hl+] :: ld c, a
+	ld a, [hl+] :: ld b, a
+	coord_int16 bc
+
+	; view rect centre
+	ld a, [wScroll.x + 0]
+	add 160 / 2 :: ld e, a
+	ld a, [wScroll.x + 1]
+	adc e :: sub e :: ld d, a
+
+	coord_sub bc, de
+	entity_index Entity_DispX
+	ld a, c :: add 160 / 2 :: ld [hl], a
+	call _ScrollFenceThing
+	ld [wScroll.dx], a
+
+	ret
+
+
+;; Scroll view if target is more than this distance from the screen centre.
+def SCROLL_FENCE equ 24
+
+
+;; @param C: dCentre -- target position relative to view centre
+;; @ret A: scroll delta
+_ScrollFenceThing:
+	ld a, c
+	and a
+	ret z
+	rlca
+	jr c, .negative
+.positive
+	ld a, c
+	sub SCROLL_FENCE
+	ret nc
+	xor a
+	ret
+.negative
+	ld a, c
+	sub -SCROLL_FENCE
+	ret c
+	xor a
+	ret
+
 
 /*
 ;; @param B: vkeys

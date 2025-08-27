@@ -1,0 +1,133 @@
+include "hardware.inc"
+include "chrimp.rgbinc"
+include "coord.rgbinc"
+include "vis/diver.rgbinc"
+include "banker.rgbinc"
+
+
+import_chr "assets/ent/diver-move-0.chr", DiverMove_0, pal
+import_chr "assets/ent/diver-move-1.chr", DiverMove_1, pal
+
+def VIS_DIVER_CHR_IDX equ $10
+def VIS_DIVER_CHR_ADDR equ $8000 + VIS_DIVER_CHR_IDX * $10
+
+
+section "VisDiver", romx
+macro _build_animove_sprite
+	assert _NARG == 1
+	db 24, 28,  0 + (\1) * 4, 0
+	db 24, 36,  2 + (\1) * 4, 0
+	db 24, 36, 24 + (\1) * 4, 1
+	db 24, 44, 26 + (\1) * 4, 1
+	db Sprite_END
+endm
+
+;; _frame DURATION, NEXT
+macro _frame
+	assert _NARG == 2
+	db (\1)
+	dw (\2)
+endm
+
+VisDiver_aniMove:
+	.f0:
+		_frame 10, .f1
+		_build_animove_sprite 0
+	.f1:
+		_frame 10, .f2
+		_build_animove_sprite 1
+	.f2:
+		_frame 10, .f3
+		_build_animove_sprite 2
+	.f3:
+		_frame 10, .f4
+		_build_animove_sprite 3
+	.f4:
+		_frame 10, .f5
+		_build_animove_sprite 4
+	.f5:
+		_frame 10, .f0
+		_build_animove_sprite 5
+
+
+section "wVisDiver", wram0
+wVisDiver_chri_move: db
+wVisDiver_pal0: db
+wVisDiver_pal1: db
+
+
+section "VisDiverResourceInit", rom0
+VisDiverResourceInit::
+	ld b, bank(DiverMove_0_pal)
+	ld de, DiverMove_0_pal
+	call PalettePalLoadObRomx
+	ld a, b :: ld [wVisDiver_pal0], a
+
+	ld b, bank(DiverMove_1_pal)
+	ld de, DiverMove_1_pal
+	call PalettePalLoadObRomx
+	ld a, b :: ld [wVisDiver_pal1], a
+
+	ld a, VIS_DIVER_CHR_IDX :: ld [wVisDiver_chri_move], a
+	ld hl, VIS_DIVER_CHR_ADDR
+	ld b, bank(DiverMove_0_chr)
+	ld de, DiverMove_0_chr
+	ld c, DiverMove_0_CHR_COUNT - 1
+	call VxLoadRom
+
+	ld hl, VIS_DIVER_CHR_ADDR + DiverMove_0_CHR_COUNT * $10
+	ld b, bank(DiverMove_1_chr)
+	ld de, DiverMove_1_chr
+	ld c, DiverMove_1_CHR_COUNT - 1
+	call VxLoadRom
+
+	ret
+
+
+section "VisDiverReset", rom0
+;; @param HL: this VisDiver
+VisDiverReset::
+	xor a
+	; y, x
+	ld [hl+], a :: ld [hl+], a
+	; ctl
+	ld [hl+], a
+
+	;
+	ld [hl+], a :: ld [hl+], a
+
+	; ani
+	ld de, VisDiver_aniMove.f2
+	ld b, bank(VisDiver_aniMove)
+	jp AniSetFrame
+
+
+section "VisDiverSetState", rom0
+;; @param HL: this VisDiver
+VisDiverSetState::
+	ret
+
+
+section "VisDiverUpdate", rom0
+;; @param HL: this VisDiver
+VisDiverUpdate::
+		push hl
+
+	ld bc, VisDiver_ani
+	add hl, bc
+	call AniUpdate
+	ld a, e :: and d
+	inc a
+	ret z
+
+		pop hl
+
+	rombopen b
+	ld a, [hl+] :: ld b, a ; y
+	ld a, [hl+] :: ld c, a ; x
+	ld l, e :: ld h, d ; move sprx pointer to HL
+	ld a, [wVisDiver_chri_move] :: ld d, a
+	ld a, [wVisDiver_pal0] :: ld e, a
+
+	jp SprxRenderMod
+

@@ -1,0 +1,80 @@
+include "hardware.inc"
+include "banker.rgbinc"
+
+
+section "Ani", rom0
+;; @param HL: this Ani
+AniInit::
+	xor a :: ld [hl+], a ; bank
+	inc a :: ld [hl+], a ; timer
+	ld a, $FF :: ld [hl+], a :: ld [hl+], a ; frame
+	ret
+
+
+;; Update Ani / advance time / submit drawables
+;; @param HL: this Ani
+;; @ret B: frame bank
+;; @ret DE: frame drawable
+;; @mut: AF, B, DE, HL
+AniUpdate::
+	push hl
+	call AniTick
+	pop hl
+	inc hl ; ani.timer
+	ld a, [hl+] :: ld b, a ; ani.bank
+	ld a, [hl+] :: ld e, a ; ani.frame+0
+	ld a, [hl+] :: ld d, a ; ani.frame+1
+	inc de ; duration (skip)
+	inc de :: inc de ; next (skip)
+	ret
+
+
+;; Advance Ani time by one tick.
+;; Updates the timer and changes frame when necessary.
+;; @param HL: this Ani
+;; @mut: AF, B, DE, HL
+AniTick::
+	; update timer
+	dec [hl]
+	ret nz
+
+	; FALLTHROUGH
+
+;; Set the current frame to ani.next
+;; @param HL: this Ani
+;; @mut: AF, B, DE, HL
+AniNextFrame::
+		push hl
+
+	inc hl ; this.timer (skip)
+	ld a, [hl+] :: ld b, a ; this.bank
+	inc hl :: inc hl ; this.frame (skip)
+	ld a, [hl+] :: ld e, a
+	ld d, [hl]
+
+		pop hl
+
+	; FALLTHROUGH
+
+;; Directly set the current frame
+;; @param HL: this Ani
+;; @param DE: frame
+;; @param B: bank
+;; @mut: AF, DE, HL
+AniSetFrame::
+	rombpush b
+
+	ld a, [de] :: ld [hl+], a ; this.timer <--- frame.duration
+
+	ld a, b :: ld [hl+], a ; this.bank
+	ld a, e :: ld [hl+], a ; this.frame+0
+	ld a, d :: ld [hl+], a ; this.frame+1
+
+	inc de
+	ld a, [de] :: ld [hl+], a ; this.next+0
+	inc de
+	ld a, [de] :: ld [hl+], a ; this.next+1
+
+	rombpop
+	ret
+

@@ -1,0 +1,19 @@
+if !def(Q_ANI_INC_e6pWgwvG)
+def Q_ANI_INC_e6pWgwvG equ 1
+
+
+rsreset
+;; Frame timer
+def Ani_timer rb 1
+;; ROM bank containing Ani frame data.
+def Ani_bank rb 1
+;; Pointer to current frame data (data?) (sprx?)
+def Ani_frame rb 2
+;; Pointer to next frame
+def Ani_next rb 2
+;; Size of Ani state struct
+def szAni rb 0
+
+
+endc ; Q_ANI_INC_e6pWgwvG
+
