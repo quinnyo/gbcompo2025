@@ -42,6 +42,23 @@ ObdoSingle::
 	ret
 
 
+section "ObdoCustom", rom0
+;; @mut: AF, HL
+ObdoCustomStart::
+	ldh a, [hObdoHead]
+	cp OBUF_SIZE
+	ret nc
+	ld l, a
+	ldh a, [hObdoTarget] :: ld h, a
+	ret
+
+
+;; @mut: AF, HL
+ObdoCustomEnd::
+	ld a, l :: ldh [hObdoHead], a
+	ret
+
+
 section "ObdoFinaliseFrame", rom0
 ;; Clear unused OAM slots
 ObdoFinaliseFrame::
