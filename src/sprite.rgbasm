@@ -15,6 +15,7 @@ hSprxOriginX:: db
 section "Sprx", rom0
 ;; @param HL: Sprx to render
 ;; @param B,C: Y,X render position
+;; @mut: AF, BC, DE, HL
 SprxRender::
 	ld a, b :: sub SprobCoordOffset :: ldh [hSprxOriginY], a
 	ld a, c :: sub SprobCoordOffset :: ldh [hSprxOriginX], a
@@ -34,10 +35,45 @@ SprxRender::
 	ret
 
 
+;; @param HL: Sprx to render
+;; @param B,C: Y,X render position
+;; @param D: I mod
+;; @param E: A mod (ADD the palette, XOR the rest)
+;; @mut: AF, BC, HL
+SprxRenderMod::
+	ld a, b :: sub SprobCoordOffset :: ld b, a
+	ld a, c :: sub SprobCoordOffset :: ld c, a
+
+:
+	; peek the first sprob byte
+	bit bSprite_ESC, [hl]
+	jr nz, .proc_esc
+	push bc
+	push de
+	ld a, [hl+] :: add b :: ld b, a
+	ld a, [hl+] :: add c :: ld c, a
+	ld a, [hl+] :: add d :: ld d, a
+	; Palette mod gets added, rest of bits get xored.
+	; Yes, this is confusioning.
+	ld a, [hl] :: add e :: and $07 :: ld e, a
+	ld a, [hl+] :: and $F8 :: xor e :: ld e, a
+	push hl
+	call ObdoSingle
+	pop hl
+	pop de
+	pop bc
+	jr :-
+
+	ret
+.proc_esc:
+	ret
+
+
 ;; Push one Sprob to OAM
 ;; @param HL: pointer to Sprob
 ;; @param B,C: Y,X Sprobspace origin
 ;; @ret HL: pointer at end of Sprob
+;; @mut: AF, BC, DE, HL
 SprobRender:
 	ld a, [hl+] :: add b :: ld b, a
 	ld a, [hl+] :: add c :: ld c, a
