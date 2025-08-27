@@ -47,6 +47,29 @@ macro import_screen
 endm
 
 
+macro import_chr
+	def _chrimp_src equs \1
+	def _chrimp_label equs "\2"
+	shift 2
+
+	pushs "{_chrimp_src}", romx, align[4]
+	{_chrimp_label}_chr:: incbin "{_chrimp_src}"
+	def sizeof_{_chrimp_label}_chr equ @ - {_chrimp_label}_chr
+	def {_chrimp_label}_CHR_COUNT equ sizeof_{_chrimp_label}_chr / 16
+	pops
+
+	rept _NARG
+		pushs strcat("{_chrimp_src}", ".\1"), romx
+		{_chrimp_label}_\1:: incbin strcat("{_chrimp_src}", ".\1")
+		def sizeof_{_chrimp_label}_\1 equ @ - {_chrimp_label}_\1
+		pops
+		shift
+	endr
+
+	purge _chrimp_src, _chrimp_label
+endm
+
+
 ;; Helper macro for loading CHR data via Vx, particularly for tilesets that are larger
 ;; than one CHR block (128 tiles).
 ;;
