@@ -55,8 +55,20 @@ SprxRenderMod::
 	ld a, [hl+] :: add d :: ld d, a
 	; Palette mod gets added, rest of bits get xored.
 	; Yes, this is confusioning.
-	ld a, [hl] :: add e :: and $07 :: ld e, a
-	ld a, [hl+] :: and $F8 :: xor e :: ld e, a
+	; xor atrbmod, keep palmod unchanged
+	ld a, [hl]
+	and $F8
+	xor e
+	ld e, a
+	; add palmod
+	ld a, [hl+]
+	add e
+	; combine adjusted palette with adjusted atrbs
+	xor e
+	and $07
+	xor e
+	ld e, a
+
 	push hl
 	call ObdoSingle
 	pop hl
