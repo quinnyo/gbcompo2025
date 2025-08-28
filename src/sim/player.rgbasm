@@ -126,6 +126,11 @@ PlayerRender::
 	ld a, c :: ld [hl-], a
 	call VisDiverUpdate
 
+	; heading
+	ldh a, [hKeys]
+	ld hl, wPlayer.vis
+	call VisDiverSetHeading
+
 	ret
 
 

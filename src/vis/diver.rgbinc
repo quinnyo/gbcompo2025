@@ -5,14 +5,16 @@ def Q_VIS_DIVER_INC_Sh5Nerhj equ 1
 include "ani.rgbinc"
 
 
-def bVisDiverCtl_SPEED0 equ $00
-def bVisDiverCtl_SPEED1 equ $01
-def bVisDiverCtl_HEADING0 equ $04
-def bVisDiverCtl_HEADING1 equ $05
-def bVisDiverCtl_HEADING2 equ $06
+def VisDiverDir_X     equ %0011_0000
+def VisDiverDir_RIGHT equ %0001_0000
+def VisDiverDir_LEFT  equ %0010_0000
+def VisDiverDir_Y     equ %1100_0000
+def VisDiverDir_UP    equ %0100_0000
+def VisDiverDir_DOWN  equ %1000_0000
+
 
 def VisDiverCtl_SPEED equ $03
-def VisDiverCtl_HEADING equ $70
+def VisDiverCtl_HEADING equ VisDiverDir_Y | VisDiverDir_X
 
 
 rsreset

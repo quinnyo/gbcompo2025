@@ -3,6 +3,7 @@ include "chrimp.rgbinc"
 include "coord.rgbinc"
 include "vis/diver.rgbinc"
 include "banker.rgbinc"
+include "sprite.rgbinc"
 
 
 import_chr "assets/ent/diver-move-0.chr", DiverMove_0, pal
@@ -11,49 +12,92 @@ import_chr "assets/ent/diver-move-1.chr", DiverMove_1, pal
 def VIS_DIVER_CHR_IDX equ $10
 def VIS_DIVER_CHR_ADDR equ $8000 + VIS_DIVER_CHR_IDX * $10
 
+def MOVE_FRAME_COUNT equ 6
+def MOVE0_CHRI equ 0
+def MOVE1_CHRI equ MOVE0_CHRI + MOVE_FRAME_COUNT * 2 * 2
+
 
 section "VisDiver", romx
-macro _build_animove_sprite
-	assert _NARG == 1
-	db 24, 28,  0 + (\1) * 4, 0
-	db 24, 36,  2 + (\1) * 4, 0
-	db 24, 36, 24 + (\1) * 4, 1
-	db 24, 44, 26 + (\1) * 4, 1
-	db Sprite_END
-endm
 
 ;; _frame DURATION, NEXT
 macro _frame
-	assert _NARG == 2
+	assert fail, _NARG == 2
 	db (\1)
 	dw (\2)
 endm
 
+
 VisDiver_aniMove:
+	.right:
+		sprob_opts sx:8, si:2, cx, cy
 	.f0:
 		_frame 10, .f1
-		_build_animove_sprite 0
+		sprob_seq 2, 0, -8, MOVE0_CHRI + 0 * 4, 0
+		sprob_seq 2, 0,  0, MOVE1_CHRI + 0 * 4, 1
+		sprob_end
 	.f1:
 		_frame 10, .f2
-		_build_animove_sprite 1
+		sprob_seq 2, 0, -8, MOVE0_CHRI + 1 * 4, 0
+		sprob_seq 2, 0,  0, MOVE1_CHRI + 1 * 4, 1
+		sprob_end
 	.f2:
 		_frame 10, .f3
-		_build_animove_sprite 2
+		sprob_seq 2, 0, -8, MOVE0_CHRI + 2 * 4, 0
+		sprob_seq 2, 0,  0, MOVE1_CHRI + 2 * 4, 1
+		sprob_end
 	.f3:
 		_frame 10, .f4
-		_build_animove_sprite 3
+		sprob_seq 2, 0, -8, MOVE0_CHRI + 3 * 4, 0
+		sprob_seq 2, 0,  0, MOVE1_CHRI + 3 * 4, 1
+		sprob_end
 	.f4:
 		_frame 10, .f5
-		_build_animove_sprite 4
+		sprob_seq 2, 0, -8, MOVE0_CHRI + 4 * 4, 0
+		sprob_seq 2, 0,  0, MOVE1_CHRI + 4 * 4, 1
+		sprob_end
 	.f5:
 		_frame 10, .f0
-		_build_animove_sprite 5
+		sprob_seq 2, 0, -8, MOVE0_CHRI + 5 * 4, 0
+		sprob_seq 2, 0,  0, MOVE1_CHRI + 5 * 4, 1
+		sprob_end
+
+	.left:
+		sprob_opts sx:-8, si:2, cx, cy
+	.f6:
+		_frame 10, .f7
+		sprob_seq 2, 0,  8, MOVE0_CHRI + 0 * 4, $20 | 0
+		sprob_seq 2, 0,  0, MOVE1_CHRI + 0 * 4, $20 | 1
+		sprob_end
+	.f7:
+		_frame 10, .f8
+		sprob_seq 2, 0,  8, MOVE0_CHRI + 1 * 4, $20 | 0
+		sprob_seq 2, 0,  0, MOVE1_CHRI + 1 * 4, $20 | 1
+		sprob_end
+	.f8:
+		_frame 10, .f9
+		sprob_seq 2, 0,  8, MOVE0_CHRI + 2 * 4, $20 | 0
+		sprob_seq 2, 0,  0, MOVE1_CHRI + 2 * 4, $20 | 1
+		sprob_end
+	.f9:
+		_frame 10, .f10
+		sprob_seq 2, 0,  8, MOVE0_CHRI + 3 * 4, $20 | 0
+		sprob_seq 2, 0,  0, MOVE1_CHRI + 3 * 4, $20 | 1
+		sprob_end
+	.f10:
+		_frame 10, .f11
+		sprob_seq 2, 0,  8, MOVE0_CHRI + 4 * 4, $20 | 0
+		sprob_seq 2, 0,  0, MOVE1_CHRI + 4 * 4, $20 | 1
+		sprob_end
+	.f11:
+		_frame 10, .f6
+		sprob_seq 2, 0,  8, MOVE0_CHRI + 5 * 4, $20 | 0
+		sprob_seq 2, 0,  0, MOVE1_CHRI + 5 * 4, $20 | 1
+		sprob_end
 
 
 section "wVisDiver", wram0
 wVisDiver_chri_move: db
 wVisDiver_pal0: db
-wVisDiver_pal1: db
 
 
 section "VisDiverResourceInit", rom0
@@ -66,7 +110,6 @@ VisDiverResourceInit::
 	ld b, bank(DiverMove_1_pal)
 	ld de, DiverMove_1_pal
 	call PalettePalLoadObRomx
-	ld a, b :: and $07 :: ld [wVisDiver_pal1], a
 
 	ld a, VIS_DIVER_CHR_IDX :: ld [wVisDiver_chri_move], a
 	ld hl, VIS_DIVER_CHR_ADDR
@@ -108,6 +151,52 @@ VisDiverSetState::
 	ret
 
 
+;; @param A: new heading VisDiverDir (same as DPAD key bits, DULR_xxxx)
+;; @param HL: this VisDiver
+;; @mut: AF, BC, HL
+VisDiverSetHeading::
+	ld bc, VisDiver_ctl
+	add hl, bc
+
+	; Accept each axis independently & only accept non-zero values.
+	ld b, [hl]
+	ld c, a
+	and VisDiverDir_X
+	jr z, .do_y_maybe
+	xor b
+	and VisDiverDir_X
+	xor b
+	ld b, a
+
+.do_y_maybe
+	ld a, c
+	and VisDiverDir_Y
+	jr z, .end
+	xor b
+	and VisDiverDir_Y
+	xor b
+	ld b, a
+
+.end
+	ld a, [hl]
+	ld [hl], b
+	; If X heading changed, set appropriate animation
+	xor b
+	and VisDiverDir_X
+	ret z
+
+	ld de, VisDiver_aniMove.left
+	ld a, b
+	and VisDiverDir_LEFT
+	jr nz, :+
+	ld de, VisDiver_aniMove.right
+:
+	ld bc, VisDiver_ani - VisDiver_ctl
+	add hl, bc
+	ld b, bank(VisDiver_aniMove)
+	jp AniSetFrame
+
+
 section "VisDiverUpdate", rom0
 ;; @param HL: this VisDiver
 VisDiverUpdate::
@@ -130,6 +219,7 @@ VisDiverUpdate::
 
 	ld a, [hl+] :: ld b, a ; y
 	ld a, [hl+] :: ld c, a ; x
+
 	ld a, [wVisDiver_chri_move] :: ld d, a
 	ld a, [wVisDiver_pal0] :: ld e, a
 

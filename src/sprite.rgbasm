@@ -1,10 +1,4 @@
-
-export def bSprite_ESC equ 7
-export def Sprite_END equ $80
-
-;; Sprob coordinates are unsigned values in range [0..64) with the origin point being at the Render origin - 32
-export def SprobCoordMax equ 64
-export def SprobCoordOffset equ 32
+include "sprite.rgbinc"
 
 
 section "hSprx", hram
@@ -17,8 +11,8 @@ section "Sprx", rom0
 ;; @param B,C: Y,X render position
 ;; @mut: AF, BC, DE, HL
 SprxRender::
-	ld a, b :: sub SprobCoordOffset :: ldh [hSprxOriginY], a
-	ld a, c :: sub SprobCoordOffset :: ldh [hSprxOriginX], a
+	ld a, b :: sub SprobOrigin :: ldh [hSprxOriginY], a
+	ld a, c :: sub SprobOrigin :: ldh [hSprxOriginX], a
 
 :
 	; peek the first sprob byte
@@ -41,8 +35,8 @@ SprxRender::
 ;; @param E: A mod (ADD the palette, XOR the rest)
 ;; @mut: AF, BC, HL
 SprxRenderMod::
-	ld a, b :: sub SprobCoordOffset :: ld b, a
-	ld a, c :: sub SprobCoordOffset :: ld c, a
+	ld a, b :: sub SprobOrigin :: ld b, a
+	ld a, c :: sub SprobOrigin :: ld c, a
 
 :
 	; peek the first sprob byte
