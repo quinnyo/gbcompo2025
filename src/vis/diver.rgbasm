@@ -61,12 +61,12 @@ VisDiverResourceInit::
 	ld b, bank(DiverMove_0_pal)
 	ld de, DiverMove_0_pal
 	call PalettePalLoadObRomx
-	ld a, b :: ld [wVisDiver_pal0], a
+	ld a, b :: and $07 :: ld [wVisDiver_pal0], a
 
 	ld b, bank(DiverMove_1_pal)
 	ld de, DiverMove_1_pal
 	call PalettePalLoadObRomx
-	ld a, b :: ld [wVisDiver_pal1], a
+	ld a, b :: and $07 :: ld [wVisDiver_pal1], a
 
 	ld a, VIS_DIVER_CHR_IDX :: ld [wVisDiver_chri_move], a
 	ld hl, VIS_DIVER_CHR_ADDR
@@ -116,18 +116,24 @@ VisDiverUpdate::
 	ld bc, VisDiver_ani
 	add hl, bc
 	call AniUpdate
+
+		pop hl
+
+	; DE: Ani drawable pointer, abort if $FFFF
 	ld a, e :: and d
 	inc a
 	ret z
 
-		pop hl
-
 	rombopen b
+
+		push de
+
 	ld a, [hl+] :: ld b, a ; y
 	ld a, [hl+] :: ld c, a ; x
-	ld l, e :: ld h, d ; move sprx pointer to HL
 	ld a, [wVisDiver_chri_move] :: ld d, a
 	ld a, [wVisDiver_pal0] :: ld e, a
+
+		pop hl ; Restore Ani drawable to HL
 
 	jp SprxRenderMod
 
