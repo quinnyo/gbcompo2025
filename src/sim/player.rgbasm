@@ -120,17 +120,56 @@ PlayerRender::
 	ldh a, [hScrollAppliedY]
 	cpl :: inc a :: add b :: add ENT_SPRITE_Y_OFF :: ld b, a
 
+		push bc
+
+	; Update vis ctl speed
+	ld b, 0
+	ldh a, [hPlayerDriveY]
+	ld c, a
+	ldh a, [hPlayerDriveX]
+	or c
+	jr z, .nodrive
+	entity_index Entity_VelY
+	ld a, [hl]
+	call _abs
+	ld b, a
+	entity_index Entity_VelX
+	ld a, [hl]
+	call _abs
+	or b
+	srl a
+	cp VisDiverCtl_SPEED+1
+	jr c, :+
+	ld a, VisDiverCtl_SPEED
+:
+	ld b, a
+.nodrive
+	; ctl.HEADING
+	ldh a, [hKeys]
+	and VisDiverCtl_HEADING
+	or b
 	ld hl, wPlayer.vis
+	call VisDiverSetCtl
+
+		pop bc
+
 	; update position
+	ld hl, wPlayer.vis
 	ld a, b :: ld [hl+], a
 	ld a, c :: ld [hl-], a
 	call VisDiverUpdate
 
-	; heading
-	ldh a, [hKeys]
-	ld hl, wPlayer.vis
-	call VisDiverSetHeading
+	ret
 
+
+_abs:
+	cp $80
+	ret c
+	jr nz, :+
+	dec a
+	ret
+:
+	cpl :: inc a
 	ret
 
 

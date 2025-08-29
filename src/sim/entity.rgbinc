@@ -9,7 +9,7 @@ def GRAVITY_DEFAULT equ $0_3
 def ENT_VELOCITY_MAX equ 100
 
 ;; Y axis adjustment offset for placing Entity sprites
-def ENT_SPRITE_Y_OFF equ 8
+def ENT_SPRITE_Y_OFF equ 0
 ;; X axis adjustment offset for placing Entity sprites
 def ENT_SPRITE_X_OFF equ 0
 

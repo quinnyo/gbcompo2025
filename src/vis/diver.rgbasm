@@ -16,6 +16,8 @@ def MOVE_FRAME_COUNT equ 6
 def MOVE0_CHRI equ 0
 def MOVE1_CHRI equ MOVE0_CHRI + MOVE_FRAME_COUNT * 2 * 2
 
+def MOVE_BASE_FRAMETIME equ 80
+
 
 section "VisDiver", romx
 
@@ -31,32 +33,32 @@ VisDiver_aniMove:
 	.right:
 		sprob_opts sx:8, si:2, cx, cy
 	.f0:
-		_frame 10, .f1
+		_frame MOVE_BASE_FRAMETIME, .f1
 		sprob_seq 2, 0, -8, MOVE0_CHRI + 0 * 4, 0
 		sprob_seq 2, 0,  0, MOVE1_CHRI + 0 * 4, 1
 		sprob_end
 	.f1:
-		_frame 10, .f2
+		_frame MOVE_BASE_FRAMETIME, .f2
 		sprob_seq 2, 0, -8, MOVE0_CHRI + 1 * 4, 0
 		sprob_seq 2, 0,  0, MOVE1_CHRI + 1 * 4, 1
 		sprob_end
 	.f2:
-		_frame 10, .f3
+		_frame MOVE_BASE_FRAMETIME, .f3
 		sprob_seq 2, 0, -8, MOVE0_CHRI + 2 * 4, 0
 		sprob_seq 2, 0,  0, MOVE1_CHRI + 2 * 4, 1
 		sprob_end
 	.f3:
-		_frame 10, .f4
+		_frame MOVE_BASE_FRAMETIME, .f4
 		sprob_seq 2, 0, -8, MOVE0_CHRI + 3 * 4, 0
 		sprob_seq 2, 0,  0, MOVE1_CHRI + 3 * 4, 1
 		sprob_end
 	.f4:
-		_frame 10, .f5
+		_frame MOVE_BASE_FRAMETIME, .f5
 		sprob_seq 2, 0, -8, MOVE0_CHRI + 4 * 4, 0
 		sprob_seq 2, 0,  0, MOVE1_CHRI + 4 * 4, 1
 		sprob_end
 	.f5:
-		_frame 10, .f0
+		_frame MOVE_BASE_FRAMETIME, .f0
 		sprob_seq 2, 0, -8, MOVE0_CHRI + 5 * 4, 0
 		sprob_seq 2, 0,  0, MOVE1_CHRI + 5 * 4, 1
 		sprob_end
@@ -64,32 +66,32 @@ VisDiver_aniMove:
 	.left:
 		sprob_opts sx:-8, si:2, cx, cy
 	.f6:
-		_frame 10, .f7
+		_frame MOVE_BASE_FRAMETIME, .f7
 		sprob_seq 2, 0,  8, MOVE0_CHRI + 0 * 4, $20 | 0
 		sprob_seq 2, 0,  0, MOVE1_CHRI + 0 * 4, $20 | 1
 		sprob_end
 	.f7:
-		_frame 10, .f8
+		_frame MOVE_BASE_FRAMETIME, .f8
 		sprob_seq 2, 0,  8, MOVE0_CHRI + 1 * 4, $20 | 0
 		sprob_seq 2, 0,  0, MOVE1_CHRI + 1 * 4, $20 | 1
 		sprob_end
 	.f8:
-		_frame 10, .f9
+		_frame MOVE_BASE_FRAMETIME, .f9
 		sprob_seq 2, 0,  8, MOVE0_CHRI + 2 * 4, $20 | 0
 		sprob_seq 2, 0,  0, MOVE1_CHRI + 2 * 4, $20 | 1
 		sprob_end
 	.f9:
-		_frame 10, .f10
+		_frame MOVE_BASE_FRAMETIME, .f10
 		sprob_seq 2, 0,  8, MOVE0_CHRI + 3 * 4, $20 | 0
 		sprob_seq 2, 0,  0, MOVE1_CHRI + 3 * 4, $20 | 1
 		sprob_end
 	.f10:
-		_frame 10, .f11
+		_frame MOVE_BASE_FRAMETIME, .f11
 		sprob_seq 2, 0,  8, MOVE0_CHRI + 4 * 4, $20 | 0
 		sprob_seq 2, 0,  0, MOVE1_CHRI + 4 * 4, $20 | 1
 		sprob_end
 	.f11:
-		_frame 10, .f6
+		_frame MOVE_BASE_FRAMETIME, .f6
 		sprob_seq 2, 0,  8, MOVE0_CHRI + 5 * 4, $20 | 0
 		sprob_seq 2, 0,  0, MOVE1_CHRI + 5 * 4, $20 | 1
 		sprob_end
@@ -139,7 +141,10 @@ VisDiverReset::
 	;
 	ld [hl+], a :: ld [hl+], a
 
-	; ani
+		push hl
+	call AniInit
+		pop hl
+
 	ld de, VisDiver_aniMove.f2
 	ld b, bank(VisDiver_aniMove)
 	jp AniSetFrame
@@ -151,33 +156,26 @@ VisDiverSetState::
 	ret
 
 
-;; @param A: new heading VisDiverDir (same as DPAD key bits, DULR_xxxx)
+section "VisDiverSetCtl", rom0
+;; @param A: new ctl value
 ;; @param HL: this VisDiver
-;; @mut: AF, BC, HL
-VisDiverSetHeading::
+;; @mut: AF, BC, DE, HL
+VisDiverSetCtl::
 	ld bc, VisDiver_ctl
 	add hl, bc
 
-	; Accept each axis independently & only accept non-zero values.
-	ld b, [hl]
 	ld c, a
-	and VisDiverDir_X
-	jr z, .do_y_maybe
-	xor b
-	and VisDiverDir_X
-	xor b
+	ld a, [hl]
 	ld b, a
 
-.do_y_maybe
+	; Speed
 	ld a, c
-	and VisDiverDir_Y
-	jr z, .end
-	xor b
-	and VisDiverDir_Y
-	xor b
-	ld b, a
+	and VisDiverCtl_SPEED
+	ld d, a
+	call _SetSpeed
 
-.end
+	; Heading
+	call _SetHeading
 	ld a, [hl]
 	ld [hl], b
 	; If X heading changed, set appropriate animation
@@ -196,34 +194,87 @@ VisDiverSetHeading::
 	ld b, bank(VisDiver_aniMove)
 	jp AniSetFrame
 
+	ret
+
+
+;; @param B: ctl state
+;; @param D: target speed
+;; @ret B: new ctl state
+;; @mut: AF: B, D
+_SetSpeed:
+	ld a, d
+	and a
+	jr nz, :+
+	; slowly to stop
+	ld a, [wVBlankCount]
+	and $07
+	ret nz
+:
+	ld a, b
+	and VisDiverCtl_SPEED
+
+	cp d
+	ret z
+	sbc a :: cpl :: or 1
+	add b
+	ld b, a
+	ret
+
+
+;; @param B: ctl state
+;; @param C: new heading
+;; @ret B: new ctl state
+_SetHeading:
+	; Accept each axis independently & only accept non-zero values.
+	ld a, c
+	and VisDiverDir_X
+	jr z, .do_y_maybe
+	xor b
+	and VisDiverDir_X
+	xor b
+	ld b, a
+
+.do_y_maybe
+	ld a, c
+	and VisDiverDir_Y
+	ret z
+	xor b
+	and VisDiverDir_Y
+	xor b
+	ld b, a
+
+	ret
+
 
 section "VisDiverUpdate", rom0
 ;; @param HL: this VisDiver
 VisDiverUpdate::
-		push hl
+	rombopen
 
-	ld bc, VisDiver_ani
-	add hl, bc
+	ld a, [hl+] :: ld b, a ; y
+	ld a, [hl+] :: ld c, a ; x
+	ld a, [hl+]
+	and VisDiverCtl_SPEED
+	ld d, a
+
+		push bc
+
+	assert VisDiver_ani - (VisDiver_ctl + 1) == 2
+	inc hl :: inc hl
 	call AniUpdate
 
-		pop hl
+	rombsel b
+
+		pop bc
 
 	; DE: Ani drawable pointer, abort if $FFFF
 	ld a, e :: and d
 	inc a
 	ret z
 
-	rombopen b
-
-		push de
-
-	ld a, [hl+] :: ld b, a ; y
-	ld a, [hl+] :: ld c, a ; x
-
+	ld l, e :: ld h, d ; Copy Ani drawable to HL
 	ld a, [wVisDiver_chri_move] :: ld d, a
 	ld a, [wVisDiver_pal0] :: ld e, a
-
-		pop hl ; Restore Ani drawable to HL
 
 	jp SprxRenderMod
 

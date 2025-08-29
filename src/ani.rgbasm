@@ -13,12 +13,13 @@ AniInit::
 
 ;; Update Ani / advance time / submit drawables
 ;; @param HL: this Ani
+;; @param D: delta time (ticks)
 ;; @ret B: frame bank
 ;; @ret DE: frame drawable
 ;; @mut: AF, B, DE, HL
 AniUpdate::
 	push hl
-	call AniTick
+	call AniTickD
 	pop hl
 	inc hl ; ani.timer
 	ld a, [hl+] :: ld b, a ; ani.bank
@@ -33,10 +34,26 @@ AniUpdate::
 ;; Updates the timer and changes frame when necessary.
 ;; @param HL: this Ani
 ;; @mut: AF, B, DE, HL
-AniTick::
+AniTick1::
 	; update timer
 	dec [hl]
 	ret nz
+	jr AniNextFrame
+
+
+;; Advance Ani time by an arbitrary number of ticks.
+;; Updates the timer and changes frame when necessary.
+;; @param D: delta time
+;; @param HL: this Ani
+;; @mut: AF, B, DE, HL
+AniTickD::
+	; update timer
+	ld a, [hl]
+	sub d
+	ld [hl], a
+	jr c, :+
+	ret nz
+:
 
 	; FALLTHROUGH
 
@@ -64,7 +81,10 @@ AniNextFrame::
 AniSetFrame::
 	rombpush b
 
-	ld a, [de] :: ld [hl+], a ; this.timer <--- frame.duration
+	; timer += frame.duration
+	ld a, [de]
+	add [hl]
+	ld [hl+], a
 
 	ld a, b :: ld [hl+], a ; this.bank
 	ld a, e :: ld [hl+], a ; this.frame+0

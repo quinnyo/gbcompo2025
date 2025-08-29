@@ -12,8 +12,7 @@ def VisDiverDir_Y     equ %1100_0000
 def VisDiverDir_UP    equ %0100_0000
 def VisDiverDir_DOWN  equ %1000_0000
 
-
-def VisDiverCtl_SPEED equ $03
+def VisDiverCtl_SPEED equ $0F
 def VisDiverCtl_HEADING equ VisDiverDir_Y | VisDiverDir_X
 
 
