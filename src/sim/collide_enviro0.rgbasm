@@ -64,14 +64,14 @@ _test_enviro0_0:
 ; y0 ........
 ; y1 ........
 ; y2 ........
-; y3 ...o....
+; y3 o.......
 ; y4 ......11
 ; y5 .....111
 ; y6 .....111
 ; y7 ....1111
 ;   x01234567
 def RY_1 equ 3 * DIMSCALE
-def RX_1 equ 3 * DIMSCALE
+def RX_1 equ 0 * DIMSCALE
 _test_enviro0_1:
 	ld a, RY_1 :: sub b :: ret nc
 	ld b, a
@@ -100,14 +100,14 @@ _test_enviro0_2:
 ; y0 ........
 ; y1 ........
 ; y2 ........
-; y3 ....o...
+; y3 .......o
 ; y4 1.......
 ; y5 111.....
 ; y6 1111....
 ; y7 1111....
 ;   x01234567
 def RY_3 equ 3 * DIMSCALE
-def RX_3 equ 4 * DIMSCALE
+def RX_3 equ 7 * DIMSCALE
 _test_enviro0_3:
 	ld a, RY_3 :: sub b :: ret nc
 	ld b, a
@@ -122,12 +122,12 @@ _test_enviro0_3:
 ; y2 11111111
 ; y3 11111111
 ; y4 1111111.
-; y5 11111o..
+; y5 11111..o
 ; y6 11111...
 ; y7 1111....
 ;   x01234567
 def RY_4 equ 5 * DIMSCALE
-def RX_4 equ 5 * DIMSCALE
+def RX_4 equ 7 * DIMSCALE
 _test_enviro0_4:
 	ld a, RY_4 :: sub b
 	jr c, :+
@@ -143,12 +143,12 @@ _test_enviro0_4:
 ; y2 11111111
 ; y3 11111111
 ; y4 .1111111
-; y5 ..o11111
+; y5 o..11111
 ; y6 ....1111
 ; y7 ....1111
 ;   x01234567
 def RY_5 equ 5 * DIMSCALE
-def RX_5 equ 2 * DIMSCALE
+def RX_5 equ 0 * DIMSCALE
 _test_enviro0_5:
 	ld a, RY_5 :: sub b
 	jr c, :+
@@ -174,16 +174,16 @@ _test_enviro0_8:
 	ret
 
 ; chr/enviro0.1bpp:9
-; y0 ..o.1111
-; y1 ..o..111
-; y2 ..o..111
-; y3 ..o..111
-; y4 ..o.1111
-; y5 ..o11111
-; y6 ..o11111
-; y7 ..o.1111
+; y0 o...1111
+; y1 o....111
+; y2 o....111
+; y3 o....111
+; y4 o...1111
+; y5 o..11111
+; y6 o..11111
+; y7 o...1111
 ;   x01234567
-def RX_9 equ 2 * DIMSCALE
+def RX_9 equ 0 * DIMSCALE
 _test_enviro0_9:
 	ld a, RX_9 :: sub c :: ret nc
 	ld_dx a
@@ -205,16 +205,16 @@ _test_enviro0_10:
 	ret
 
 ; chr/enviro0.1bpp:11
-; y0 1111.o..
-; y1 111..o..
-; y2 111..o..
-; y3 1111.o..
-; y4 1111.o..
-; y5 111..o..
-; y6 111..o..
-; y7 1111.o..
+; y0 1111...o
+; y1 111....o
+; y2 111....o
+; y3 1111...o
+; y4 1111...o
+; y5 111....o
+; y6 111....o
+; y7 1111...o
 ;   x01234567
-def RX_11 equ 5 * DIMSCALE
+def RX_11 equ 7 * DIMSCALE
 _test_enviro0_11:
 	ld a, RX_11 :: sub c :: ret c
 	ld_dx a
@@ -223,7 +223,7 @@ _test_enviro0_11:
 ; chr/enviro0.1bpp:12
 ; y0 1111....
 ; y1 1111....
-; y2 11111o..
+; y2 11111..o
 ; y3 111111..
 ; y4 11111111
 ; y5 11111111
@@ -231,7 +231,7 @@ _test_enviro0_11:
 ; y7 11111111
 ;   x01234567
 def RY_12 equ 2 * DIMSCALE
-def RX_12 equ 5 * DIMSCALE
+def RX_12 equ 7 * DIMSCALE
 _test_enviro0_12:
 	ld a, RY_12 :: sub b
 	jr nc, :+
@@ -244,7 +244,7 @@ _test_enviro0_12:
 ; chr/enviro0.1bpp:13
 ; y0 ....1111
 ; y1 ...11111
-; y2 ..o11111
+; y2 o..11111
 ; y3 ..111111
 ; y4 11111111
 ; y5 11111111
@@ -252,7 +252,7 @@ _test_enviro0_12:
 ; y7 11111111
 ;   x01234567
 def RY_13 equ 2 * DIMSCALE
-def RX_13 equ 2 * DIMSCALE
+def RX_13 equ 0 * DIMSCALE
 _test_enviro0_13:
 	ld a, RY_13 :: sub b
 	jr nc, :+
@@ -282,13 +282,13 @@ _test_enviro0_16:
 ; y1 ....1111
 ; y2 .....111
 ; y3 .......1
-; y4 ...o....
+; y4 o.......
 ; y5 ........
 ; y6 ........
 ; y7 ........
 ;   x01234567
 def RY_17 equ 4 * DIMSCALE
-def RX_17 equ 3 * DIMSCALE
+def RX_17 equ 0 * DIMSCALE
 _test_enviro0_17:
 	ld a, RY_17 :: sub b :: ret c
 	ld b, a
@@ -318,13 +318,13 @@ _test_enviro0_18:
 ; y1 1111....
 ; y2 111.....
 ; y3 1.......
-; y4 ....o...
+; y4 .......o
 ; y5 ........
 ; y6 ........
 ; y7 ........
 ;   x01234567
 def RY_19 equ 4 * DIMSCALE
-def RX_19 equ 4 * DIMSCALE
+def RX_19 equ 7 * DIMSCALE
 _test_enviro0_19:
 	ld a, RY_19 :: sub b :: ret c
 	ld b, a
