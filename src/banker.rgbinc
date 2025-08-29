@@ -12,6 +12,14 @@ def RomBankId equ $7FFF
 def ROMB_LO equ $2000
 
 
+;; rombsel BANK
+macro rombsel
+	assert _NARG == 1
+	ld a, \#
+	ld [ROMB_LO], a
+endm
+
+
 ;; rombopen [$BANK]
 ;; The current bank will be preserved and restored when returning from the enclosing subroutine.
 ;; Then switch to ROM bank $BANK (if supplied).
