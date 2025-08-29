@@ -217,7 +217,7 @@ PlayerViewTarget::
 
 
 ;; Scroll view if target is more than this distance from the screen centre.
-def SCROLL_FENCE equ 24
+def SCROLL_FENCE equ 16
 
 
 ;; @param C: dCentre -- target position relative to view centre
