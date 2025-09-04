@@ -1,0 +1,55 @@
+
+pushs "ClampS8", rom0
+;; @param B: Value
+;; @param E: Preflambered lower bound ($80 ^ lo)
+;; @param D: Preflambered upper bound ($80 ^ hi)
+;; @mut: AF, BC
+ClampS8::
+	ld a, b :: xor $80 :: ld b, a
+	ld a, d
+	cp b
+	jr c, .end
+
+	cp e
+	ld a, e
+	jr c, .end
+
+	ld a, b
+.end
+	xor $80
+	ld b, a
+	ret
+
+pops ; ClampS8
+
+
+pushs "AddS8_sat", rom0
+;; Saturating addition of signed integers. Compute B + C.
+;; Result clamped to [-127..127].
+;; @param B,C: operands (signed int)
+;; @ret C: result
+;; @mut: AF, C
+AddS8_sat::
+	ld a, c :: add b :: ld c, a
+
+	sub b :: xor b :: rlca
+	jr c, .end ; operands have opposite signs
+	ld a, b :: xor c :: rlca
+	jr nc, .end ; result has same sign as operands
+
+	; saturate
+	ld a, b :: rlca :: sbc a :: or 1 ; $FF if neg else $01
+	; $FF ^ $7E ---> $81
+	; $01 ^ $7E ---> $7F
+	xor $7E
+	ld c, a
+	ret
+.end
+	ld a, c
+	cp $80
+	ret nz
+	inc c
+	ret
+
+pops ; AddS8_sat
+

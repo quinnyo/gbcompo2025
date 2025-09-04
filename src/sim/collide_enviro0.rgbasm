@@ -20,12 +20,12 @@ section "Collide_enviro0", rom0
 ;; @param A: tile ID
 ;; @param B,C: Y,X position
 ;; @ret D,E: Y,X ejection
-;; @mut: AF, DE
+;; @mut: AF, DE, HL
 CollidePointInTile_enviro0::
+	ld de, 0 ; zero ejection
+
 	cp 24
 	ret nc
-
-	ld de, 0 ; zero ejection
 
 	and a ; clear F.C
 	rst RST_SwitchJump
@@ -64,20 +64,20 @@ _test_enviro0_0:
 ; y0 ........
 ; y1 ........
 ; y2 ........
-; y3 o.......
+; y3 .o......
 ; y4 ......11
 ; y5 .....111
 ; y6 .....111
 ; y7 ....1111
 ;   x01234567
 def RY_1 equ 3 * DIMSCALE
-def RX_1 equ 0 * DIMSCALE
+def RX_1 equ 1 * DIMSCALE
 _test_enviro0_1:
 	ld a, RY_1 :: sub b :: ret nc
-	ld b, a
+	ld h, a
 	ld a, RX_1 :: sub c :: ret nc
 	ld_dx a
-	ld_dy b
+	ld_dy h
 	ret
 
 ; chr/enviro0.1bpp:2
@@ -100,20 +100,20 @@ _test_enviro0_2:
 ; y0 ........
 ; y1 ........
 ; y2 ........
-; y3 .......o
+; y3 ......o.
 ; y4 1.......
 ; y5 111.....
 ; y6 1111....
 ; y7 1111....
 ;   x01234567
 def RY_3 equ 3 * DIMSCALE
-def RX_3 equ 7 * DIMSCALE
+def RX_3 equ 6 * DIMSCALE
 _test_enviro0_3:
 	ld a, RY_3 :: sub b :: ret nc
-	ld b, a
+	ld h, a
 	ld a, RX_3 :: sub c :: ret c
 	ld_dx a
-	ld_dy b
+	ld_dy h
 	ret
 
 ; chr/enviro0.1bpp:4
@@ -129,12 +129,12 @@ _test_enviro0_3:
 def RY_4 equ 5 * DIMSCALE
 def RX_4 equ 7 * DIMSCALE
 _test_enviro0_4:
+	ld l, 0
 	ld a, RY_4 :: sub b
 	jr c, :+
 	ld_dy a
 :
 	ld a, RX_4 :: sub c :: ret c
-	ld_dx a
 	ret
 
 ; chr/enviro0.1bpp:5
@@ -174,16 +174,16 @@ _test_enviro0_8:
 	ret
 
 ; chr/enviro0.1bpp:9
-; y0 o...1111
-; y1 o....111
-; y2 o....111
-; y3 o....111
-; y4 o...1111
-; y5 o..11111
-; y6 o..11111
-; y7 o...1111
+; y0 .o..1111
+; y1 .o...111
+; y2 .o...111
+; y3 .o...111
+; y4 .o..1111
+; y5 .o.11111
+; y6 .o.11111
+; y7 .o..1111
 ;   x01234567
-def RX_9 equ 0 * DIMSCALE
+def RX_9 equ 1 * DIMSCALE
 _test_enviro0_9:
 	ld a, RX_9 :: sub c :: ret nc
 	ld_dx a
@@ -200,21 +200,21 @@ _test_enviro0_9:
 ; y7 11111111
 ;   x01234567
 _test_enviro0_10:
-	;ld b, b
+	;ld h, b
 	;;;;;;;;;;;; panic?
 	ret
 
 ; chr/enviro0.1bpp:11
-; y0 1111...o
-; y1 111....o
-; y2 111....o
-; y3 1111...o
-; y4 1111...o
-; y5 111....o
-; y6 111....o
-; y7 1111...o
+; y0 1111..o.
+; y1 111...o.
+; y2 111...o.
+; y3 1111..o.
+; y4 1111..o.
+; y5 111...o.
+; y6 111...o.
+; y7 1111..o.
 ;   x01234567
-def RX_11 equ 7 * DIMSCALE
+def RX_11 equ 6 * DIMSCALE
 _test_enviro0_11:
 	ld a, RX_11 :: sub c :: ret c
 	ld_dx a
@@ -282,19 +282,20 @@ _test_enviro0_16:
 ; y1 ....1111
 ; y2 .....111
 ; y3 .......1
-; y4 o.......
+; y4 .o......
 ; y5 ........
 ; y6 ........
 ; y7 ........
 ;   x01234567
 def RY_17 equ 4 * DIMSCALE
-def RX_17 equ 0 * DIMSCALE
+def RX_17 equ 1 * DIMSCALE
 _test_enviro0_17:
 	ld a, RY_17 :: sub b :: ret c
-	ld b, a
+	inc a
+	ld h, a
 	ld a, RX_17 :: sub c :: ret nc
 	ld_dx a
-	ld_dy b
+	ld_dy h
 	ret
 
 ; chr/enviro0.1bpp:18
@@ -310,6 +311,7 @@ _test_enviro0_17:
 def RY_18 equ 4 * DIMSCALE
 _test_enviro0_18:
 	ld a, RY_18 :: sub b :: ret c
+	inc a
 	ld_dy a
 	ret
 
@@ -318,19 +320,20 @@ _test_enviro0_18:
 ; y1 1111....
 ; y2 111.....
 ; y3 1.......
-; y4 .......o
+; y4 ......o.
 ; y5 ........
 ; y6 ........
 ; y7 ........
 ;   x01234567
 def RY_19 equ 4 * DIMSCALE
-def RX_19 equ 7 * DIMSCALE
+def RX_19 equ 6 * DIMSCALE
 _test_enviro0_19:
 	ld a, RY_19 :: sub b :: ret c
-	ld b, a
+	inc a
+	ld h, a
 	ld a, RX_19 :: sub c :: ret c
 	ld_dx a
-	ld_dy b
+	ld_dy h
 	ret
 
 ; chr/enviro0.1bpp:20
@@ -351,18 +354,18 @@ _test_enviro0_20:
 	; NW
 	ld a, RY_20A :: sub b
 	jr c, :+
-	ld b, a
+	ld h, a
 	ld a, RX_20A :: sub c :: ret c
 	ld_dx a
-	ld_dy b
+	ld_dy h
 	ret
 :
 	; SE
 	ld a, RY_20B :: sub b :: ret nc
-	ld b, a
+	ld h, a
 	ld a, RX_20B :: sub c :: ret nc
 	ld_dx a
-	ld_dy b
+	ld_dy h
 	ret
 
 ; chr/enviro0.1bpp:21
@@ -383,18 +386,18 @@ _test_enviro0_21:
 	; NE
 	ld a, RY_21A :: sub b
 	jr c, :+
-	ld b, a
+	ld h, a
 	ld a, RX_21A :: sub c :: ret nc
 	ld_dx a
-	ld_dy b
+	ld_dy h
 	ret
 :
 	; SW
 	ld a, RY_21B :: sub b :: ret nc
-	ld b, a
+	ld h, a
 	ld a, RX_21B :: sub c :: ret c
 	ld_dx a
-	ld_dy b
+	ld_dy h
 	ret
 
 ; chr/enviro0.1bpp:22

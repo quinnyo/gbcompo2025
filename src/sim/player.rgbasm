@@ -11,6 +11,8 @@ def FLAP_FULL equ $0D
 def FLAP_AUTO equ $0C
 def AUTOFLAP_THRESHOLD equ $02
 
+def THRUST_TICK equ $07
+
 
 section "wPlayer", wram0
 wPlayer::
@@ -70,14 +72,11 @@ PlayerSpawn::
 ;; Player entity controller: per-tick update function
 ;; @mut: AF, BC, D, HL
 PlayerUpdate::
-	ld hl, wPlayer.ent
-	ld a, [hl+]
-	ld h, [hl]
-	ld l, a
-	; if .ent == $FFFF, abort
-	and h :: inc a
-	ret z
 	call PlayerInputUpdate
+
+	call PlayerGetEntity
+	ret z
+
 	entity_index Entity_Ctrl
 	; set NOGRAV if active directional input.
 	res bENTCTRL_NOGRAV, [hl]
@@ -85,7 +84,12 @@ PlayerUpdate::
 	jr z, :+
 	set bENTCTRL_NOGRAV, [hl]
 :
+
 	; Directional movement
+	ldh a, [hSim.tick]
+	and THRUST_TICK
+	ret nz
+
 	entity_index Entity_AccY
 	ld [hl], d
 	entity_index Entity_AccX
@@ -285,8 +289,9 @@ PlayerFlap:
 ;; @mut: AF, BC, DE
 PlayerInputUpdate:
 ;	ld de, (12 << 8) | 17
-;	ld de, (5 << 8) | 7
-	ld de, (2 << 8) | 3
+	ld de, (5 << 8) | 7
+;	ld de, (2 << 8) | 3
+;	ld de, (1 << 8) | 2
 	ldh a, [hKeys] :: ld b, a
 	call Vecdir8FromKeys
 	ld a, d :: ldh [hPlayerDriveY], a

@@ -6,8 +6,7 @@ include "coord.rgbinc"
 section "hSim", hram
 hSim::
 	.gravity:: db
-	.tick: db
-	.global_accel: db
+	.tick:: db
 
 
 section "wEntity", wram0, align[8]
@@ -32,7 +31,7 @@ EntityInit::
 	ldh [hSim.gravity], a
 	xor a
 	ldh [hSim.tick], a
-	ldh [hSim.global_accel], a
+
 	ret
 
 
@@ -44,7 +43,10 @@ EntityUpdate::
 
 	; Update motion X, zero constant accel
 	entity_index Entity_AccX
-	xor a :: call _motion_go
+	xor a :: call _velocity_update
+	call _velocity_deflate
+	ld de, SPEED_RANGE_CLAMP_PARAM
+	call ClampS8
 	ld a, b :: ldh [hCollide.vx], a
 	ld a, [hl+] :: ldh [hCollide.px+0], a
 	ld a, [hl+] :: ldh [hCollide.px+1], a
@@ -55,22 +57,19 @@ EntityUpdate::
 	call _get_gravity :: add b :: ld b, a
 
 	entity_index Entity_AccY
-	ldh a, [hSim.global_accel]
-	add b :: call _motion_go
+	ld a, b :: call _velocity_update
+	call _velocity_deflate
+	ld de, SPEED_RANGE_CLAMP_PARAM
+	call ClampS8
 	ld a, b :: ldh [hCollide.vy], a
 	ld a, [hl+] :: ldh [hCollide.py+0], a
 	ld a, [hl+] :: ldh [hCollide.py+1], a
 
 	push hl
-	call CollidePoint
+	call CollidePointMotion
 	pop hl
 
-	entity_index Entity_PosX
-	ldh a, [hCollide.px+0] :: ld [hl+], a
-	ldh a, [hCollide.px+1] :: ld [hl+], a
-	entity_index Entity_PosY
-	ldh a, [hCollide.py+0] :: ld [hl+], a
-	ldh a, [hCollide.py+1] :: ld [hl+], a
+	call _process_collide_result
 
 .next
 assert sizeof("wEntity") == 256
@@ -80,8 +79,82 @@ assert sizeof("wEntity") == 256
 	ldh a, [hSim.tick]
 	inc a
 	ldh [hSim.tick], a
-	xor a
-	ldh [hSim.global_accel], a
+	ret
+
+
+_process_collide_result:
+	entity_index Entity_PosX
+	ldh a, [hCollide.px+0] :: ld [hl+], a
+	ldh a, [hCollide.px+1] :: ld [hl+], a
+	entity_index Entity_PosY
+	ldh a, [hCollide.py+0] :: ld [hl+], a
+	ldh a, [hCollide.py+1] :: ld [hl+], a
+
+	ldh a, [hCollide.result]
+	bit bCollideResult_SOLID, a
+	ret z
+
+	ld e, a
+	bit bCollideResult_X, e
+	jr z, :+
+		entity_index Entity_VelX
+		xor a :: ld [hl+], a
+:
+	bit bCollideResult_Y, e
+	jr z, :+
+		entity_index Entity_VelY
+		xor a :: ld [hl+], a
+:
+
+	ret
+
+
+;; @param HL: Pointer to beginning of an Entity motion block.
+;; @param A: constant accel
+;; @ret B: velocity for the current frame
+;; @ret C: updated velocity
+;; @mut: AF, BC, HL
+_velocity_update:
+	; combine accel with accumulated accel
+	ld b, a
+	ld c, [hl]
+	call AddS8_sat
+	; clear accel accumulator
+	xor a :: ld [hl+], a
+
+	; Apply accel (v + a)
+	ld b, [hl]
+	call AddS8_sat
+
+	; Apply friction|drag but not on every frame!
+	ldh a, [hSim.tick]
+	and SIM_DRAG_TICK
+	jr nz, .no_drag
+
+	ld a, b :: call _fric_1_32
+	add c :: ld c, a
+.no_drag
+
+	ld b, [hl]
+	ld a, c :: ld [hl+], a
+
+	ret
+
+
+macro velocity_deflate_positive
+	sra b :: sra b; :: sra b; :: sra b
+endm
+
+
+_velocity_deflate:
+	rlca
+	jr nc, .positive
+	xor a :: sub b :: ld b, a
+	velocity_deflate_positive
+	xor a :: sub b :: ld b, a
+	ret
+.positive
+	velocity_deflate_positive
 	ret
 
 
@@ -108,8 +181,8 @@ _get_gravity:
 	bit bENTCTRL_NOGRAV, [hl]
 	jr nz, .nograv
 	ldh a, [hSim.tick]
-	bit 0, a
-	jr z, .nograv
+	and SIM_GRAVITY_TICK
+	jr nz, .nograv
 	ldh a, [hSim.gravity]
 	ret
 .nograv
@@ -117,28 +190,14 @@ _get_gravity:
 	ret
 
 
-; @param HL: Pointer to beginning of an Entity motion block.
-; @param A: constant accel
-; @ret B: velocity for the current frame
-; @mut: AF, B, HL
-_motion_go:
-	; Add accel accumulator to the constant accel param. Hold on to that.
-	add [hl] :: ld b, a
-	; Clear the accumulator
-	xor a :: ld [hl+], a
-	; Apply accel
-	; TODO: handle potential overflow (vel + accel)
-	ld a, [hl]
-	add b
-	; Apply friction
-	ld b, a
-	call _fric_1_16
-	add b
-
-	; Grab the "old" velocity value before writing the updated one.
-	ld b, [hl]
-	; Write the the new velocity (with friction applied)
-	ld [hl+], a
+;; Returns +/- 1, with the sign opposite the input velocity.
+;; @param A: vel
+;; @ret A: friction(vel)
+;; @mut: AF
+_fric_min:
+	rlca
+	ret z
+	sbc a :: cpl :: or 1
 	ret
 
 

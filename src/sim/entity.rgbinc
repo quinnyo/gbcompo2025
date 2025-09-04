@@ -4,7 +4,17 @@ def Q_ENTITY_INC_b4moRE1M equ 1
 
 def ENTITY_COUNT_MAX equ 16
 
-def GRAVITY_DEFAULT equ $0_3
+def GRAVITY_DEFAULT equ $0_4
+
+def SIM_GRAVITY_TICK equ $07
+
+;; Drag will only be applied when SIM_DRAG_TICK & tick == zero.
+def SIM_DRAG_TICK equ $01
+
+def SPEED_LIMIT equ 64
+def SPEED_RANGE_LO equ SPEED_LIMIT
+def SPEED_RANGE_HI equ 256 - SPEED_LIMIT
+def SPEED_RANGE_CLAMP_PARAM equ ($80 ^ (SPEED_RANGE_HI << 8)) | ($80 ^ SPEED_RANGE_LO)
 
 ;; Y axis adjustment offset for placing Entity sprites
 def ENT_SPRITE_Y_OFF equ 0

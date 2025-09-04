@@ -2,10 +2,14 @@ if !def(Q_COLLIDE_INC_x5sglf2W)
 def Q_COLLIDE_INC_x5sglf2W equ 1
 
 
-def bCOLLIDE_RESULT_X equ 0
-def bCOLLIDE_RESULT_Y equ 1
-def mCOLLIDE_RESULT_X equ 1 << bCOLLIDE_RESULT_X
-def mCOLLIDE_RESULT_Y equ 1 << bCOLLIDE_RESULT_Y
+rsreset
+def bCollideResult_X rb 1
+def bCollideResult_Y rb 1
+def bCollideResult_SOLID rb 1
+
+def CollideResult_X equ 1 << bCollideResult_X
+def CollideResult_Y equ 1 << bCollideResult_Y
+def CollideResult_SOLID equ 1 << bCollideResult_SOLID
 
 
 endc ; Q_COLLIDE_INC_x5sglf2W
