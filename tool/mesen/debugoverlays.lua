@@ -147,7 +147,6 @@ local function createOverlay(margin, scale)
 end
 
 
-
 -------- Coord utility --------
 
 local Coord = {
@@ -689,7 +688,6 @@ Curtain.read = function(label)
 end
 
 
-
 -------- Do stuff --------
 
 local memTypeNames = {}
@@ -728,7 +726,7 @@ local iAbsMax = function(t, max0)
 end
 
 
-local overlay = createOverlay({ x = 12, y = 12 }, 4)
+local overlay = createOverlay({ x = 12, y = 12 }, 3)
 
 local config = {
 	showMapSync = false,
@@ -830,7 +828,7 @@ local function onEndFrame()
 	overlay:drawWindow()
 
 	state.mapTool:readState()
-	mapChunkThing(state.mapTool)
+	--mapChunkThing(state.mapTool)
 
 	-- map sync transfers
 	if config.showMapSync then
@@ -850,18 +848,18 @@ local function onEndFrame()
 --		overlay:drawString(x, -8, tostring(x))
 --	end
 
-	scrollThing()
+	--scrollThing()
 
-	local worldBounds = Rect:readFromLabel("wCollideBounds")
-	overlay:drawString(120, 0, worldBounds and st_fmt(worldBounds, "wCollideBounds") or "noworldBounds!")
+	--local worldBounds = Rect:readFromLabel("wCollideBounds")
+	--overlay:drawString(120, 0, worldBounds and st_fmt(worldBounds, "wCollideBounds") or "noworldBounds!")
 
 	local ent = get_entity(0)
 	overlay:drawString(0, 40, ent and st_fmt(ent) or "noent!")
 
-	local curtain = Curtain.read()
-	if curtain then
-		overlay:drawString(40, 0, curtain.stateText)
-	end
+	--local curtain = Curtain.read()
+	--if curtain then
+	--	overlay:drawString(40, 0, curtain.stateText)
+	--end
 end
 
 
@@ -913,7 +911,4 @@ local function runonce()
 	Setup()
 end
 runonceEv = emu.addEventCallback(runonce, emu.eventType.startFrame)
-
-
-emu.displayMessage("Something", "Hello.")
 
