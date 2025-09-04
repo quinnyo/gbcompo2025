@@ -146,7 +146,7 @@ table4: dw
 table_row4: db
 ds 4
 
-end_zero:
+def ZERO_REGION_SIZE equ @ - start_zero
 
 SECTION "Sound Driver", ROM0
 
@@ -183,7 +183,7 @@ hUGE_init::
 
 IF !DEF(PREVIEW_MODE)
     ;; Zero some ram
-    ld c, end_zero - start_zero
+    ld c, ZERO_REGION_SIZE
     ld hl, start_zero
     xor a
 .fill_loop:
