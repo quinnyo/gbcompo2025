@@ -5,6 +5,14 @@ def Q_VIS_DIVER_INC_Sh5Nerhj equ 1
 include "ani.rgbinc"
 
 
+rsreset
+def VisDiverState_IDLE rb 1
+def VisDiverState_MOVE rb 1
+def VisDiverState_ASCEND45 rb 1
+def VisDiverState_DESCEND45 rb 1
+def VisDiverState__COUNT rb 0
+
+
 def VisDiverDir_X     equ %0011_0000
 def VisDiverDir_RIGHT equ %0001_0000
 def VisDiverDir_LEFT  equ %0010_0000
@@ -20,7 +28,8 @@ rsreset
 def VisDiver_y rb 1
 def VisDiver_x rb 1
 def VisDiver_ctl rb 1
-def VisDiver__RESERVED rb 2
+def VisDiver_state rb 1
+def VisDiver__RESERVED rb 1
 def VisDiver_ani rb szAni
 def szVisDiver rb 0
 

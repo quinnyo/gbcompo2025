@@ -6,20 +6,45 @@ include "banker.rgbinc"
 include "sprite.rgbinc"
 
 
-import_chr "assets/ent/diver-move-0.chr", DiverMove_0, pal
-import_chr "assets/ent/diver-move-1.chr", DiverMove_1, pal
+import_chr "assets/ent/diver-idle-0.chr", DiverIdle_0, pal
+import_chr "assets/ent/diver-idle-1.chr", DiverIdle_1, pal
+import_chr "assets/ent/diver-move-0.chr", DiverMove_0
+import_chr "assets/ent/diver-move-1.chr", DiverMove_1
+import_chr "assets/ent/diver-ascend45-0.chr", DiverAscend45_0
+import_chr "assets/ent/diver-ascend45-1.chr", DiverAscend45_1
+import_chr "assets/ent/diver-descend45-0.chr", DiverDescend45_0
+import_chr "assets/ent/diver-descend45-1.chr", DiverDescend45_1
 
 def VIS_DIVER_CHR_IDX equ $10
 def VIS_DIVER_CHR_ADDR equ $8000 + VIS_DIVER_CHR_IDX * $10
 
-def MOVE_FRAME_COUNT equ 6
-def MOVE0_CHRI equ 0
-def MOVE1_CHRI equ MOVE0_CHRI + MOVE_FRAME_COUNT * 2 * 2
+def ANI_IDLE_FRAME_COUNT equ 4
+def ANI_IDLE_FRAMETIME equ 30
 
-def MOVE_BASE_FRAMETIME equ 80
+def ANI_MOVE_FRAME_COUNT equ 6
+def ANI_MOVE_FRAMETIME equ 120
+
+def ANI_ASCEND45_FRAME_COUNT equ 6
+def ANI_ASCEND45_FRAMETIME equ 120
+
+def ANI_DESCEND45_FRAME_COUNT equ 6
+def ANI_DESCEND45_FRAMETIME equ 120
+
+rsreset
+def ANI_IDLE_0_CHRI rb ANI_IDLE_FRAME_COUNT * 2
+def ANI_IDLE_1_CHRI rb ANI_IDLE_FRAME_COUNT * 2
+def ANI_MOVE_0_CHRI rb ANI_MOVE_FRAME_COUNT * 2 * 2
+def ANI_MOVE_1_CHRI rb ANI_MOVE_FRAME_COUNT * 2 * 2
+def ANI_ASCEND45_0_CHRI rb ANI_ASCEND45_FRAME_COUNT * 2 * 2
+def ANI_ASCEND45_1_CHRI rb ANI_ASCEND45_FRAME_COUNT * 2 * 2
+def ANI_DESCEND45_0_CHRI rb ANI_DESCEND45_FRAME_COUNT * 2 * 2
+def ANI_DESCEND45_1_CHRI rb ANI_DESCEND45_FRAME_COUNT * 2 * 2
 
 
-section "VisDiver", romx
+def IDLE_SPEED_MAX equ 1
+
+
+section "VisDiver_ani", romx
 
 ;; _frame DURATION, NEXT
 macro _frame
@@ -29,101 +54,203 @@ macro _frame
 endm
 
 
-VisDiver_aniMove:
-	.right:
-		sprob_opts sx:8, si:2, cx, cy
+VisDiver_aniIdle:
+		sprob_opts cx, cy
 	.f0:
-		_frame MOVE_BASE_FRAMETIME, .f1
-		sprob_seq 2, 0, -8, MOVE0_CHRI + 0 * 4, 0
-		sprob_seq 2, 0,  0, MOVE1_CHRI + 0 * 4, 1
+		_frame ANI_IDLE_FRAMETIME, .f1
+		sprob_seq 1,  0,  0, ANI_IDLE_0_CHRI + 0 * 2, 0
+		sprob_seq 1, -8,  0, ANI_IDLE_1_CHRI + 0 * 2, 1
 		sprob_end
 	.f1:
-		_frame MOVE_BASE_FRAMETIME, .f2
-		sprob_seq 2, 0, -8, MOVE0_CHRI + 1 * 4, 0
-		sprob_seq 2, 0,  0, MOVE1_CHRI + 1 * 4, 1
+		_frame ANI_IDLE_FRAMETIME, .f2
+		sprob_seq 1,  0,  0, ANI_IDLE_0_CHRI + 1 * 2, 0
+		sprob_seq 1, -8,  0, ANI_IDLE_1_CHRI + 1 * 2, 1
 		sprob_end
 	.f2:
-		_frame MOVE_BASE_FRAMETIME, .f3
-		sprob_seq 2, 0, -8, MOVE0_CHRI + 2 * 4, 0
-		sprob_seq 2, 0,  0, MOVE1_CHRI + 2 * 4, 1
+		_frame ANI_IDLE_FRAMETIME, .f3
+		sprob_seq 1,  0,  0, ANI_IDLE_0_CHRI + 2 * 2, 0
+		sprob_seq 1, -8,  0, ANI_IDLE_1_CHRI + 2 * 2, 1
 		sprob_end
 	.f3:
-		_frame MOVE_BASE_FRAMETIME, .f4
-		sprob_seq 2, 0, -8, MOVE0_CHRI + 3 * 4, 0
-		sprob_seq 2, 0,  0, MOVE1_CHRI + 3 * 4, 1
-		sprob_end
-	.f4:
-		_frame MOVE_BASE_FRAMETIME, .f5
-		sprob_seq 2, 0, -8, MOVE0_CHRI + 4 * 4, 0
-		sprob_seq 2, 0,  0, MOVE1_CHRI + 4 * 4, 1
-		sprob_end
-	.f5:
-		_frame MOVE_BASE_FRAMETIME, .f0
-		sprob_seq 2, 0, -8, MOVE0_CHRI + 5 * 4, 0
-		sprob_seq 2, 0,  0, MOVE1_CHRI + 5 * 4, 1
+		_frame ANI_IDLE_FRAMETIME, .f0
+		sprob_seq 1,  0,  0, ANI_IDLE_0_CHRI + 3 * 2, 0
+		sprob_seq 1, -8,  0, ANI_IDLE_1_CHRI + 3 * 2, 1
 		sprob_end
 
-	.left:
-		sprob_opts sx:-8, si:2, cx, cy
-	.f6:
-		_frame MOVE_BASE_FRAMETIME, .f7
-		sprob_seq 2, 0,  8, MOVE0_CHRI + 0 * 4, $20 | 0
-		sprob_seq 2, 0,  0, MOVE1_CHRI + 0 * 4, $20 | 1
+
+VisDiver_aniMove:
+		sprob_opts sx:8, si:2, cx, cy
+	.f0:
+		_frame ANI_MOVE_FRAMETIME, .f1
+		sprob_seq 2, 0, -8, ANI_MOVE_0_CHRI + 0 * 4, 0
+		sprob_seq 2, 0,  0, ANI_MOVE_1_CHRI + 0 * 4, 1
 		sprob_end
-	.f7:
-		_frame MOVE_BASE_FRAMETIME, .f8
-		sprob_seq 2, 0,  8, MOVE0_CHRI + 1 * 4, $20 | 0
-		sprob_seq 2, 0,  0, MOVE1_CHRI + 1 * 4, $20 | 1
+	.f1:
+		_frame ANI_MOVE_FRAMETIME, .f2
+		sprob_seq 2, 0, -8, ANI_MOVE_0_CHRI + 1 * 4, 0
+		sprob_seq 2, 0,  0, ANI_MOVE_1_CHRI + 1 * 4, 1
 		sprob_end
-	.f8:
-		_frame MOVE_BASE_FRAMETIME, .f9
-		sprob_seq 2, 0,  8, MOVE0_CHRI + 2 * 4, $20 | 0
-		sprob_seq 2, 0,  0, MOVE1_CHRI + 2 * 4, $20 | 1
+	.f2:
+		_frame ANI_MOVE_FRAMETIME, .f3
+		sprob_seq 2, 0, -8, ANI_MOVE_0_CHRI + 2 * 4, 0
+		sprob_seq 2, 0,  0, ANI_MOVE_1_CHRI + 2 * 4, 1
 		sprob_end
-	.f9:
-		_frame MOVE_BASE_FRAMETIME, .f10
-		sprob_seq 2, 0,  8, MOVE0_CHRI + 3 * 4, $20 | 0
-		sprob_seq 2, 0,  0, MOVE1_CHRI + 3 * 4, $20 | 1
+	.f3:
+		_frame ANI_MOVE_FRAMETIME, .f4
+		sprob_seq 2, 0, -8, ANI_MOVE_0_CHRI + 3 * 4, 0
+		sprob_seq 2, 0,  0, ANI_MOVE_1_CHRI + 3 * 4, 1
 		sprob_end
-	.f10:
-		_frame MOVE_BASE_FRAMETIME, .f11
-		sprob_seq 2, 0,  8, MOVE0_CHRI + 4 * 4, $20 | 0
-		sprob_seq 2, 0,  0, MOVE1_CHRI + 4 * 4, $20 | 1
+	.f4:
+		_frame ANI_MOVE_FRAMETIME, .f5
+		sprob_seq 2, 0, -8, ANI_MOVE_0_CHRI + 4 * 4, 0
+		sprob_seq 2, 0,  0, ANI_MOVE_1_CHRI + 4 * 4, 1
 		sprob_end
-	.f11:
-		_frame MOVE_BASE_FRAMETIME, .f6
-		sprob_seq 2, 0,  8, MOVE0_CHRI + 5 * 4, $20 | 0
-		sprob_seq 2, 0,  0, MOVE1_CHRI + 5 * 4, $20 | 1
+	.f5:
+		_frame ANI_MOVE_FRAMETIME, .f0
+		sprob_seq 2, 0, -8, ANI_MOVE_0_CHRI + 5 * 4, 0
+		sprob_seq 2, 0,  0, ANI_MOVE_1_CHRI + 5 * 4, 1
 		sprob_end
+
+
+VisDiver_aniAscend45:
+		sprob_opts sx:8, si:2, cx, cy
+	.f0:
+		_frame ANI_ASCEND45_FRAMETIME, .f1
+		sprob_seq 2, 0, -4, ANI_ASCEND45_0_CHRI + 0 * 4, 0
+		sprob_seq 2, 0, -4, ANI_ASCEND45_1_CHRI + 0 * 4, 1
+		sprob_end
+	.f1:
+		_frame ANI_ASCEND45_FRAMETIME, .f2
+		sprob_seq 2, 0, -4, ANI_ASCEND45_0_CHRI + 1 * 4, 0
+		sprob_seq 2, 0, -4, ANI_ASCEND45_1_CHRI + 1 * 4, 1
+		sprob_end
+	.f2:
+		_frame ANI_ASCEND45_FRAMETIME, .f3
+		sprob_seq 2, 0, -4, ANI_ASCEND45_0_CHRI + 2 * 4, 0
+		sprob_seq 2, 0, -4, ANI_ASCEND45_1_CHRI + 2 * 4, 1
+		sprob_end
+	.f3:
+		_frame ANI_ASCEND45_FRAMETIME, .f4
+		sprob_seq 2, 0, -4, ANI_ASCEND45_0_CHRI + 3 * 4, 0
+		sprob_seq 2, 0, -4, ANI_ASCEND45_1_CHRI + 3 * 4, 1
+		sprob_end
+	.f4:
+		_frame ANI_ASCEND45_FRAMETIME, .f5
+		sprob_seq 2, 0, -4, ANI_ASCEND45_0_CHRI + 4 * 4, 0
+		sprob_seq 2, 0, -4, ANI_ASCEND45_1_CHRI + 4 * 4, 1
+		sprob_end
+	.f5:
+		_frame ANI_ASCEND45_FRAMETIME, .f0
+		sprob_seq 2, 0, -4, ANI_ASCEND45_0_CHRI + 5 * 4, 0
+		sprob_seq 2, 0, -4, ANI_ASCEND45_1_CHRI + 5 * 4, 1
+		sprob_end
+
+
+VisDiver_aniDescend45:
+		sprob_opts sx:8, si:2, cx, cy
+	.f0:
+		_frame ANI_DESCEND45_FRAMETIME, .f1
+		sprob_seq 2, 0, -4, ANI_DESCEND45_0_CHRI + 0 * 4, 0
+		sprob_seq 2, 0, -4, ANI_DESCEND45_1_CHRI + 0 * 4, 1
+		sprob_end
+	.f1:
+		_frame ANI_DESCEND45_FRAMETIME, .f2
+		sprob_seq 2, 0, -4, ANI_DESCEND45_0_CHRI + 1 * 4, 0
+		sprob_seq 2, 0, -4, ANI_DESCEND45_1_CHRI + 1 * 4, 1
+		sprob_end
+	.f2:
+		_frame ANI_DESCEND45_FRAMETIME, .f3
+		sprob_seq 2, 0, -4, ANI_DESCEND45_0_CHRI + 2 * 4, 0
+		sprob_seq 2, 0, -4, ANI_DESCEND45_1_CHRI + 2 * 4, 1
+		sprob_end
+	.f3:
+		_frame ANI_DESCEND45_FRAMETIME, .f4
+		sprob_seq 2, 0, -4, ANI_DESCEND45_0_CHRI + 3 * 4, 0
+		sprob_seq 2, 0, -4, ANI_DESCEND45_1_CHRI + 3 * 4, 1
+		sprob_end
+	.f4:
+		_frame ANI_DESCEND45_FRAMETIME, .f5
+		sprob_seq 2, 0, -4, ANI_DESCEND45_0_CHRI + 4 * 4, 0
+		sprob_seq 2, 0, -4, ANI_DESCEND45_1_CHRI + 4 * 4, 1
+		sprob_end
+	.f5:
+		_frame ANI_DESCEND45_FRAMETIME, .f0
+		sprob_seq 2, 0, -4, ANI_DESCEND45_0_CHRI + 5 * 4, 0
+		sprob_seq 2, 0, -4, ANI_DESCEND45_1_CHRI + 5 * 4, 1
+		sprob_end
+
+
+section "VisDiver_aniTable", romx
+VisDiver_aniTable:
+	dw VisDiver_aniIdle
+	dw VisDiver_aniMove
+	dw VisDiver_aniAscend45
+	dw VisDiver_aniDescend45
 
 
 section "wVisDiver", wram0
-wVisDiver_chri_move: db
+wVisDiver_chri: db
 wVisDiver_pal0: db
 
 
 section "VisDiverResourceInit", rom0
 VisDiverResourceInit::
-	ld b, bank(DiverMove_0_pal)
-	ld de, DiverMove_0_pal
+	ld b, bank(DiverIdle_0_pal)
+	ld de, DiverIdle_0_pal
 	call PalettePalLoadObRomx
 	ld a, b :: and $07 :: ld [wVisDiver_pal0], a
 
-	ld b, bank(DiverMove_1_pal)
-	ld de, DiverMove_1_pal
+	ld b, bank(DiverIdle_1_pal)
+	ld de, DiverIdle_1_pal
 	call PalettePalLoadObRomx
 
-	ld a, VIS_DIVER_CHR_IDX :: ld [wVisDiver_chri_move], a
+	ld a, VIS_DIVER_CHR_IDX :: ld [wVisDiver_chri], a
 	ld hl, VIS_DIVER_CHR_ADDR
+	ld b, bank(DiverIdle_0_chr)
+	ld de, DiverIdle_0_chr
+	ld c, DiverIdle_0_CHR_COUNT - 1
+	call VxLoadRom
+
+	ld hl, VIS_DIVER_CHR_ADDR + DiverIdle_0_CHR_COUNT * $10
+	ld b, bank(DiverIdle_1_chr)
+	ld de, DiverIdle_1_chr
+	ld c, DiverIdle_1_CHR_COUNT - 1
+	call VxLoadRom
+
+	ld hl, VIS_DIVER_CHR_ADDR + ANI_MOVE_0_CHRI * $10
 	ld b, bank(DiverMove_0_chr)
 	ld de, DiverMove_0_chr
 	ld c, DiverMove_0_CHR_COUNT - 1
 	call VxLoadRom
 
-	ld hl, VIS_DIVER_CHR_ADDR + DiverMove_0_CHR_COUNT * $10
+	ld hl, VIS_DIVER_CHR_ADDR + ANI_MOVE_1_CHRI * $10
 	ld b, bank(DiverMove_1_chr)
 	ld de, DiverMove_1_chr
 	ld c, DiverMove_1_CHR_COUNT - 1
+	call VxLoadRom
+
+	ld hl, VIS_DIVER_CHR_ADDR + ANI_ASCEND45_0_CHRI * $10
+	ld b, bank(DiverAscend45_0_chr)
+	ld de, DiverAscend45_0_chr
+	ld c, DiverAscend45_0_CHR_COUNT - 1
+	call VxLoadRom
+
+	ld hl, VIS_DIVER_CHR_ADDR + ANI_ASCEND45_1_CHRI * $10
+	ld b, bank(DiverAscend45_1_chr)
+	ld de, DiverAscend45_1_chr
+	ld c, DiverAscend45_1_CHR_COUNT - 1
+	call VxLoadRom
+
+	ld hl, VIS_DIVER_CHR_ADDR + ANI_DESCEND45_0_CHRI * $10
+	ld b, bank(DiverDescend45_0_chr)
+	ld de, DiverDescend45_0_chr
+	ld c, DiverDescend45_0_CHR_COUNT - 1
+	call VxLoadRom
+
+	ld hl, VIS_DIVER_CHR_ADDR + ANI_DESCEND45_1_CHRI * $10
+	ld b, bank(DiverDescend45_1_chr)
+	ld de, DiverDescend45_1_chr
+	ld c, DiverDescend45_1_CHR_COUNT - 1
 	call VxLoadRom
 
 	ret
@@ -137,23 +264,58 @@ VisDiverReset::
 	ld [hl+], a :: ld [hl+], a
 	; ctl
 	ld [hl+], a
-
-	;
-	ld [hl+], a :: ld [hl+], a
-
+	; state
 		push hl
+	ld a, VisDiverState__COUNT :: ld [hl+], a
+	;
+	xor a :: ld [hl+], a
+
 	call AniInit
 		pop hl
 
-	ld de, VisDiver_aniMove.f2
-	ld b, bank(VisDiver_aniMove)
-	jp AniSetFrame
+	ld d, VisDiverState_IDLE
+	jp VisDiverSetState.hl_at_state
 
 
 section "VisDiverSetState", rom0
+;; Set animation state directly.
 ;; @param HL: this VisDiver
+;; @param D: new anim state
+;; @mut: AF, BC, DE, HL
 VisDiverSetState::
+	ld bc, VisDiver_state
+	add hl, bc
+
+.hl_at_state:
+	; check state != new_state and new_state is valid
+	ld a, d
+	cp VisDiverState__COUNT
+	jr nc, .err_out_of_range
+	cp [hl]
+	ret z
+	ld [hl+], a
+
+	; get anim pointer
+	ld a, d :: add a ; index * 2
+	ld bc, VisDiver_aniTable
+	add c :: ld c, a
+	adc b :: sub c :: ld b, a
+	rombpush bank(VisDiver_aniTable)
+	ld a, [bc] :: inc bc :: ld e, a
+	ld a, [bc] :: ld d, a
+	rombpop
+
+	; update Ani
+	assert VisDiver_ani - (VisDiver_state + 1) == 1
+	inc hl
+	ld b, bank("VisDiver_ani")
+	call AniSetFrame
+
 	ret
+
+.err_out_of_range
+	ld b, b
+	jr .err_out_of_range
 
 
 section "VisDiverSetCtl", rom0
@@ -176,31 +338,45 @@ VisDiverSetCtl::
 
 	; Heading
 	call _SetHeading
-	ld a, [hl]
-	ld [hl], b
-	; If X heading changed, set appropriate animation
-	xor b
-	and VisDiverDir_X
-	ret z
-
-	ld de, VisDiver_aniMove.left
 	ld a, b
-	and VisDiverDir_LEFT
-	jr nz, :+
-	ld de, VisDiver_aniMove.right
-:
-	ld bc, VisDiver_ani - VisDiver_ctl
-	add hl, bc
-	ld b, bank(VisDiver_aniMove)
-	jp AniSetFrame
+	ld [hl+], a
+	call _CtlToState
 
+	jp VisDiverSetState.hl_at_state
+
+
+;; @param B: ctl state
+;; @ret D: selected anim state
+;; @mut: AF, D
+_CtlToState:
+	; default to IDLE?
+	ld d, VisDiverState_IDLE
+
+	; if speed <= IDLE_SPEED_MAX: IDLE
+	ld a, b
+	and VisDiverCtl_SPEED
+	cp IDLE_SPEED_MAX + 1
+	ret c
+
+	; if heading DOWN: DESCEND45
+	ld d, VisDiverState_DESCEND45
+	ld a, b
+	rlca
+	ret c
+
+	; if heading UP: ASCEND45
+	dec d
+	rlca
+	ret c
+
+	dec d ; MOVE
 	ret
 
 
 ;; @param B: ctl state
 ;; @param D: target speed
 ;; @ret B: new ctl state
-;; @mut: AF: B, D
+;; @mut: AF, B
 _SetSpeed:
 	ld a, d
 	and a
@@ -212,12 +388,14 @@ _SetSpeed:
 :
 	ld a, b
 	and VisDiverCtl_SPEED
-
 	cp d
 	ret z
+
+	; +/- 1 (if C/NC)
 	sbc a :: cpl :: or 1
 	add b
 	ld b, a
+
 	ret
 
 
@@ -225,7 +403,7 @@ _SetSpeed:
 ;; @param C: new heading
 ;; @ret B: new ctl state
 _SetHeading:
-	; Accept each axis independently & only accept non-zero values.
+	; X axis heading is 'sticky' -- only update to non-zero values.
 	ld a, c
 	and VisDiverDir_X
 	jr z, .do_y_maybe
@@ -236,8 +414,6 @@ _SetHeading:
 
 .do_y_maybe
 	ld a, c
-	and VisDiverDir_Y
-	ret z
 	xor b
 	and VisDiverDir_Y
 	xor b
@@ -253,28 +429,38 @@ VisDiverUpdate::
 
 	ld a, [hl+] :: ld b, a ; y
 	ld a, [hl+] :: ld c, a ; x
-	ld a, [hl+]
-	and VisDiverCtl_SPEED
-	ld d, a
+
+	ld a, [hl+] ; ctl
+	ld e, a
+	and VisDiverCtl_SPEED :: ld d, a
+	; Flip X if heading left
+	ld a, e :: and VisDiverDir_LEFT :: ld e, a
+
+	ld a, [hl+] ; state
+	cp VisDiverState_IDLE
+	jr nz, :+
+	ld d, 1
+:
 
 		push bc
+		push de
 
-	assert VisDiver_ani - (VisDiver_ctl + 1) == 2
-	inc hl :: inc hl
+	assert VisDiver_ani - (VisDiver_state + 1) == 1
+	inc hl
 	call AniUpdate
 
 	rombsel b
 
+		pop de
 		pop bc
 
-	; DE: Ani drawable pointer, abort if $FFFF
-	ld a, e :: and d
+	; HL: Ani drawable pointer, abort if $FFFF
+	ld a, l :: and h
 	inc a
 	ret z
 
-	ld l, e :: ld h, d ; Copy Ani drawable to HL
-	ld a, [wVisDiver_chri_move] :: ld d, a
-	ld a, [wVisDiver_pal0] :: ld e, a
+	ld a, [wVisDiver_chri] :: ld d, a
+	ld a, [wVisDiver_pal0] :: or e :: ld e, a
 
 	jp SprxRenderMod
 

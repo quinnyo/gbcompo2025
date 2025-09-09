@@ -15,7 +15,7 @@ AniInit::
 ;; @param HL: this Ani
 ;; @param D: delta time (ticks)
 ;; @ret B: frame bank
-;; @ret DE: frame drawable
+;; @ret HL: frame drawable
 ;; @mut: AF, B, DE, HL
 AniUpdate::
 	push hl
@@ -23,10 +23,11 @@ AniUpdate::
 	pop hl
 	inc hl ; ani.timer
 	ld a, [hl+] :: ld b, a ; ani.bank
-	ld a, [hl+] :: ld e, a ; ani.frame+0
-	ld a, [hl+] :: ld d, a ; ani.frame+1
-	inc de ; duration (skip)
-	inc de :: inc de ; next (skip)
+	ld a, [hl+] ; ani.frame+0
+	ld h, [hl] ; ani.frame+1
+	ld l, a
+	inc hl ; duration (skip)
+	inc hl :: inc hl ; next (skip)
 	ret
 
 

@@ -1,6 +1,10 @@
 include "sprite.rgbinc"
 
 
+def bFlipX equ 5
+def bFlipY equ 6
+
+
 section "hSprx", hram
 hSprxOriginY:: db
 hSprxOriginX:: db
@@ -35,17 +39,29 @@ SprxRender::
 ;; @param E: A mod (ADD the palette, XOR the rest)
 ;; @mut: AF, BC, HL
 SprxRenderMod::
-	ld a, b :: sub SprobOrigin :: ld b, a
-	ld a, c :: sub SprobOrigin :: ld c, a
-
-:
+.loop
 	; peek the first sprob byte
 	bit bSprite_ESC, [hl]
 	jr nz, .proc_esc
 	push bc
 	push de
-	ld a, [hl+] :: add b :: ld b, a
-	ld a, [hl+] :: add c :: ld c, a
+
+	; Y position, flip
+	ld a, [hl+] :: sub SprobCentreY
+	bit bFlipY, e
+	jr z, :+
+	cpl :: inc a
+:
+	add b :: ld b, a
+
+	; X position, flip
+	ld a, [hl+] :: sub SprobCentreX
+	bit bFlipX, e
+	jr z, :+
+	cpl :: inc a
+:
+	add c :: ld c, a
+
 	ld a, [hl+] :: add d :: ld d, a
 	; Palette mod gets added, rest of bits get xored.
 	; Yes, this is confusioning.
@@ -68,7 +84,7 @@ SprxRenderMod::
 	pop hl
 	pop de
 	pop bc
-	jr :-
+	jr .loop
 
 	ret
 .proc_esc:
