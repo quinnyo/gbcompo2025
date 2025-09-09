@@ -1,6 +1,6 @@
-# gbcompo2025
+# Untitled Underwater Game
 
-Entry for GB Compo 2025.
+for GBC
 
 
 ## third-party credit
