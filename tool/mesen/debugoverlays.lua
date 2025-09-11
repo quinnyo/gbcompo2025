@@ -373,6 +373,9 @@ local function get_entity(idx, wEntity)
 	local addr = wEntity.address + idx * Entity.size
 	local ent = st_read(Entity, addr, wEntity.memType, string.format("$%02X", idx))
 	ent.entidx = idx
+	ent.isAlive = function(self)
+		return self.Info & 0x80 ~= 0
+	end
 	return ent
 end
 
@@ -844,8 +847,13 @@ local function drawEntityMarker(entidx)
 	local ent = get_entity(entidx)
 	if ent then
 		local x, y = overlay:oamToOverlay(Coord.units(ent.PosX) - scroll.x, Coord.units(ent.PosY) - scroll.y)
-		overlay:drawLine2(x, y, x - 8, y + 8, 0xC0A010)
-		overlay:drawLine2(x, y, x, y + 8, 0xC0A010)
+		if ent:isAlive() then
+			overlay:drawLine2(x, y, x - 8, y + 8, 0xC0A010)
+			overlay:drawLine2(x, y, x, y + 8, 0xC0A010)
+		else
+			overlay:drawLine2(x - 8, y - 8, x + 8, y + 8, 0xC01010)
+			overlay:drawLine2(x - 8, y + 8, x + 8, y - 8, 0xC01010)
+		end
 		overlay:drawString(x + 2, y + 2, tostring(entidx))
 	end
 end
@@ -889,7 +897,9 @@ local function onEndFrame()
 	--	overlay:drawString(40, 0, curtain.stateText)
 	--end
 
-	drawEntityMarker(0)
+	for i = 1, 16 do
+		drawEntityMarker(i - 1)
+	end
 end
 
 
