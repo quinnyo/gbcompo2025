@@ -25,6 +25,7 @@ macro sprob
 endm
 
 
+;; sprob_opts_reset [opt]
 macro sprob_opts_reset
 	redef __SPROB_OPTS equ 1
 	redef _sprCY equ 0
@@ -33,6 +34,8 @@ macro sprob_opts_reset
 	redef _sprSX equ 0
 	redef _sprSI equ 0
 	redef _sprFlipX equ 0
+
+	sprob_opts \#
 endm
 
 
