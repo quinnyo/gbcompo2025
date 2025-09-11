@@ -51,10 +51,8 @@ EntityUpdate::
 	ld a, [hl+] :: ldh [hCollide.px+0], a
 	ld a, [hl+] :: ldh [hCollide.px+1], a
 
-	; Flap!
 	entity_index Entity_Ctrl
-	call _flap_update :: ld b, a
-	call _get_gravity :: add b :: ld b, a
+	call _get_gravity :: ld b, a
 
 	entity_index Entity_AccY
 	ld a, b :: call _velocity_update
@@ -155,21 +153,6 @@ _velocity_deflate:
 	ret
 .positive
 	velocity_deflate_positive
-	ret
-
-
-;; Update flap effect and return current flap impulse (Y axis accel)
-;; @param HL: pointer to entity ctrl field
-;; @ret A: flap impulse
-;; @mut: AF
-_flap_update:
-	ld a, mENTCTRL_FLAP
-	and [hl]
-	ret z
-	; count down
-	dec [hl]
-	; calculate flap impulse/accel
-	cpl :: inc a
 	ret
 
 
