@@ -72,6 +72,10 @@ local function createOverlay(margin, scale)
 	obj.getSurfaceSize = function(self)
 		return 160 * self.scale, 144 * self.scale
 	end
+	obj.oamToOverlay = function(self, x, y)
+		local ox, oy = self:getOrigin()
+		return self.scale * x - ox, self.scale * y - oy
+	end
 	obj.drawLine = function(self, x, y, x2, y2, color, duration, delay)
 		self:select()
 		local ox, oy = self:getOrigin()
@@ -91,6 +95,12 @@ local function createOverlay(margin, scale)
 		self:select()
 		local ox, oy = self:getOrigin()
 		emu.drawString(ox + x, oy + y, text, textColor, backgroundColor, maxWidth, duration, delay)
+	end
+
+	obj.drawLine2 = function(self, x0, y0, x1, y1, color, shadowColor)
+		shadowColor = shadowColor or 0
+		self:drawLine(x0 + 1, y0 + 1, x1 + 1, y1 + 1, shadowColor)
+		self:drawLine(x0, y0, x1, y1, color)
 	end
 
 	obj.drawRectangle2 = function(self, x, y, width, height, color, fillColor)
@@ -337,6 +347,9 @@ st_field(Entity, "AccY", 1, true)
 st_field(Entity, "VelY", 1, true)
 st_field(Entity, "PosY", 2)
 st_field(Entity, "Collide", 2)
+st_field(Entity, "DispX", 1)
+st_field(Entity, "DispY", 1)
+st_field(Entity, "_PAD_", 2)
 
 Entity.fieldfmt = {
 	Info = "$%02X",
@@ -823,6 +836,21 @@ local function mapChunkThing(mapTool)
 end
 
 
+local function drawEntityMarker(entidx)
+	local scroll = Scroll:readFromLabel("wScroll")
+	if not scroll then
+		return
+	end
+	local ent = get_entity(entidx)
+	if ent then
+		local x, y = overlay:oamToOverlay(Coord.units(ent.PosX) - scroll.x, Coord.units(ent.PosY) - scroll.y)
+		overlay:drawLine2(x, y, x - 8, y + 8, 0xC0A010)
+		overlay:drawLine2(x, y, x, y + 8, 0xC0A010)
+		overlay:drawString(x + 2, y + 2, tostring(entidx))
+	end
+end
+
+
 local function onEndFrame()
 	overlay:select()
 	overlay:drawWindow()
@@ -860,6 +888,8 @@ local function onEndFrame()
 	--if curtain then
 	--	overlay:drawString(40, 0, curtain.stateText)
 	--end
+
+	drawEntityMarker(0)
 end
 
 
