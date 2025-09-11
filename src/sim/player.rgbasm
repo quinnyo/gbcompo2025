@@ -50,9 +50,7 @@ PlayerSpawn::
 
 	ld a, ENTINFOF_ALIVE | $01
 	ld [hl+], a
-	ld a, ENTITY_COUNT_MAX
-	sub c
-	ld [hl+], a
+	xor a :: ld [hl+], a
 	; accx
 	ld a, 40 :: ld [hl+], a
 	; velx
