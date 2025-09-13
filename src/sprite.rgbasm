@@ -37,7 +37,7 @@ SprxRender::
 ;; @param B,C: Y,X render position
 ;; @param D: I mod
 ;; @param E: A mod (ADD the palette, XOR the rest)
-;; @mut: AF, BC, HL
+;; @mut: AF, HL
 SprxRenderMod::
 .loop
 	; peek the first sprob byte

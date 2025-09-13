@@ -151,7 +151,7 @@ Main::
 	call VxLoadRom
 
 	ldh a, [rLCDC]
-	or LCDCF_ON | LCDCF_BGON | LCDCF_OBJ16 | LCDCF_OBJON
+	or LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
 	ldh [rLCDC], a
 
 	xor a
