@@ -10,7 +10,6 @@ def WORLD_ORIGIN equ $0100
 ;; @result: XY
 ;; @mut: AF, XY
 macro coord_int16
-	; This is ... not ideal :3
 	assert _NARG == 1
 	swap low(\1)
 	swap high(\1)
@@ -40,6 +39,25 @@ macro coord_int8
 	and $F0
 	xor \1
 	swap a
+endm
+
+
+;; coord_from_dots16 XY
+;; Convert XY from Dots to Coords.
+macro coord_from_dots16
+	assert _NARG == 1
+	swap low(\1)
+	swap high(\1)
+
+	ld a, high(\1)
+	xor low(\1)
+	and $F0
+	xor low(\1)
+	ld high(\1), a
+
+	ld a, low(\1)
+	and $F0
+	ld low(\1), a
 endm
 
 
