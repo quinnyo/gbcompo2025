@@ -83,6 +83,26 @@ impl<T: ops::Sub<Output = T>> ops::Sub for C2<T> {
     }
 }
 
+impl<T: ops::Mul<Output = T>> ops::Mul for C2<T> {
+    type Output = Self;
+    fn mul(self, other: Self) -> Self {
+        Self {
+            x: self.x * other.x,
+            y: self.y * other.y,
+        }
+    }
+}
+
+impl<T: Copy + ops::Mul<Output = T>> ops::Mul<T> for C2<T> {
+    type Output = Self;
+    fn mul(self, other: T) -> Self {
+        Self {
+            x: self.x * other,
+            y: self.y * other,
+        }
+    }
+}
+
 impl<T: Ord> Ord for C2<T> {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.y.cmp(&other.y).then(self.x.cmp(&other.x))
@@ -222,17 +242,18 @@ pub type ChunkIndex = u8;
 pub type TileChr = u8;
 pub type TileAtrb = u8;
 
-const MAP_SOURCE_PREFIX: &str = "src/assets/maps";
-
 #[derive(Debug, Default)]
-pub struct MapConverter {
-    pub map_name: Box<String>,
+pub struct Chunks {
     min_pos: C2i32,
     max_pos: C2i32,
     chunks: Vec<(C2i32, ChunkBrushes<TileChr>, ChunkBrushes<TileAtrb>)>,
 }
 
-impl MapConverter {
+impl Chunks {
+    pub fn tile_origin(&self) -> C2i32 {
+        self.min_pos * C2i32::new(tiled::ChunkData::WIDTH as i32, tiled::ChunkData::HEIGHT as i32)
+    }
+
     /// Bounding size of the map in chunk coordinates.
     pub fn dim(&self) -> C2i32 {
         self.max_pos - self.min_pos
@@ -247,6 +268,10 @@ impl MapConverter {
         self.chunks.sort_by(|a, b| a.0.cmp(&b.0));
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.chunks.is_empty()
+    }
+
     /// Returns an iterator over the map chunks, with normalised coordinates.
     pub fn normalised(
         &self,
@@ -256,44 +281,14 @@ impl MapConverter {
             .map(|(pos, chrs, atrbs)| (*pos - self.min_pos, chrs, atrbs))
     }
 
-    /// Extract & convert a Tiled TMX map.
-    pub fn process_tmx(&mut self, tmx: tiled::Map) -> Result<(), io::Error> {
-        assert!(tiled::ChunkData::HEIGHT == 16);
-        assert!(tiled::ChunkData::WIDTH == 16);
-        assert!(tmx.infinite());
-        assert!(self.chunks.is_empty());
-        if self.map_name.is_empty() {
-            let name = tmx
-                .source
-                .strip_prefix(MAP_SOURCE_PREFIX)
-                .unwrap_or(tmx.source.as_path())
-                .with_extension("");
-            self.map_name = Box::new(name.to_str().unwrap().to_owned());
-        }
-        self.min_pos = Default::default();
-        self.max_pos = Default::default();
-        for layer in tmx.layers() {
-            if Self::tiled_properties_get_bool(&layer.properties, PROP_EDITOR_ONLY) {
-                continue;
-            } else {
-                self.process_layer(layer);
-            }
-        }
-        self.sort();
-        Ok(())
-    }
-
-    fn process_layer(&mut self, layer: tiled::Layer) {
-        match layer.layer_type() {
-            tiled::LayerType::Tiles(tile_layer) => match tile_layer {
-                tiled::TileLayer::Infinite(inf) => {
-                    for (chunk_pos, chunk) in inf.chunks() {
-                        self.process_chunk(chunk_pos.into(), chunk);
-                    }
+    pub fn process_layer(&mut self, tile_layer: tiled::TileLayer) {
+        match tile_layer {
+            tiled::TileLayer::Infinite(inf) => {
+                for (chunk_pos, chunk) in inf.chunks() {
+                    self.process_chunk(chunk_pos.into(), chunk);
                 }
-                _ => panic!(),
-            },
-            _ => panic!(),
+            }
+            _ => panic!("Only TileLayer::Infinite is supported."),
         }
     }
 
@@ -332,15 +327,149 @@ impl MapConverter {
         atrb_brushes.push(Brush::Terminator);
         (chr_brushes, atrb_brushes)
     }
+}
 
-    fn tiled_properties_get_bool(properties: &tiled::Properties, key: &str) -> bool {
-        if let Some(propval) = properties.get(key) {
-            match propval {
-                tiled::PropertyValue::BoolValue(value) => *value,
-                _ => false,
+#[derive(Debug)]
+pub enum ObjectType {
+    PlayerStart,
+    Item(u8),
+}
+
+impl ObjectType {
+    pub const ITEM_ID_MAX: u8 = 64;
+
+    pub fn item(id: u8) -> Self {
+        assert!(id < Self::ITEM_ID_MAX);
+        Self::Item(id)
+    }
+
+    pub fn encode(&self) -> u8 {
+        match self {
+            ObjectType::PlayerStart => {
+                Self::ITEM_ID_MAX
+            },
+            ObjectType::Item(id) => {
+                assert!(*id < Self::ITEM_ID_MAX);
+                *id
+            },
+        }
+    }
+}
+
+impl TryFrom<&tiled::Object<'_>> for ObjectType {
+    type Error = &'static str;
+
+    fn try_from(value: &tiled::Object) -> Result<Self, Self::Error> {
+        match value.user_type.as_str() {
+            "Item" => {
+                if let Some(id) = tiled_properties_get_int(&value.properties, "item_id") {
+                    assert!(id >= 0 && id <= 255);
+                    Ok(Self::item(id as u8))
+                } else if let Some(obj_tile) = value.get_tile() {
+                    let id = obj_tile.id();
+                    assert!(id <= 255);
+                    Ok(Self::item(id as u8))
+                } else {
+                    panic!()
+                }
+            },
+            "PlayerStart" => {
+                Ok(Self::PlayerStart)
             }
-        } else {
-            false
+            _ => Err("Unrecognised object type")
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Object {
+    pub converted: ObjectType,
+    pub user_type: String,
+    pub x: i32,
+    pub y: i32,
+    pub shape: tiled::ObjectShape,
+    pub properties: tiled::Properties,
+}
+
+impl TryFrom<tiled::Object<'_>> for Object {
+    type Error = &'static str;
+
+    fn try_from(value: tiled::Object) -> Result<Self, Self::Error> {
+        let converted = ObjectType::try_from(&value)?;
+        Ok(Self {
+            converted,
+            user_type: value.user_type.clone(),
+            x: value.x as i32,
+            y: value.y as i32,
+            shape: value.shape.clone(),
+            properties: value.properties.clone(),
+        })
+    }
+}
+
+fn tiled_properties_get_int(properties: &tiled::Properties, key: &str) -> Option<i32> {
+    properties.get(key).map(|propval| match propval {
+        tiled::PropertyValue::IntValue(value) => Some(*value),
+        _ => None,
+    }).flatten()
+}
+
+fn tiled_properties_get_bool(properties: &tiled::Properties, key: &str) -> Option<bool> {
+    properties.get(key).map(|propval| match propval {
+        tiled::PropertyValue::BoolValue(value) => Some(*value),
+        _ => None,
+    }).flatten()
+}
+
+const MAP_SOURCE_PREFIX: &str = "src/assets/maps";
+
+#[derive(Debug, Default)]
+pub struct MapConverter {
+    pub map_name: Box<String>,
+    chunks: Chunks,
+    objects: Vec<Object>,
+}
+
+impl MapConverter {
+    /// Extract & convert a Tiled TMX map.
+    pub fn process_tmx(&mut self, tmx: tiled::Map) -> Result<(), io::Error> {
+        assert!(tiled::ChunkData::HEIGHT == 16);
+        assert!(tiled::ChunkData::WIDTH == 16);
+        assert!(tmx.infinite());
+        assert!(self.chunks.is_empty());
+        if self.map_name.is_empty() {
+            let name = tmx
+                .source
+                .strip_prefix(MAP_SOURCE_PREFIX)
+                .unwrap_or(tmx.source.as_path())
+                .with_extension("");
+            self.map_name = Box::new(name.to_str().unwrap().to_owned());
+        }
+        for layer in tmx.layers() {
+            if tiled_properties_get_bool(&layer.properties, PROP_EDITOR_ONLY).unwrap_or(false) {
+                continue;
+            } else {
+                self.process_layer(layer);
+            }
+        }
+        self.chunks.sort();
+        Ok(())
+    }
+
+    fn process_layer(&mut self, layer: tiled::Layer) {
+        match layer.layer_type() {
+            tiled::LayerType::Tiles(tile_layer) => {
+                self.chunks.process_layer(tile_layer);
+            },
+            tiled::LayerType::Objects(object_layer) => {
+                for object in object_layer.objects() {
+                    let mut obj = Object::try_from(object).unwrap();
+                    obj.x += layer.offset_x as i32;
+                    obj.y += layer.offset_y as i32;
+                    self.objects.push(obj);
+                }
+            }
+            _ => panic!(),
         }
     }
 }
@@ -352,14 +481,31 @@ impl Rgbasm for MapConverter {
         let mut chunk_idx = 0;
         let mut chunk_table: Vec<(ChunkCoord, Vec<(ChunkCoord, ChunkIndex)>)> = vec![];
 
+        let tile_origin = self.chunks.tile_origin();
+        let dot_origin = tile_origin * 8;
+
         writeln!(&mut w, "include \"map.rgbinc\"\n")?;
         writeln!(&mut w, "section \"map_{}\", romx", self.map_name)?;
         writeln!(&mut w, "map_{}::", self.map_name)?;
 
+        // header
         writeln!(&mut w, "\tdw .chunk_table")?;
-        writeln!(&mut w, "\t; dw .other_stuff")?;
+        writeln!(&mut w, "\tdw .objects")?;
 
-        for (pos, chrs, atrbs) in self.normalised() {
+        // objects
+        let objects_len = self.objects.len();
+        assert!(objects_len <= 255);
+        writeln!(&mut w, ".objects::")?;
+        writeln!(&mut w, "\tdb {} ; len", objects_len)?;
+        for obj in &self.objects {
+            let id = obj.converted.encode();
+            let x = (obj.x - dot_origin.x) as u16;
+            let y = (obj.y - dot_origin.y) as u16;
+            writeln!(&mut w, "\tdw {}, {}, {}", id, y, x)?;
+        }
+
+        // tiles/chunks
+        for (pos, chrs, atrbs) in self.chunks.normalised() {
             assert!(atrbs.size() == chrs.size());
             let ntiles = chrs.size();
             writeln!(&mut w, ".chunk_{chunk_idx}:: ; {pos} ({ntiles})")?;

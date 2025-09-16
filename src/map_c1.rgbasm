@@ -3,7 +3,13 @@ include "map.rgbinc"
 section "map_c1", romx
 map_c1::
 	dw .chunk_table
-	; dw .other_stuff
+	dw .objects
+.objects::
+	db 4 ; len
+	dw 0, 80, 132
+	dw 64, 64, 72
+	dw 1, 64, 236
+	dw 2, 84, 292
 .chunk_0:: ; <0, 0> (256)
 	dw .chunk_0_atrb
 	db BR_SOLID,   3,   0

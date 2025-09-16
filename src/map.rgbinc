@@ -13,6 +13,32 @@ def BR_SOLID rb 1
 def BR__MAX rb 0
 def BR__TYPE equ (1 << bitwidth(BR__MAX)) - 1
 
+rsreset
+def MapHeader_chunk_table rb 2
+def MapHeader_objects rb 2
+def szMapHeader rb 0
+
+
+rsreset
+def MapObject_typeid rb 1
+def MapObject_extra rb 1
+def MapObject_y rb 2
+def MapObject_x rb 2
+def szMapObject rb 0
+
+
+rsreset
+;; Start of Item ID range
+def MapObject_ITEM_ID rb 64
+;; End of Item ID range
+def MapObject_ITEM_ID_MAX rb 0
+def MapObject_PLAYER_START rb 1
+def MapObject_NULL equ $FF
+
+
+def PLAYER_START_DEFAULT_Y equ 8 * 6
+def PLAYER_START_DEFAULT_X equ 8 * 4
+
 
 endc ; Q_MAP_INC_rJ398bhW
 

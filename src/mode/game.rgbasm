@@ -65,10 +65,14 @@ modeGamePrep_Enter::
 	call ScrollInit
 	call EntityInit
 	call PlayerInit
-	ld hl, wEntity
-	call PlayerSpawn
 	call CollideInit
 	call MapOpen
+
+	call MapGetPlayerStart
+	coord_from_dots16 bc
+	coord_from_dots16 de
+	ld hl, wEntity
+	call PlayerSpawn
 
 	ld a, MODE_STATE_EXTRA :: ldh [hModeState], a
 	ret

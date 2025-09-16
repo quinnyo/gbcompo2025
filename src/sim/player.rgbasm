@@ -43,6 +43,8 @@ PlayerInit::
 
 
 ;; @param HL: player entity
+;; @param BC: Y position
+;; @param DE: X position
 ;; @mut: AF, HL
 PlayerSpawn::
 	ld a, l :: ld [wPlayer.ent+0], a
@@ -51,18 +53,17 @@ PlayerSpawn::
 	ld a, ENTINFOF_ALIVE | $01
 	ld [hl+], a
 	xor a :: ld [hl+], a
-	; accx
-	ld a, 40 :: ld [hl+], a
-	; velx
-	ld a, 40 :: ld [hl+], a
-	; posx
-	coord_ld_hli_int 8 * 6 ;(WORLD_ORIGIN >> 4) + 90
-	; accy
-	ld a, -20 :: ld [hl+], a
-	; vely
-	ld a, 20 :: ld [hl+], a
-	; posy
-	coord_ld_hli_int 8 * 4 ;(WORLD_ORIGIN >> 4) + 50
+
+	xor a
+	ld [hl+], a ; accx
+	ld [hl+], a ; velx
+	ld a, e :: ld [hl+], a ; posx.lo
+	ld a, d :: ld [hl+], a ; posx.hi
+	xor a
+	ld [hl+], a ; accy
+	ld [hl+], a ; vely
+	ld a, c :: ld [hl+], a ; posy.lo
+	ld a, b :: ld [hl+], a ; posy.hi
 
 	ret
 

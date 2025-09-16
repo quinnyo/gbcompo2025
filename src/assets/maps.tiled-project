@@ -11,6 +11,24 @@
     ],
     "propertyTypes": [
         {
+            "color": "#ffffffff",
+            "drawFill": true,
+            "id": 3,
+            "members": [
+                {
+                    "name": "item_id",
+                    "type": "int",
+                    "value": 0
+                }
+            ],
+            "name": "Item",
+            "type": "class",
+            "useAs": [
+                "property",
+                "object"
+            ]
+        },
+        {
             "color": "#ffc1b1a3",
             "drawFill": true,
             "id": 1,
@@ -21,6 +39,19 @@
             "useAs": [
                 "object",
                 "project"
+            ]
+        },
+        {
+            "color": "#ff4de800",
+            "drawFill": true,
+            "id": 7,
+            "members": [
+            ],
+            "name": "PlayerStart",
+            "type": "class",
+            "useAs": [
+                "property",
+                "object"
             ]
         }
     ]

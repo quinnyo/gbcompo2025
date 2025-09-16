@@ -90,6 +90,25 @@ hMapSelectBank: db
 hMapSelectAddr: dw
 
 
+section "wMapContext", wramx
+;; PlayerStart Y position, in dots.
+wMapPlayerStartY:: dw
+;; PlayerStart X position, in dots.
+wMapPlayerStartX:: dw
+
+;; Copy of open map header
+wMapHeader::
+	.chunk_table:: dw
+	.objects:: dw
+
+wMapObjectCache:
+	.typeid: db
+	.extra: db
+	.y: dw
+	.x: dw
+assert @ - wMapObjectCache == szMapObject
+
+
 section "hMapRender", hram
 hMapViewChunkY: db
 hMapViewChunkX: db
@@ -155,19 +174,110 @@ section "MapOpen", rom0
 MapOpen::
 	call MapReset
 
-	ldh a, [hMapCtl] :: ld b, a
-	res bMapCtl_CLEAR, b
+	ldh a, [hMapCtl]
+	res bMapCtl_CLEAR, a
+	ldh [hMapCtl], a
 
-	ldh a, [hMapSelectAddr + 0] :: ld l, a
-	ldh a, [hMapSelectAddr + 1] :: ld h, a
+	ldh a, [hMapSelectAddr + 0] :: ld e, a
+	ldh a, [hMapSelectAddr + 1] :: ld d, a
 	; check for address $FFFF (no map selected)
-	and l :: inc a
-	jr z, :+
-	; address looks ok, ...
-	set bMapCtl_PROCEN, b
-:
+	and e :: inc a
+	ret z
 
-	ld a, b :: ldh [hMapCtl], a
+	ld a, MapCtl_OPEN
+	ldh [hMapCtl], a
+
+	; Initial map setup
+	ldh a, [hMapSelectBank] :: ld b, a
+	rombopen b
+	wrambpush bank("wMapContext")
+
+	; Reset player start to default
+	ld a, low(PLAYER_START_DEFAULT_Y) :: ld [wMapPlayerStartY + 0], a
+	ld a, high(PLAYER_START_DEFAULT_Y) :: ld [wMapPlayerStartY + 1], a
+	ld a, low(PLAYER_START_DEFAULT_X) :: ld [wMapPlayerStartX + 0], a
+	ld a, high(PLAYER_START_DEFAULT_X) :: ld [wMapPlayerStartX + 1], a
+
+	; Copy map header
+	ld c, szMapHeader
+	ld hl, wMapHeader
+	call MemCopySmall
+
+	; Process map objects
+	call _SetupObjects
+
+	wrambpop ; wMapContext
+
+	; Enable processing
+	ldh a, [hMapCtl]
+	set bMapCtl_PROCEN, a
+	ldh [hMapCtl], a
+	ret
+
+
+_SetupObjects:
+	ld hl, wMapHeader.objects
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a
+	ld a, [hl+] ; len
+	and a
+	ret z
+	ld c, a
+.loop
+	; copy object to cache
+	ld b, szMapObject
+	ld de, wMapObjectCache
+:
+	ld a, [hl+]
+	ld [de], a :: inc de
+	dec b
+	jr nz, :-
+
+	; process object
+		push bc :: push hl
+	ld hl, wMapObjectCache
+	call .do_object
+		pop hl :: pop bc
+
+	dec c
+	jr nz, .loop
+
+	ret
+
+
+.do_object:
+	ld a, [hl+] ; typeid
+	cp MapObject_ITEM_ID_MAX
+	jr c, .do_item
+	cp MapObject_PLAYER_START
+	jr z, .do_player_start
+
+.err_unexpected_object_type
+	ld b, b
+	jr .err_unexpected_object_type
+
+
+.do_item:
+	sub MapObject_ITEM_ID
+	ld b, a ; item id
+	ld hl, wMapObjectCache.y
+	ld a, [hl+] :: ld e, a ; y.lo
+	ld a, [hl+] :: ld d, a ; y.hi
+	ld a, [hl+] :: ld e, a ; x.lo
+	ld a, [hl+] :: ld d, a ; x.hi
+
+	; TODO: something ...
+
+	ret
+
+
+.do_player_start:
+	ld hl, wMapObjectCache.y
+	ld a, [hl+] :: ld [wMapPlayerStartY + 0], a
+	ld a, [hl+] :: ld [wMapPlayerStartY + 1], a
+	ld a, [hl+] :: ld [wMapPlayerStartX + 0], a
+	ld a, [hl+] :: ld [wMapPlayerStartX + 1], a
 	ret
 
 
@@ -219,6 +329,20 @@ MapUpdate::
 	call MapSyncFrontColumn
 :
 
+	ret
+
+
+section "MapGetPlayerStart", rom0
+;; @ret BC: Y position
+;; @ret DE: X position
+MapGetPlayerStart::
+	wrambpush bank("wMapContext")
+	ld hl, wMapPlayerStartY
+	ld a, [hl+] :: ld c, a ; y.lo
+	ld a, [hl+] :: ld b, a ; y.hi
+	ld a, [hl+] :: ld e, a ; x.lo
+	ld a, [hl+] :: ld d, a ; x.hi
+	wrambpop ; wMapContext
 	ret
 
 
