@@ -15,8 +15,8 @@ section "Sprx", rom0
 ;; @param B,C: Y,X render position
 ;; @mut: AF, BC, DE, HL
 SprxRender::
-	ld a, b :: sub SprobOrigin :: ldh [hSprxOriginY], a
-	ld a, c :: sub SprobOrigin :: ldh [hSprxOriginX], a
+	ld a, b :: sub SprobOriginY :: ldh [hSprxOriginY], a
+	ld a, c :: sub SprobOriginX :: ldh [hSprxOriginX], a
 
 :
 	; peek the first sprob byte
@@ -47,7 +47,7 @@ SprxRenderMod::
 	push de
 
 	; Y position, flip
-	ld a, [hl+] :: sub SprobCentreY
+	ld a, [hl+] :: sub SprobOriginY
 	bit bFlipY, e
 	jr z, :+
 	cpl :: inc a
@@ -55,7 +55,7 @@ SprxRenderMod::
 	add b :: ld b, a
 
 	; X position, flip
-	ld a, [hl+] :: sub SprobCentreX
+	ld a, [hl+] :: sub SprobOriginX
 	bit bFlipX, e
 	jr z, :+
 	cpl :: inc a
@@ -88,6 +88,42 @@ SprxRenderMod::
 
 	ret
 .proc_esc:
+	ret
+
+
+;; Performs the 'potential visibility' test at a screen-relative 16 bit position.
+;; This determines if a sprite rendered at that position can possibly be visible.
+;; Returns the result of the test and, if the result is positive,
+;; the valid position ready to pass to one of the SprxRender functions.
+;; @param BC: Y position in dots (signed, OBJ space)
+;; @param DE: X position in dots (signed, OBJ space)
+;; @ret B,C: Y,X valid sprx render position
+;; @ret F.C: Set indicates positive result
+;; @mut: AF, BC
+SprxTestVisibility::
+		push hl
+	ld a, c :: add SprobOriginY :: ld l, a
+	adc b :: sub l
+	jr nz, .nope
+	ld a, l
+	cp 144 + 16 + SprobCoordMax
+	jr nc, .nope
+
+	ld a, e :: add SprobOriginX :: ld l, a
+	adc d :: sub l
+	jr nz, .nope
+	ld a, l
+	cp 160 + 8 + SprobCoordMax
+	jr nc, .nope
+		pop hl
+	ld b, c
+	ld c, e
+	scf
+	ret
+
+.nope:
+		pop hl
+	and a ; clear F.C
 	ret
 
 
@@ -126,5 +162,91 @@ spr3:
 	db 24 + 16, 24 + 8, 16, 1
 	db 24 + 16, 32 + 8, 18, 2
 	db Sprite_END
+sprV:
+	sprob_opts_reset sy:8, sx:1, si:1
+	sprob_seq 8, -32, 0, 0, 0
+	sprob_end
+sprH:
+	sprob_opts_reset sy:1, sx:8, si:1
+	sprob_seq 8, 0, -32, 0, 1
+	sprob_end
+
+
+pushs "wTestEnt", wram0
+wTestEntVY: dw
+wTestEntVX: dw
+wTestEntVSpr: dw
+wTestEntHY: dw
+wTestEntHX: dw
+wTestEntHSpr: dw
+pops
+
+
+pushs "SprxTest", rom0
+SprxTestInit::
+	ld hl, startof("wTestEnt")
+	ld c, sizeof("wTestEnt")
+	xor a
+	call MemFillSmall
+	ld a, 48 :: ld [wTestEntVX + 0], a
+	ld a, low(sprV) :: ld [wTestEntVSpr + 0], a
+	ld a, high(sprV) :: ld [wTestEntVSpr + 1], a
+	ld a, 152 :: ld [wTestEntHY + 0], a
+	ld a, low(sprH) :: ld [wTestEntHSpr + 0], a
+	ld a, high(sprH) :: ld [wTestEntHSpr + 1], a
+	ret
+
+
+SprxTestUpdate::
+	ld hl, wTestEntVY
+	call _TestMove
+	ld hl, wTestEntVY
+	call _TestEntRender
+	ld hl, wTestEntHX
+	call _TestMove
+	ld hl, wTestEntHY
+	call _TestEntRender
+	ret
+
+
+_TestMove:
+	ld a, [hl+] :: ld c, a
+	ld a, [hl-] :: ld b, a
+	inc bc
+	ld a, c :: ld [hl+], a
+	ld a, b
+	cp 5
+	jr nz, :+
+	ld bc, $FF00
+	ld a, b
+:
+	ld [hl-], a
+	ret
+
+
+_TestEntRender:
+	ld a, [wScroll.y + 0] :: ld e, a
+	ld a, [wScroll.y + 1] :: ld d, a
+	ld a, [hl+] :: sub e :: ld c, a
+	ld a, [hl+] :: sbc d :: ld b, a
+
+		push bc
+	ld a, [wScroll.x + 0] :: ld c, a
+	ld a, [wScroll.x + 1] :: ld b, a
+	ld a, [hl+] :: sub c :: ld e, a
+	ld a, [hl+] :: sbc b :: ld d, a
+		pop bc
+
+	; sprite pointer
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a
+
+	call SprxTestVisibility
+	ret nc
+	ld de, 0
+	jp SprxRenderMod
+
+pops
 */
 

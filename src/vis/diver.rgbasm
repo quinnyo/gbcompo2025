@@ -55,128 +55,128 @@ endm
 
 
 VisDiver_aniIdle:
-		sprob_opts_reset sy:8, si:1, cx, cy
+		sprob_opts_reset sy:8, si:1
 	.f0:
 		_frame ANI_IDLE_FRAMETIME, .f1
-		sprob_seq 2,  0,  0, ANI_IDLE_0_CHRI + 0 * 2, 0
-		sprob_seq 2, -8,  0, ANI_IDLE_1_CHRI + 0 * 2, 1
+		sprob_seq 2,  4,  0, ANI_IDLE_0_CHRI + 0 * 2, 0
+		sprob_seq 2, -4,  0, ANI_IDLE_1_CHRI + 0 * 2, 1
 		sprob_end
 	.f1:
 		_frame ANI_IDLE_FRAMETIME, .f2
-		sprob_seq 2,  0,  0, ANI_IDLE_0_CHRI + 1 * 2, 0
-		sprob_seq 2, -8,  0, ANI_IDLE_1_CHRI + 1 * 2, 1
+		sprob_seq 2,  4,  0, ANI_IDLE_0_CHRI + 1 * 2, 0
+		sprob_seq 2, -4,  0, ANI_IDLE_1_CHRI + 1 * 2, 1
 		sprob_end
 	.f2:
 		_frame ANI_IDLE_FRAMETIME, .f3
-		sprob_seq 2,  0,  0, ANI_IDLE_0_CHRI + 2 * 2, 0
-		sprob_seq 2, -8,  0, ANI_IDLE_1_CHRI + 2 * 2, 1
+		sprob_seq 2,  4,  0, ANI_IDLE_0_CHRI + 2 * 2, 0
+		sprob_seq 2, -4,  0, ANI_IDLE_1_CHRI + 2 * 2, 1
 		sprob_end
 	.f3:
 		_frame ANI_IDLE_FRAMETIME, .f0
-		sprob_seq 2,  0,  0, ANI_IDLE_0_CHRI + 3 * 2, 0
-		sprob_seq 2, -8,  0, ANI_IDLE_1_CHRI + 3 * 2, 1
+		sprob_seq 2,  4,  0, ANI_IDLE_0_CHRI + 3 * 2, 0
+		sprob_seq 2, -4,  0, ANI_IDLE_1_CHRI + 3 * 2, 1
 		sprob_end
 
 
 VisDiver_aniMove:
-		sprob_opts_reset sx:8, si:1, cx, cy
+		sprob_opts_reset sx:8, si:1
 	.f0:
 		_frame ANI_MOVE_FRAMETIME, .f1
-		sprob_seq 2, 0, -8, ANI_MOVE_0_CHRI + 0 * 2, 0
-		sprob_seq 2, 0,  0, ANI_MOVE_1_CHRI + 0 * 2, 1
+		sprob_seq 2,  4, -8, ANI_MOVE_0_CHRI + 0 * 2, 0
+		sprob_seq 2,  4,  0, ANI_MOVE_1_CHRI + 0 * 2, 1
 		sprob_end
 	.f1:
 		_frame ANI_MOVE_FRAMETIME, .f2
-		sprob_seq 2, 0, -8, ANI_MOVE_0_CHRI + 1 * 2, 0
-		sprob_seq 2, 0,  0, ANI_MOVE_1_CHRI + 1 * 2, 1
+		sprob_seq 2,  4, -8, ANI_MOVE_0_CHRI + 1 * 2, 0
+		sprob_seq 2,  4,  0, ANI_MOVE_1_CHRI + 1 * 2, 1
 		sprob_end
 	.f2:
 		_frame ANI_MOVE_FRAMETIME, .f3
-		sprob_seq 2, 0, -8, ANI_MOVE_0_CHRI + 2 * 2, 0
-		sprob_seq 2, 0,  0, ANI_MOVE_1_CHRI + 2 * 2, 1
+		sprob_seq 2,  4, -8, ANI_MOVE_0_CHRI + 2 * 2, 0
+		sprob_seq 2,  4,  0, ANI_MOVE_1_CHRI + 2 * 2, 1
 		sprob_end
 	.f3:
 		_frame ANI_MOVE_FRAMETIME, .f4
-		sprob_seq 2, 0, -8, ANI_MOVE_0_CHRI + 3 * 2, 0
-		sprob_seq 2, 0,  0, ANI_MOVE_1_CHRI + 3 * 2, 1
+		sprob_seq 2,  4, -8, ANI_MOVE_0_CHRI + 3 * 2, 0
+		sprob_seq 2,  4,  0, ANI_MOVE_1_CHRI + 3 * 2, 1
 		sprob_end
 	.f4:
 		_frame ANI_MOVE_FRAMETIME, .f5
-		sprob_seq 2, 0, -8, ANI_MOVE_0_CHRI + 4 * 2, 0
-		sprob_seq 2, 0,  0, ANI_MOVE_1_CHRI + 4 * 2, 1
+		sprob_seq 2,  4, -8, ANI_MOVE_0_CHRI + 4 * 2, 0
+		sprob_seq 2,  4,  0, ANI_MOVE_1_CHRI + 4 * 2, 1
 		sprob_end
 	.f5:
 		_frame ANI_MOVE_FRAMETIME, .f0
-		sprob_seq 2, 0, -8, ANI_MOVE_0_CHRI + 5 * 2, 0
-		sprob_seq 2, 0,  0, ANI_MOVE_1_CHRI + 5 * 2, 1
+		sprob_seq 2,  4, -8, ANI_MOVE_0_CHRI + 5 * 2, 0
+		sprob_seq 2,  4,  0, ANI_MOVE_1_CHRI + 5 * 2, 1
 		sprob_end
 
 
 VisDiver_aniAscend45:
-		sprob_opts_reset si:1, cx, cy
+		sprob_opts_reset si:1
 	.f0:
 		_frame ANI_ASCEND45_FRAMETIME, .f1
-		sprob_seq 2, 0, -4, ANI_ASCEND45_0_CHRI + 0 * 2, 0, sy:8, sx:0
-		sprob_seq 2, 0, -4, ANI_ASCEND45_1_CHRI + 0 * 2, 1, sy:0, sx:8
+		sprob_seq 2,  4, -4, ANI_ASCEND45_0_CHRI + 0 * 2, 0, sy:8, sx:0
+		sprob_seq 2,  4, -4, ANI_ASCEND45_1_CHRI + 0 * 2, 1, sy:0, sx:8
 		sprob_end
 	.f1:
 		_frame ANI_ASCEND45_FRAMETIME, .f2
-		sprob_seq 2, 0, -4, ANI_ASCEND45_0_CHRI + 1 * 2, 0, sy:8, sx:0
-		sprob_seq 2, 0, -4, ANI_ASCEND45_1_CHRI + 1 * 2, 1, sy:0, sx:8
+		sprob_seq 2,  4, -4, ANI_ASCEND45_0_CHRI + 1 * 2, 0, sy:8, sx:0
+		sprob_seq 2,  4, -4, ANI_ASCEND45_1_CHRI + 1 * 2, 1, sy:0, sx:8
 		sprob_end
 	.f2:
 		_frame ANI_ASCEND45_FRAMETIME, .f3
-		sprob_seq 2, 0, -4, ANI_ASCEND45_0_CHRI + 2 * 2, 0, sy:8, sx:0
-		sprob_seq 2, 0, -4, ANI_ASCEND45_1_CHRI + 2 * 2, 1, sy:0, sx:8
+		sprob_seq 2,  4, -4, ANI_ASCEND45_0_CHRI + 2 * 2, 0, sy:8, sx:0
+		sprob_seq 2,  4, -4, ANI_ASCEND45_1_CHRI + 2 * 2, 1, sy:0, sx:8
 		sprob_end
 	.f3:
 		_frame ANI_ASCEND45_FRAMETIME, .f4
-		sprob_seq 2, 0, -4, ANI_ASCEND45_0_CHRI + 3 * 2, 0, sy:8, sx:0
-		sprob_seq 2, 0, -4, ANI_ASCEND45_1_CHRI + 3 * 2, 1, sy:0, sx:8
+		sprob_seq 2,  4, -4, ANI_ASCEND45_0_CHRI + 3 * 2, 0, sy:8, sx:0
+		sprob_seq 2,  4, -4, ANI_ASCEND45_1_CHRI + 3 * 2, 1, sy:0, sx:8
 		sprob_end
 	.f4:
 		_frame ANI_ASCEND45_FRAMETIME, .f5
-		sprob_seq 2, 0, -4, ANI_ASCEND45_0_CHRI + 4 * 2, 0, sy:8, sx:0
-		sprob_seq 2, 0, -4, ANI_ASCEND45_1_CHRI + 4 * 2, 1, sy:0, sx:8
+		sprob_seq 2,  4, -4, ANI_ASCEND45_0_CHRI + 4 * 2, 0, sy:8, sx:0
+		sprob_seq 2,  4, -4, ANI_ASCEND45_1_CHRI + 4 * 2, 1, sy:0, sx:8
 		sprob_end
 	.f5:
 		_frame ANI_ASCEND45_FRAMETIME, .f0
-		sprob_seq 2, 0, -4, ANI_ASCEND45_0_CHRI + 5 * 2, 0, sy:8, sx:0
-		sprob_seq 2, 0, -4, ANI_ASCEND45_1_CHRI + 5 * 2, 1, sy:0, sx:8
+		sprob_seq 2,  4, -4, ANI_ASCEND45_0_CHRI + 5 * 2, 0, sy:8, sx:0
+		sprob_seq 2,  4, -4, ANI_ASCEND45_1_CHRI + 5 * 2, 1, sy:0, sx:8
 		sprob_end
 
 
 VisDiver_aniDescend45:
-		sprob_opts_reset si:1, cx, cy
+		sprob_opts_reset si:1
 	.f0:
 		_frame ANI_DESCEND45_FRAMETIME, .f1
-		sprob_seq 2, 0, -4, ANI_DESCEND45_0_CHRI + 0 * 2, 0, sy:0, sx:8
-		sprob_seq 2, 0,  4, ANI_DESCEND45_1_CHRI + 0 * 2, 1, sy:8, sx:0
+		sprob_seq 2,  4, -4, ANI_DESCEND45_0_CHRI + 0 * 2, 0, sy:0, sx:8
+		sprob_seq 2,  4,  4, ANI_DESCEND45_1_CHRI + 0 * 2, 1, sy:8, sx:0
 		sprob_end
 	.f1:
 		_frame ANI_DESCEND45_FRAMETIME, .f2
-		sprob_seq 2, 0, -4, ANI_DESCEND45_0_CHRI + 1 * 2, 0, sy:0, sx:8
-		sprob_seq 2, 0,  4, ANI_DESCEND45_1_CHRI + 1 * 2, 1, sy:8, sx:0
+		sprob_seq 2,  4, -4, ANI_DESCEND45_0_CHRI + 1 * 2, 0, sy:0, sx:8
+		sprob_seq 2,  4,  4, ANI_DESCEND45_1_CHRI + 1 * 2, 1, sy:8, sx:0
 		sprob_end
 	.f2:
 		_frame ANI_DESCEND45_FRAMETIME, .f3
-		sprob_seq 2, 0, -4, ANI_DESCEND45_0_CHRI + 2 * 2, 0, sy:0, sx:8
-		sprob_seq 2, 0,  4, ANI_DESCEND45_1_CHRI + 2 * 2, 1, sy:8, sx:0
+		sprob_seq 2,  4, -4, ANI_DESCEND45_0_CHRI + 2 * 2, 0, sy:0, sx:8
+		sprob_seq 2,  4,  4, ANI_DESCEND45_1_CHRI + 2 * 2, 1, sy:8, sx:0
 		sprob_end
 	.f3:
 		_frame ANI_DESCEND45_FRAMETIME, .f4
-		sprob_seq 2, 0, -4, ANI_DESCEND45_0_CHRI + 3 * 2, 0, sy:0, sx:8
-		sprob_seq 2, 0,  4, ANI_DESCEND45_1_CHRI + 3 * 2, 1, sy:8, sx:0
+		sprob_seq 2,  4, -4, ANI_DESCEND45_0_CHRI + 3 * 2, 0, sy:0, sx:8
+		sprob_seq 2,  4,  4, ANI_DESCEND45_1_CHRI + 3 * 2, 1, sy:8, sx:0
 		sprob_end
 	.f4:
 		_frame ANI_DESCEND45_FRAMETIME, .f5
-		sprob_seq 2, 0, -4, ANI_DESCEND45_0_CHRI + 4 * 2, 0, sy:0, sx:8
-		sprob_seq 2, 0,  4, ANI_DESCEND45_1_CHRI + 4 * 2, 1, sy:8, sx:0
+		sprob_seq 2,  4, -4, ANI_DESCEND45_0_CHRI + 4 * 2, 0, sy:0, sx:8
+		sprob_seq 2,  4,  4, ANI_DESCEND45_1_CHRI + 4 * 2, 1, sy:8, sx:0
 		sprob_end
 	.f5:
 		_frame ANI_DESCEND45_FRAMETIME, .f0
-		sprob_seq 2, 0, -4, ANI_DESCEND45_0_CHRI + 5 * 2, 0, sy:0, sx:8
-		sprob_seq 2, 0,  4, ANI_DESCEND45_1_CHRI + 5 * 2, 1, sy:8, sx:0
+		sprob_seq 2,  4, -4, ANI_DESCEND45_0_CHRI + 5 * 2, 0, sy:0, sx:8
+		sprob_seq 2,  4,  4, ANI_DESCEND45_1_CHRI + 5 * 2, 1, sy:8, sx:0
 		sprob_end
 
 

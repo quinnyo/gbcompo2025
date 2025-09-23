@@ -5,35 +5,34 @@ def Q_SPRITE_INC_3dMG2Z3W equ 1
 def bSprite_ESC equ 7
 def Sprite_END equ $80
 
-;; Sprob coordinates are unsigned values in range [0..64) with the origin point being at the Render origin - 32
+;; Sprob coordinates are unsigned values in range [0..64)
 def SprobCoordMax equ 64
-def SprobOrigin equ SprobCoordMax / 2
+def SprobOriginY equ 32
+def SprobOriginX equ 32
 
-def SprobW equ 8
-def SprobH equ 16
 
-;; Y position to centre a sprob
-def SprobCentreY equ SprobOrigin + SprobH / 2
-;; X position to centre a sprob
-def SprobCentreX equ SprobOrigin + SprobW / 2
+;; sprob_raw Y, X, I, A
+macro sprob_raw
+	assert fail, _NARG == 4
+	assert (\1) >= 0 && (\1) < 64, "sprob Y position out of range. Expected 0 >= (\1) < 64."
+	assert (\2) >= 0 && (\2) < 64, "sprob X position out of range. Expected 0 >= (\2) < 64."
+	db (\1), (\2), (\3), (\4)
+endm
 
 
 ;; sprob Y, X, I, A
 macro sprob
 	assert fail, _NARG == 4
-	db (\1), (\2), (\3), (\4)
+	sprob_raw SprobOriginY + (\1), SprobOriginX + (\2), (\3), (\4)
 endm
 
 
 ;; sprob_opts_reset [opt]
 macro sprob_opts_reset
 	redef __SPROB_OPTS equ 1
-	redef _sprCY equ 0
-	redef _sprCX equ 0
 	redef _sprSY equ 0
 	redef _sprSX equ 0
 	redef _sprSI equ 0
-	redef _sprFlipX equ 0
 
 	sprob_opts \#
 endm
@@ -57,12 +56,6 @@ macro sprob_opts
 				redef _sprSI equ ({_optVal})
 			endc
 			purge _optKey, _optVal
-		elif strcmp("\<1>", "flipx") == 0
-			redef _sprFlipX equ 1
-		elif strcmp("\<1>", "cx") == 0
-			redef _sprCX equ SprobCentreX
-		elif strcmp("\<1>", "cy") == 0
-			redef _sprCY equ SprobCentreY
 		else
 			fail "Unknown sprob opt {d:I}: '{"\<I>"}'"
 		endc
@@ -86,7 +79,7 @@ macro sprob_seq
 	sprob_opts \#
 
 	rept _sprN
-		sprob _sprCY + _sprY, _sprCX + _sprX, _sprI, _sprA
+		sprob _sprY, _sprX, _sprI, _sprA
 		redef _sprY equ _sprY + _sprSY
 		redef _sprX equ _sprX + _sprSX
 		redef _sprI equ _sprI + _sprSI
