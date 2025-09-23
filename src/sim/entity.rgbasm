@@ -83,10 +83,40 @@ assert sizeof("wEntity") == 256
 _process_collide_result:
 	entity_index Entity_PosX
 	ldh a, [hCollide.px+0] :: ld [hl+], a
+	ld e, a
 	ldh a, [hCollide.px+1] :: ld [hl+], a
+	ld d, a
+	; dispX
+	coord_int16 de
+	ld a, [wScroll.x + 0] :: ld c, a
+	ld a, [wScroll.x + 1] :: ld b, a
+	ld a, e :: sub c :: ld e, a
+	ld a, d :: sbc b :: ld d, a
+
 	entity_index Entity_PosY
 	ldh a, [hCollide.py+0] :: ld [hl+], a
+	ld c, a
 	ldh a, [hCollide.py+1] :: ld [hl+], a
+	ld b, a
+	; dispY
+	coord_int16 bc
+		push de
+	ld a, [wScroll.y + 0] :: ld e, a
+	ld a, [wScroll.y + 1] :: ld d, a
+	ld a, c :: sub e :: ld c, a
+	ld a, b :: sbc d :: ld b, a
+		pop de
+
+	entity_index Entity_Info
+	res ENTINFOB_INVIEW, [hl]
+	call SprxTestVisibility
+	jr nc, :+
+	; visible
+	set ENTINFOB_INVIEW, [hl]
+	entity_index Entity_DispX
+	ld a, c :: ld [hl+], a
+	ld a, e :: ld [hl+], a
+:
 
 	ldh a, [hCollide.result]
 	bit bCollideResult_SOLID, a
