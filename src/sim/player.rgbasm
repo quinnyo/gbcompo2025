@@ -17,7 +17,7 @@ def THRUST_TICK equ $07
 section "wPlayer", wram0
 wPlayer::
 	.vkeys: db
-	.ent: dw
+	.ent:: dw
 	.vis:: ds szVisDiver
 
 
@@ -134,11 +134,11 @@ PlayerRender::
 	jr z, .nodrive
 	entity_index Entity_VelY
 	ld a, [hl]
-	call _abs
+	call AbsS8
 	ld b, a
 	entity_index Entity_VelX
 	ld a, [hl]
-	call _abs
+	call AbsS8
 	or b
 	srl a
 	cp VisDiverCtl_SPEED+1
@@ -162,17 +162,6 @@ PlayerRender::
 	ld a, c :: ld [hl-], a
 	call VisDiverUpdate
 
-	ret
-
-
-_abs:
-	cp $80
-	ret c
-	jr nz, :+
-	dec a
-	ret
-:
-	cpl :: inc a
 	ret
 
 
