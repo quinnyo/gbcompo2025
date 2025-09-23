@@ -659,12 +659,12 @@
   </data>
  </layer>
  <objectgroup id="7" name="Objects" offsetx="-512" offsety="0">
-  <object id="8" type="Item" gid="89" x="132" y="80" width="8" height="8"/>
+  <object id="8" type="Item" gid="89" x="144" y="62" width="8" height="8"/>
   <object id="9" type="PlayerStart" x="72" y="64">
    <point/>
   </object>
-  <object id="12" type="Item" gid="90" x="236" y="64" width="8" height="8"/>
-  <object id="13" type="Item" gid="91" x="292" y="84" width="8" height="8"/>
+  <object id="12" type="Item" gid="90" x="240" y="60" width="8" height="8"/>
+  <object id="13" type="Item" gid="91" x="296" y="80" width="8" height="8"/>
  </objectgroup>
  <layer id="4" name="_guides" width="30" height="20" locked="1" opacity="0.51" tintcolor="#88f0ed">
   <properties>

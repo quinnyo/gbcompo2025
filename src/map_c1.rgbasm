@@ -6,10 +6,10 @@ map_c1::
 	dw .objects
 .objects::
 	db 4 ; len
-	dw 0, 80, 132
+	dw 0, 62, 144
 	dw 64, 64, 72
-	dw 1, 64, 236
-	dw 2, 84, 292
+	dw 1, 60, 240
+	dw 2, 80, 296
 .chunk_0:: ; <0, 0> (256)
 	dw .chunk_0_atrb
 	db BR_SOLID,   3,   0
