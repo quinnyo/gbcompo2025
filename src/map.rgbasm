@@ -259,17 +259,14 @@ _SetupObjects:
 
 
 .do_item:
-	sub MapObject_ITEM_ID
-	ld b, a ; item id
 	ld hl, wMapObjectCache.y
-	ld a, [hl+] :: ld e, a ; y.lo
-	ld a, [hl+] :: ld d, a ; y.hi
+	ld a, [hl+] :: ld c, a ; y.lo
+	ld a, [hl+] :: ld b, a ; y.hi
 	ld a, [hl+] :: ld e, a ; x.lo
 	ld a, [hl+] :: ld d, a ; x.hi
-
-	; TODO: something ...
-
-	ret
+	ld a, [wMapObjectCache.typeid]
+	sub MapObject_ITEM_ID
+	jp ItemsSpawn
 
 
 .do_player_start:

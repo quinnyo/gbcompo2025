@@ -1,0 +1,11 @@
+if !def(Q_QUEST_INC_IpxEY4hb)
+def Q_QUEST_INC_IpxEY4hb equ 1
+
+
+rsreset
+def Finds_TREASURE rb 1
+def szFinds rb 0
+
+
+endc ; Q_QUEST_INC_IpxEY4hb
+

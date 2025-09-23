@@ -1,0 +1,320 @@
+include "hardware.inc"
+include "coord.rgbinc"
+include "chrimp.rgbinc"
+include "sprite.rgbinc"
+include "banker.rgbinc"
+include "quest/quest.rgbinc"
+
+/*
+Items are pickupable (pickable up) *things*.
+*/
+
+
+;; Maximum number of item instances
+def ITEMS_MAX equ 8
+;; Item touch (pickup) collision radius
+def ITEM_TOUCH_RANGE equ 7
+
+/*
+Items global/manager control flags
+*/
+rsreset
+def bItems_COLLIDE_ENABLE rb 1
+def Items_COLLIDE_ENABLE equ 1 << bItems_COLLIDE_ENABLE
+
+/*
+Item instance status & control flags
+*/
+rsreset
+;; Item exists & should be processed. Marks slot as occupied.
+def bItemCtl_ENABLE rb 1
+;; Is visible / is inside view rect
+def bItemCtl_VISIBLE rb 1
+;; Has been touched / picked up
+def bItemCtl_TOUCHED rb 1
+
+def ItemCtl_NULL equ 0
+def ItemCtl_ENABLE  equ 1 << bItemCtl_ENABLE
+def ItemCtl_VISIBLE equ 1 << bItemCtl_VISIBLE
+def ItemCtl_TOUCHED equ 1 << bItemCtl_TOUCHED
+
+/*
+Item (in-world item instance)
+*/
+rsreset
+;; Status & control flags
+def Item_ctl rb 1
+;; ItemDef ID (index in ItemInfo)
+def Item_id rb 1
+;; Y position of the item in dots.
+def Item_y rb 2
+;; X position of the item in dots.
+def Item_x rb 2
+def szItem rb 0
+
+/*
+ItemDef
+*/
+rsreset
+;; The group of the Find that the Item represents.
+def ItemDef_group rb 1
+;; Identifies the Find within its group.
+def ItemDef_value rb 1
+;; Pointer to sprite
+def ItemDef_sprite rb 2
+def szItemDef rb 0
+
+
+import_chr "assets/ent/items.chr", Items, pal
+
+
+section "ItemInfo", romx
+ItemInfo::
+	.eg0::
+		db Finds_TREASURE, $01
+		dw sprItem0
+	.eg1::
+		db Finds_TREASURE, $02
+		dw sprItem1
+	.eg2::
+		db Finds_TREASURE, $04
+		dw sprItem2
+	.eg3::
+		db Finds_TREASURE, $08
+		dw sprItem3
+
+
+sprItem0:
+	sprob 12, 4, 0, 0
+	sprob_end
+
+sprItem1:
+	sprob 12, 4, 1, 0
+	sprob_end
+
+sprItem2:
+	sprob 12, 4, 2, 0
+	sprob_end
+
+sprItem3:
+	sprob 12, 4, 3, 0
+	sprob_end
+
+
+section "wItems", wram0
+wItemsFlags: db
+wItemsCollidePointY: db
+wItemsCollidePointX: db
+wItems:: ds ITEMS_MAX * szItem
+
+_scratch: db
+
+
+section "wItemsResources", wram0
+wItems_chri: db
+wItems_pal: db
+
+
+section "ItemsInit", rom0
+ItemsInit::
+	ld b, bank(Items_pal)
+	ld de, Items_pal
+	call PalettePalLoadObRomx
+	ld a, b :: and $07 :: ld [wItems_pal], a
+
+	; TODO: only load item graphics that are being used
+
+	ld b, bank(Items_chr)
+	ld a, 0 :: ld [wItems_chri], a
+	ld hl, $8000
+	ld de, Items_chr
+	ld c, Items_CHR_COUNT - 1
+	call VxLoadRom
+
+	jp ItemsReset
+
+
+section "ItemsReset", rom0
+ItemsReset::
+	ld hl, startof("wItems")
+	ld c, sizeof("wItems")
+	xor a
+	jp MemFillSmall
+
+
+section "ItemsGetEmptySlot", rom0
+;; @ret HL: pointer to empty item slot (if found)
+;; @ret F.Z: set on success (empty slot found)
+;; @mut: AF, HL
+ItemsGetEmptySlot::
+	ld hl, wItems
+	ld a, ITEMS_MAX
+:
+	bit bItemCtl_ENABLE, [hl]
+	ret z
+rept szItem
+	inc hl
+endr
+	dec a
+	jr nz, :-
+	inc a ; clear F.Z
+	ret
+
+
+section "ItemsSpawn", rom0
+;; Initialise a new item and add it to the pool
+;; @param A: item ID
+;; @param BC: Y position (in dots)
+;; @param DE: X position (in dots)
+;; @mut: AF, HL
+ItemsSpawn::
+	ld [_scratch], a
+	call ItemsGetEmptySlot
+	jr nz, .failed
+
+	ld a, ItemCtl_ENABLE :: ld [hl+], a ; ctl
+	ld a, [_scratch] :: ld [hl+], a ; id
+
+	ld a, c :: ld [hl+], a ; posy.lo
+	ld a, b :: ld [hl+], a ; posy.hi
+
+	ld a, e :: ld [hl+], a ; posx.lo
+	ld a, d :: ld [hl+], a ; posx.hi
+
+	ret
+.failed:
+	ld b, b
+	ret
+
+
+section "ItemsSetCollidePoint", rom0
+;; Enable Item collision detection and set query point, or disable collision detection.
+;; @param A: non-zero to enable collision, zero to disable
+;; @param D,E: collision point Y,X position (screen dots)
+ItemsSetCollidePoint::
+	and a
+	jr z, .disable
+	ld hl, wItemsCollidePointX
+	ld a, e :: ld [hl-], a
+	ld a, d :: ld [hl-], a
+	set bItems_COLLIDE_ENABLE, [hl]
+	ret
+.disable
+	ld hl, wItemsFlags
+	res bItems_COLLIDE_ENABLE, [hl]
+	ret
+
+
+section "ItemsUpdate", rom0
+ItemsUpdate::
+	rombopen bank(ItemInfo)
+	ld hl, wItems
+	ld c, ITEMS_MAX
+.loop
+	bit bItemCtl_ENABLE, [hl]
+	jr z, :+
+		push hl :: push bc
+	call _update_item
+		pop bc :: pop hl
+:
+rept szItem
+	inc hl
+endr
+	dec c
+	jr nz, .loop
+	ret
+
+
+_update_item:
+	; calc screen position
+	ld a, [hl]
+	and ~ItemCtl_VISIBLE
+	ld [hl+], a
+		push hl
+	inc hl ; skip .id
+	call _get_screen_position
+		pop hl
+	ret nc ; off screen
+
+	; lookup ItemDef
+	ld a, [hl-] ; item ID
+assert szItemDef == 4
+	add a :: add a
+	ld de, ItemInfo
+	add e :: ld e, a
+	adc d :: sub e :: ld d, a
+
+	set bItemCtl_VISIBLE, [hl]
+
+	; collide
+	ld a, [wItemsFlags]
+	and Items_COLLIDE_ENABLE
+	jr z, .notouch
+
+	ld a, [wItemsCollidePointY]
+	sub b
+	call AbsS8
+	cp ITEM_TOUCH_RANGE
+	jr nc, .notouch
+
+	ld a, [wItemsCollidePointX]
+	sub c
+	call AbsS8
+	cp ITEM_TOUCH_RANGE
+	jr nc, .notouch
+
+	; collect item
+	set bItemCtl_TOUCHED, [hl]
+
+		push bc :: push hl
+
+	ld a, [de] :: inc de :: ld l, a
+	ld a, [de] :: inc de :: ld b, a
+	call FindsAdd
+
+		pop hl :: pop bc
+
+					; DEBUG: draw sprite with palette override to debug collision/touching
+					; item sprite pointer
+					ld a, [de] :: inc de :: ld l, a
+					ld a, [de] :: inc de :: ld h, a
+
+					; CHR index & palette offset
+					ld a, [wItems_chri] :: ld d, a
+					ld e, 0
+					jp SprxRenderMod
+
+	jr :+
+.notouch:
+	inc de :: inc de ; skip find group, value
+:
+	; item sprite pointer
+	ld a, [de] :: inc de :: ld l, a
+	ld a, [de] :: inc de :: ld h, a
+
+	; CHR index & palette offset
+	ld a, [wItems_chri] :: ld d, a
+	ld a, [wItems_pal] :: ld e, a
+	jp SprxRenderMod
+
+
+;; @param HL: pointer to item Y position
+;; @ret B,C: Y,X
+;; @ret F.Z: set if successful (both axes in 0..256)
+;; @mut: AF, BC, DE, HL
+_get_screen_position:
+	ld a, [wScroll.y + 0] :: ld e, a
+	ld a, [wScroll.y + 1] :: ld d, a
+	; load item position and subtract scroll position
+	ld a, [hl+] :: sub e :: ld c, a
+	ld a, [hl+] :: sbc d :: ld b, a
+
+		push bc
+	ld a, [wScroll.x + 0] :: ld c, a
+	ld a, [wScroll.x + 1] :: ld b, a
+	ld a, [hl+] :: sub c :: ld e, a
+	ld a, [hl+] :: sbc b :: ld d, a
+		pop bc
+
+	jp SprxTestVisibility
+

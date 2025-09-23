@@ -1,0 +1,35 @@
+include "quest.rgbinc"
+
+/*
+Quest: progression / collectables / unlocks 
+*/
+
+
+section "wQuest", wram0
+wFinds: ds szFinds
+
+
+section "QuestInit", rom0
+QuestInit::
+	ld hl, startof("wQuest")
+	ld c, sizeof("wQuest")
+	xor a
+	jp MemFillSmall
+
+
+section "FindsAdd", rom0
+;; Add an item to the collection.
+;; @param L: item group / location (wFinds index)
+;; @param B: item value / tag / quantity
+;; @mut: AF, HL
+FindsAdd::
+	ld h, high(wFinds)
+	ld a, low(wFinds)
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+
+	ld a, [hl]
+	or b
+	ld [hl], a
+	ret
+
