@@ -53,3 +53,21 @@ AddS8_sat::
 
 pops ; AddS8_sat
 
+
+pushs "AbsS8", rom0
+;; Returns absolute value of x, clamped to [0..127].
+;; @param A: x
+;; @ret A: x if x >= 0 or 127 if x == -128 or -x
+;; @mut: AF
+AbsS8::
+	cp $80
+	ret c
+	jr nz, :+
+	dec a
+	ret
+:
+	cpl :: inc a
+	ret
+
+pops ; AbsS8
+
