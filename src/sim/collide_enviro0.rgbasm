@@ -135,6 +135,7 @@ _test_enviro0_4:
 	ld_dy a
 :
 	ld a, RX_4 :: sub c :: ret c
+	ld_dx a
 	ret
 
 ; chr/enviro0.1bpp:5
