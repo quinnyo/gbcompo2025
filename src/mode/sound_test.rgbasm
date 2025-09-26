@@ -21,27 +21,57 @@ modeSoundTest_Enter::
 
 
 modeSoundTest_Process::
-	wrambpush bank("{MODE_COMMON}")
+	wrambopen bank("{MODE_COMMON}")
 
-	ldh a, [hKeysPressed]
-	bit PADB_A, a
-	jr z, :+
+	ldh a, [hKeysPressed] :: ld b, a
 	ld a, [wSfxSelect]
-	jr .play
-:
-	bit PADB_START, a
-	jr z, .nopes
-	ld a, [wSfxSelect]
-	inc a
-	cp SFX_COUNT
-	jr c, :+
-	xor a
-:
+	bit PADB_A, b
+	jr nz, .play
+
+	ld e, a
+	ld d, SFX_COUNT
+	call IndexNavi
+	ret nc
+	ld a, e
 	ld [wSfxSelect], a
 .play
-	call audio_play_fx
-.nopes
+	jp audio_play_fx
 
-	wrambpop
+
+;; Navigate list using up/down direction keys.
+;; @param E: index
+;; @param D: list size
+;; @param B: keys
+;; @ret E: new index
+;; @ret F.C: set if new index differs
+IndexNavi:
+	bit PADB_DOWN, b
+	jr z, :+
+	inc e
+
+	ld a, e
+	cp d
+	sbc a ; $FF if in range
+	and e
+	jr .apply
+:
+
+	bit PADB_UP, b
+	jr z, :+
+	dec e
+
+	ld a, e
+	cp d
+	sbc a :: cpl ; $FF if out of range
+	and d
+	add e
+	jr .apply
+:
+	and a ; clear F.C
+	ret
+
+.apply
+	ld e, a
+	scf
 	ret
 
