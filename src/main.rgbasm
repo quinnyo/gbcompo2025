@@ -45,18 +45,6 @@ section "assets/fonty8.chr", romx, align[4]
 incbin "assets/fonty8.chr"
 
 
-section "assets/iconoglyphs.chr", romx, align[4]
-incbin "assets/iconoglyphs.chr", 0, 16 * 8
-
-
-section "assets/character_test.chr", romx, align[4]
-incbin "assets/character_test.chr"
-
-
-section "assets/character_test.chr.pal", romx
-incbin "assets/character_test.chr.pal"
-
-
 section "assets/enviro1.chr", romx, align[4]
 incbin "assets/enviro1.chr"
 
@@ -142,12 +130,6 @@ Main::
 	ld de, rModes_modeDefault
 	;ld de, rModes_modeSoundTest
 	call ModeSetActive
-
-;	ld b, bank("assets/iconoglyphs.chr")
-;	ld de, startof("assets/iconoglyphs.chr")
-;	ld c, sizeof("assets/iconoglyphs.chr") / 16
-;	ld hl, $8000
-;	call VxLoadRom
 
 	ld b, bank("assets/fonty8.chr")
 	ld de, startof("assets/fonty8.chr")
