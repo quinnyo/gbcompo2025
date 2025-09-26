@@ -3,6 +3,10 @@ include "stuff.rgbinc"
 include "banker.rgbinc"
 
 
+;; Keys for global reset chord.
+def RESET_CHORD equ PADF_A | PADF_B | PADF_START | PADF_SELECT
+
+
 def PLATFORM_CGB   equ $02 ; host is CGB
 def PLATFORM_SGB   equ $04 ; host is SGB
 def PLATFORM_COLOR equ $08 ; CGB mode
@@ -124,6 +128,7 @@ Main::
 	call VBlankInit
 	call ObxInit
 	call InputInit
+	call ChordInit
 	call PalettesInit
 	call CurtainInit
 	call CurtainForceClose
@@ -160,6 +165,10 @@ Main::
 .loop:
 	call InputRead
 	call InputUpdate
+	call ChordProcess
+	ld a, d
+	cp RESET_CHORD
+	jp z, Main
 	call VramxSync
 	call QmenuUpdate
 	call ModeUpdate

@@ -1,0 +1,133 @@
+
+;; Duration of lockout (in frames) at startup.
+def CHORD_LOCKOUT_INIT equ 120
+;; Duration of lockout (in frames) after chord is cancelled/aborted.
+def CHORD_LOCKOUT_CANCEL equ 10
+;; Duration of lockout (in frames) after chord is accepted.
+def CHORD_LOCKOUT_ACCEPTED equ 1
+
+def CHORD_WINDOW_BITS equ 2
+def CHORD_WINDOW_DEFAULT equ 1
+
+rsreset
+def bChordConfig_WINDOW rb CHORD_WINDOW_BITS
+
+def ChordConfig_WINDOW equ ((1 << CHORD_WINDOW_BITS) - 1) << bChordConfig_WINDOW
+def ChordConfig_DEFAULT equ CHORD_WINDOW_DEFAULT << bChordConfig_WINDOW
+
+
+section "wChord", wram0
+wChordKeys: db
+wChordTimer: db
+wChordConfig:: db
+
+
+section "Chord", rom0
+ChordInit::
+	xor a :: ld [wChordKeys], a
+	ld a, CHORD_LOCKOUT_INIT :: ld [wChordTimer], a
+	ld a, ChordConfig_DEFAULT :: ld [wChordConfig], a
+	ret
+
+
+;; @ret D: chord
+ChordProcess::
+	ld d, 0 ; default return value
+	ld a, [wChordTimer] :: ld e, a
+
+	; Idle: if wChordTimer == 0.
+	ld a, e
+	and a
+	jr z, .idle
+
+	; Update timer.
+	dec e
+	ld a, e
+	ld [wChordTimer], a
+
+	; Active: elif wChordKeys != 0
+	ld a, [wChordKeys]
+	and a
+	jr nz, .active
+
+	; Lockout: elif wChordKeys == 0
+.lockout
+	; defer timer expiry until all keys released
+	ld a, e
+	and a
+	ret nz
+	; timer == 0
+	ldh a, [hKeys]
+	and a
+	ret z
+	; keys != 0
+	inc e
+	ld a, e
+	ld [wChordTimer], a
+	ret
+
+.active
+	; Check timer
+	ld a, e
+	and a
+	jr z, ChordCancel
+
+	; Cancel if any key released
+	ldh a, [hKeysReleased]
+	and a
+	jr nz, ChordCancel
+
+	; Update chord
+	ld a, [wChordKeys] :: ld d, a
+	ldh a, [hKeysPressed]
+	or d
+	ld d, a
+	ld [wChordKeys], a
+	ret
+
+.idle
+	; Begin chord when any key/s pressed and no other keys are down.
+	ldh a, [hKeysPressed]
+	and a
+	ret z ; no keys pressed
+	ld e, a
+	ldh a, [hKeys]
+	cp e
+	ret nz ; lingering keys
+
+	ld d, a
+	ld [wChordKeys], a
+
+	call ChordGetWindowFrames
+	ld [wChordTimer], a
+	ret
+
+
+;; @mut: AF
+ChordAccept::
+	ld a, CHORD_LOCKOUT_ACCEPTED :: ld [wChordTimer], a
+	xor a :: ld [wChordKeys], a
+	ret
+
+
+;; @mut: AF
+ChordCancel::
+	ld a, CHORD_LOCKOUT_CANCEL :: ld [wChordTimer], a
+	xor a :: ld [wChordKeys], a
+	ret
+
+
+;; @ret A: configured window duration
+;; @mut: AF
+ChordGetWindowFrames:
+		push hl
+	ld hl, .lut
+	ld a, [wChordConfig]
+	and ChordConfig_WINDOW
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	ld a, [hl]
+		pop hl
+	ret
+.lut: db 34, 49, 67, 88
+
