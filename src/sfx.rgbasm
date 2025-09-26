@@ -73,21 +73,34 @@ wavebank:
 ; - Second byte is unused (padding the entry to a power of 2 bytes)
 ; - Final word is the address of the effect segments
 
-sfx_table:
-  db 0, 0
-  dw fx_signal
-  db 0, 0
-  dw fx_intrigue
-  db 0, 0
-  dw fx_disappointment
-  db 0, 0
-  dw fx_whine
-  db 0, 0
-  dw fx_jump
-  db 0, 0
-  dw fx_land
 
-export def SFX_COUNT equ (@ - sfx_table) / 4
+;; sfxins CHANNEL, SFXDATA[, IDENT]
+macro sfxins
+	assert _NARG == 2 || _NARG == 3
+	db (\1), 0
+	dw (\2)
+
+	export redef SFX_COUNT equ (@ - sfx_table) / 4
+
+	if _NARG == 3
+		export def SFX_\3 equ SFX_COUNT - 1
+	endc
+endm
+
+
+sfx_table:
+	sfxins 0, fx_yip,            YIP
+	sfxins 0, fx_nup,            NUP
+	sfxins 0, fx_flit,           FLIT
+	sfxins 0, fx_drain,          DRAIN
+	sfxins 0, fx_unfold,         UNFOLD
+	sfxins 0, fx_signal,         SIGNAL
+	sfxins 0, fx_intrigue,       INTRIGUE
+	sfxins 0, fx_disappointment, DISAPPOINTMENT
+	sfxins 0, fx_whine,          WHINE
+	sfxins 0, fx_jump,           JUMP
+	sfxins 0, fx_land,           LAND
+
 
 sgb_sfx_table:
   ; To be filled in later
@@ -120,6 +133,46 @@ sgb_sfx_table:
 ; - Pitch is an NR43 value on noise or a semitone number elsewhere.
 ; - The driver does not expose hardware sweep or length counter.
 
+fx_yip:
+	db ENVF_DPAR|ENVF_PITCH|$83, $C2, 50
+	db ENVF_DPAR|$81, $00
+	db ENVF_DPAR|ENVF_PITCH|$81, $C1, 56
+	db ENVF_DPAR|$81, $00
+	db ENVF_DPAR|ENVF_PITCH|$81, $C1, 61
+	db $FF
+
+fx_nup:
+	db ENVF_DPAR|ENVF_PITCH|$01, $F0, 23
+	db $42
+	db ENVF_DPAR|$01, $C0
+	db $42
+	db ENVF_DPAR|$01, $C0
+	db $FF
+
+fx_flit:
+	db ENVF_DPAR|ENVF_PITCH|$81, $F1, 61
+	db ENVF_DPAR|$81, $00
+	db ENVF_DPAR|ENVF_PITCH|$80, $A0, 66
+	db ENVF_DPAR|ENVF_PITCH|$80, $91, 66
+	db $FF
+
+fx_drain:
+	db ENVF_DPAR|ENVF_PITCH|$43, $39, 49
+	db ENVF_DPAR|ENVF_PITCH|$43, $F0, 47
+	db ENVF_DPAR|$02, $00
+	db ENVF_DPAR|ENVF_PITCH|$42, $F5, 46
+	db ENVF_DPAR|$01, $00
+	db ENVF_DPAR|ENVF_PITCH|$43, $A0, 45
+	db ENVF_DPAR|$03, $A2
+	db $FF
+
+fx_unfold:
+	db ENVF_DPAR|ENVF_PITCH|$87, $C2, 47
+	db ENVF_DPAR|$81, $00
+	db ENVF_DPAR|ENVF_PITCH|$85, $C1, 50
+	db ENVF_DPAR|$81, $00
+	db ENVF_DPAR|ENVF_PITCH|$83, $C1, 66
+	db $FF
 
 fx_signal:
 	db ENVF_DPAR|ENVF_PITCH|$83, $F0, 25
