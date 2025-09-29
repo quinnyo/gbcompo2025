@@ -1,4 +1,15 @@
 
+section "RST_CallPtrPtr", rom0[$0028]
+;; Read a pointer from memory and jump to the stored address.
+;; @param HL: address of function pointer
+;; @mut: A, HL
+RST_CallPtrPtr::
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a
+	jp hl
+
+
 section "RST_SwitchJump", rom0[$0030]
 ;; Indexed branch into table stored at the callsite.
 ;; Supports tables (list of addresses) with up to 128 elements.
