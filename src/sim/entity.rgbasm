@@ -1,6 +1,7 @@
 include "entity.rgbinc"
 include "collide.rgbinc"
 include "coord.rgbinc"
+include "banker.rgbinc"
 
 
 section "hSim", hram
@@ -9,9 +10,20 @@ hSim::
 	.tick:: db
 
 
+section "hEntityActive", hram
+;; Info about currently active/"open" entity
+hEntityActive::
+	.index:: db
+	.state:: dw
+
+
 section "wEntity", wram0, align[8]
 wEntity:: ds ENTITY_COUNT_MAX * szEntity
-_pad: ds 256 - (@ - wEntity)
+
+
+section "wEntityFn", wram0, align[bitwidth(szEntityFn)]
+;; EntityFn for each entity's FnUpdate
+wEntityFnUpdate:: ds ENTITY_COUNT_MAX * szEntityFn
 
 
 section "Entity", rom0
@@ -32,31 +44,95 @@ EntityInit::
 	xor a
 	ldh [hSim.tick], a
 
+	ld hl, startof("hEntityActive")
+	ld c, sizeof("hEntityActive")
+	xor a
+	call MemFillSmall
+
+	ld hl, wEntityFnUpdate
+	ld c, ENTITY_COUNT_MAX
+:
+	assert szEntityFn == 4
+	ld a, bank(EntityFnUpdateDefault) :: ld [hl+], a
+	xor a :: ld [hl+], a
+	ld a, low(EntityFnUpdateDefault) :: ld [hl+], a
+	ld a, high(EntityFnUpdateDefault) :: ld [hl+], a
+	dec c
+	jr nz, :-
+
 	ret
 
 
 ; @mut: AF, BC, DE, HL
 EntityUpdate::
-	ld hl, wEntity
+		; Preserve bank out here -- allow lightweight switching in the loop.
+		rombopen
+	; all entities have the same high address
+	assert sizeof("wEntity") == 256
+	ld a, high(wEntity) :: ldh [hEntityActive.state + 1], a
+	; entity index
+	ld b, 0
 .loop
+	ld a, b :: ldh [hEntityActive.index], a
+
+	; get entity state pointer
+	assert szEntity == 16
+	swap a ; mul 16
+	ldh [hEntityActive.state + 0], a
+	ld l, a
+	ld h, high(wEntity)
+
+	; only process ALIVE entities
 	bit ENTINFOB_ALIVE, [hl] :: jr z, .next
+
+	; get ent's FnUpdate
+	assert szEntityFn == 4
+	ld a, b
+
+	ld hl, wEntityFnUpdate >> 2
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	add hl, hl
+	add hl, hl
+
+		; Target function bank
+		rombsel [hl+]
+	; skip second byte ~~~ wEntityFn is aligned so inc low byte alone is OK
+	inc l
+	rst RST_CallPtrPtr
+
+.next
+	ldh a, [hEntityActive.index] :: ld b, a
+	inc b
+	cp ENTITY_COUNT_MAX - 1
+	jr c, .loop
+
+	ldh a, [hSim.tick]
+	inc a
+	ldh [hSim.tick], a
+	ret
+
+
+section "EntityFnUpdateDefault", romx
+;; Default FnUpdate impl -- integrate, apply gravity, drag, do motion with collide
+EntityFnUpdateDefault::
+	ldh a, [hEntityActive.state + 0] :: ld l, a
+	ldh a, [hEntityActive.state + 1] :: ld h, a
 
 	; Update motion X, zero constant accel
 	entity_index Entity_AccX
 	xor a :: call _velocity_update
-	call _velocity_deflate
 	ld de, SPEED_RANGE_CLAMP_PARAM
 	call ClampS8
 	ld a, b :: ldh [hCollide.vx], a
 	ld a, [hl+] :: ldh [hCollide.px+0], a
 	ld a, [hl+] :: ldh [hCollide.px+1], a
 
+	; Update motion Y
 	entity_index Entity_Ctrl
 	call _get_gravity :: ld b, a
-
 	entity_index Entity_AccY
 	ld a, b :: call _velocity_update
-	call _velocity_deflate
 	ld de, SPEED_RANGE_CLAMP_PARAM
 	call ClampS8
 	ld a, b :: ldh [hCollide.vy], a
@@ -67,20 +143,6 @@ EntityUpdate::
 	call CollidePointMotion
 	pop hl
 
-	call _process_collide_result
-
-.next
-assert sizeof("wEntity") == 256
-	entity_index szEntity
-	jp nc, .loop
-
-	ldh a, [hSim.tick]
-	inc a
-	ldh [hSim.tick], a
-	ret
-
-
-_process_collide_result:
 	entity_index Entity_PosX
 	ldh a, [hCollide.px+0] :: ld [hl+], a
 	ld e, a
@@ -166,15 +228,15 @@ _velocity_update:
 	ld b, [hl]
 	ld a, c :: ld [hl+], a
 
-	ret
-
-
+;; "Deflate" velocity -- scale the velocity down to get the position delta.
+;; I can't remember exactly why this was the way it ended up, but I think it had
+;; something to do with having only an hour or two before submission deadline.
+;; TODO: ideally, not this?
+;_velocity_deflate:
 macro velocity_deflate_positive
 	sra b :: sra b; :: sra b; :: sra b
 endm
-
-
-_velocity_deflate:
+	ld a, b
 	rlca
 	jr nc, .positive
 	xor a :: sub b :: ld b, a

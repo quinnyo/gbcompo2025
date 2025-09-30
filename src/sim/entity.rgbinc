@@ -80,4 +80,15 @@ macro entity_index
 endm
 
 
+rsreset
+;; Target function bank
+def EntityFn_Bank rb 1
+;; Pad to power of two (4) for alignment
+def EntityFn_Padding rb 1
+;; Target function address
+def EntityFn_Target rb 2
+;; Size of an EntityFn struct
+def szEntityFn rb 0
+
+
 endc ; Q_ENTITY_INC_b4moRE1M
