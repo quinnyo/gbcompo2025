@@ -5,6 +5,7 @@ section "hMem", hram
 hMemSrcBank:: db
 hMemParamHL:: dw
 hMemStrideGap:: db
+hMemScratch: db
 
 
 section "Mem", rom0
@@ -60,7 +61,7 @@ MemFillSmall::
 ;; @param A: value
 ;; @param BC: length, 0 is interpreted as 65536
 ;; @param HL: destination
-;; @mut: AF, BC, DE, HL
+;; @mut: AF, BC, HL
 MemFillLarge::
 	dec bc
 	inc c
@@ -71,6 +72,29 @@ MemFillLarge::
 	jr nz, :-
 	dec b
 	jr nz, :-
+	ret
+
+
+;; Fill a region with repeated copies of another.
+;; @param DE: source
+;; @param B: reps, 0 is interpreted as 256
+;; @param C: item size
+;; @param HL: region start
+;; @mut: AF, BC, DE, HL
+MemFillRepeat::
+	ld a, c :: ldh [hMemScratch], a
+.outer
+		push de
+.inner
+	ld a, [de]
+	inc de
+	ld [hl+], a
+	dec c
+	jr nz, .inner
+		pop de
+	ldh a, [hMemScratch] :: ld c, a
+	dec b
+	jr nz, .outer
 	ret
 
 
