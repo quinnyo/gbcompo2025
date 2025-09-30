@@ -78,6 +78,12 @@ PlayerSpawn::
 	ld a, [wPlayer.ent]
 	call EntitySetFnThink
 
+	; FnRender impl
+	ld de, PlayerRender
+	ld b, bank(PlayerRender)
+	ld a, [wPlayer.ent]
+	call EntitySetFnRender
+
 	ret
 
 
@@ -111,10 +117,10 @@ PlayerThink:
 	ret
 
 
-PlayerRender::
-	ld a, [wPlayer.ent]
-	call EntityAt
-	ret nc
+PlayerRender:
+	; get entity pointer
+	ldh a, [hEntityActive.state + 0] :: ld l, a
+	ldh a, [hEntityActive.state + 1] :: ld h, a
 
 	; After scrolling, adjust display position
 	entity_index Entity_DispX

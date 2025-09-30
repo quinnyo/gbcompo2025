@@ -27,6 +27,8 @@ def szEntityFnTable equ ENTITY_COUNT_MAX * szEntityFn
 wEntityFnUpdate:: ds szEntityFnTable
 ;; EntityFn impl for each entity's FnThink
 wEntityFnThink:: ds szEntityFnTable
+;; EntityFn impl FnRender
+wEntityFnRender:: ds szEntityFnTable
 
 
 section "Entity", rom0
@@ -116,6 +118,48 @@ EntityUpdate::
 	ret
 
 
+; @mut: AF, BC, DE, HL
+EntityRender::
+		; Preserve bank out here -- allow lightweight switching in the loop.
+		rombopen
+	; all entities have the same high address
+	assert sizeof("wEntity") == 256
+	ld a, high(wEntity) :: ldh [hEntityActive.state + 1], a
+	; entity index
+	ld b, 0
+.loop
+	ld a, b :: ldh [hEntityActive.index], a
+
+	; get entity state pointer
+	assert szEntity == 16
+	swap a ; mul 16
+	ldh [hEntityActive.state + 0], a
+	ld l, a
+	ld h, high(wEntity)
+
+	; only process ALIVE and INVIEW entities
+	ld a, [hl+]
+	cpl
+	and ENTINFOF_ALIVE | ENTINFOF_INVIEW
+	jr nz, .next
+
+	; FnRender
+	ld hl, wEntityFnRender / szEntityFn
+	ldh a, [hEntityActive.index]
+	call EntityGetFn
+		rombsel [hl+]
+	inc l
+	rst RST_CallPtrPtr
+
+.next
+	ldh a, [hEntityActive.index] :: ld b, a
+	inc b
+	cp ENTITY_COUNT_MAX - 1
+	jr c, .loop
+
+	ret
+
+
 section "EntityGetFn", rom0
 ;; Get a pointer to one of an entity's impl functions.
 ;; @param A: entity index
@@ -147,6 +191,15 @@ EntityGetFnUpdate::
 ;; @mut: AF, HL
 EntityGetFnThink::
 	ld hl, wEntityFnThink / szEntityFn
+	jr EntityGetFn
+
+
+;; Get a pointer to an entity's FnRender impl function.
+;; @param A: entity index
+;; @ret HL: pointer to the EntityFn at given index
+;; @mut: AF, HL
+EntityGetFnRender::
+	ld hl, wEntityFnRender / szEntityFn
 	jr EntityGetFn
 
 
@@ -189,6 +242,16 @@ EntitySetFnUpdate::
 ;; @mut: AF, HL
 EntitySetFnThink::
 	ld hl, wEntityFnThink / szEntityFn
+	jr EntitySetFn
+
+
+;; Set an entity's FnRender impl.
+;; @param A: entity index
+;; @param DE: target address
+;; @param B: target bank
+;; @mut: AF, HL
+EntitySetFnRender::
+	ld hl, wEntityFnRender / szEntityFn
 	jr EntitySetFn
 
 
