@@ -90,5 +90,7 @@ def EntityFn_Target rb 2
 ;; Size of an EntityFn struct
 def szEntityFn rb 0
 
+assert szEntityFn == 1 << (bitwidth(szEntityFn - 1)), "Expected power of two szEntityFn."
+
 
 endc ; Q_ENTITY_INC_b4moRE1M

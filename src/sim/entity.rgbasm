@@ -21,9 +21,12 @@ section "wEntity", wram0, align[8]
 wEntity:: ds ENTITY_COUNT_MAX * szEntity
 
 
-section "wEntityFn", wram0, align[bitwidth(szEntityFn)]
+section "wEntityFn", wram0, align[bitwidth(szEntityFn - 1)]
+def szEntityFnTable equ ENTITY_COUNT_MAX * szEntityFn
 ;; EntityFn for each entity's FnUpdate
-wEntityFnUpdate:: ds ENTITY_COUNT_MAX * szEntityFn
+wEntityFnUpdate:: ds szEntityFnTable
+;; EntityFn impl for each entity's FnThink
+wEntityFnThink:: ds szEntityFnTable
 
 
 section "Entity", rom0
@@ -49,18 +52,16 @@ EntityInit::
 	xor a
 	call MemFillSmall
 
-	ld hl, wEntityFnUpdate
-	ld c, ENTITY_COUNT_MAX
-:
-	assert szEntityFn == 4
-	ld a, bank(EntityFnUpdateDefault) :: ld [hl+], a
+	; Set all EntityFn to Dummy impl
+	ld hl, startof("wEntityFn")
+	ld e, l :: ld d, h
+	ld a, bank(EntityFnDummy) :: ld [hl+], a
 	xor a :: ld [hl+], a
-	ld a, low(EntityFnUpdateDefault) :: ld [hl+], a
-	ld a, high(EntityFnUpdateDefault) :: ld [hl+], a
-	dec c
-	jr nz, :-
-
-	ret
+	ld a, low(EntityFnDummy) :: ld [hl+], a
+	ld a, high(EntityFnDummy) :: ld [hl+], a
+	ld c, szEntityFn
+	ld b, sizeof("wEntityFn") / szEntityFn - 1
+	jp MemFillRepeat
 
 
 ; @mut: AF, BC, DE, HL
@@ -85,19 +86,21 @@ EntityUpdate::
 	; only process ALIVE entities
 	bit ENTINFOB_ALIVE, [hl] :: jr z, .next
 
-	; get ent's FnUpdate
-	assert szEntityFn == 4
-	ld a, b
-
-	ld hl, wEntityFnUpdate >> 2
-	add l :: ld l, a
-	adc h :: sub l :: ld h, a
-	add hl, hl
-	add hl, hl
-
+	; FnThink
+	ld hl, wEntityFnThink / szEntityFn
+	ldh a, [hEntityActive.index]
+	call EntityGetFn
 		; Target function bank
 		rombsel [hl+]
 	; skip second byte ~~~ wEntityFn is aligned so inc low byte alone is OK
+	inc l
+	rst RST_CallPtrPtr
+
+	; FnUpdate
+	ld hl, wEntityFnUpdate / szEntityFn
+	ldh a, [hEntityActive.index]
+	call EntityGetFn
+		rombsel [hl+]
 	inc l
 	rst RST_CallPtrPtr
 
@@ -113,17 +116,119 @@ EntityUpdate::
 	ret
 
 
-section "EntityFnUpdateDefault", romx
+section "EntityGetFn", rom0
+;; Get a pointer to one of an entity's impl functions.
+;; @param A: entity index
+;; @param HL: function table start address divided by szEntityFn
+;; @ret HL: pointer to the EntityFn at given index
+;; @mut: AF, HL
+EntityGetFn::
+	; at(i) = table + i * szItem = (i + table / szItem) * szItem
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	assert szEntityFn == 4
+	add hl, hl
+	add hl, hl
+	ret
+
+
+;; Get a pointer to an entity's FnUpdate impl function.
+;; @param A: entity index
+;; @ret HL: pointer to the EntityFn at given index
+;; @mut: AF, HL
+EntityGetFnUpdate::
+	ld hl, wEntityFnUpdate / szEntityFn
+	jr EntityGetFn
+
+
+;; Get a pointer to an entity's FnThink impl function.
+;; @param A: entity index
+;; @ret HL: pointer to the EntityFn at given index
+;; @mut: AF, HL
+EntityGetFnThink::
+	ld hl, wEntityFnThink / szEntityFn
+	jr EntityGetFn
+
+
+section "EntitySetFn", rom0
+;; Set an entity's impl function.
+;; @param A: entity index
+;; @param HL: function table start address divided by szEntityFn
+;; @param DE: target address
+;; @param B: target bank
+;; @mut: AF, HL
+EntitySetFn::
+	; at(i) = table + i * szItem = (i + table / szItem) * szItem
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	assert szEntityFn == 4
+	add hl, hl
+	add hl, hl
+
+	ld a, b :: ld [hl+], a ; bank
+	inc l ; (unused)
+	ld a, e :: ld [hl+], a ; target.lo
+	ld [hl], d ; target.hi
+	ret
+
+
+;; Set an entity's FnUpdate impl.
+;; @param A: entity index
+;; @param DE: target address
+;; @param B: target bank
+;; @mut: AF, HL
+EntitySetFnUpdate::
+	ld hl, wEntityFnUpdate / szEntityFn
+	jr EntitySetFn
+
+
+;; Set an entity's FnThink impl.
+;; @param A: entity index
+;; @param DE: target address
+;; @param B: target bank
+;; @mut: AF, HL
+EntitySetFnThink::
+	ld hl, wEntityFnThink / szEntityFn
+	jr EntitySetFn
+
+
+section "EntityAt", rom0
+;; Get a pointer to the Entity struct at the given index.
+;; @param A: entity index
+;; @ret HL: pointer to the Entity
+;; @ret F.C: set if successful (i.e. index in range)
+;; @mut: AF, HL
+EntityAt::
+	cp ENTITY_COUNT_MAX
+	ret nc
+
+	ld hl, wEntity / szEntity
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	assert szEntity == 16
+	add hl, hl
+	add hl, hl
+	add hl, hl
+	add hl, hl
+	scf ; ret F.C
+	ret
+
+
+section "EntityFnDummy", romx
+;; Entity impl that does nothing.
+EntityFnDummy::
+	ret
+
+
+section "EntityFnUpdate", romx
 ;; Default FnUpdate impl -- integrate, apply gravity, drag, do motion with collide
-EntityFnUpdateDefault::
+EntityFnUpdateMoveCollide::
 	ldh a, [hEntityActive.state + 0] :: ld l, a
 	ldh a, [hEntityActive.state + 1] :: ld h, a
 
 	; Update motion X, zero constant accel
 	entity_index Entity_AccX
 	xor a :: call _velocity_update
-	ld de, SPEED_RANGE_CLAMP_PARAM
-	call ClampS8
 	ld a, b :: ldh [hCollide.vx], a
 	ld a, [hl+] :: ldh [hCollide.px+0], a
 	ld a, [hl+] :: ldh [hCollide.px+1], a
@@ -133,8 +238,6 @@ EntityFnUpdateDefault::
 	call _get_gravity :: ld b, a
 	entity_index Entity_AccY
 	ld a, b :: call _velocity_update
-	ld de, SPEED_RANGE_CLAMP_PARAM
-	call ClampS8
 	ld a, b :: ldh [hCollide.vy], a
 	ld a, [hl+] :: ldh [hCollide.py+0], a
 	ld a, [hl+] :: ldh [hCollide.py+1], a
@@ -199,6 +302,78 @@ EntityFnUpdateDefault::
 	ret
 
 
+;; FnUpdate impl that performs the same motion as the default impl with no collision.
+EntityFnUpdateMotionOnly::
+	ldh a, [hEntityActive.state + 0] :: ld l, a
+	ldh a, [hEntityActive.state + 1] :: ld h, a
+
+	; Update motion X, zero constant accel
+	entity_index Entity_AccX
+	xor a :: call _velocity_update
+	ld e, b :: call _apply_step
+
+	; view dots X position
+	coord_int16 bc
+	ld a, [wScroll.x + 0] :: ld e, a
+	ld a, [wScroll.x + 1] :: ld d, a
+	ld a, c :: sub e :: ld c, a
+	ld a, b :: sbc d :: ld b, a
+		push bc
+
+	; Update motion Y
+	entity_index Entity_Ctrl
+	call _get_gravity :: ld b, a
+	entity_index Entity_AccY
+	ld a, b :: call _velocity_update
+	ld e, b :: call _apply_step
+
+	; view dots Y position
+	coord_int16 bc
+	ld a, [wScroll.y + 0] :: ld e, a
+	ld a, [wScroll.y + 1] :: ld d, a
+	ld a, c :: sub e :: ld c, a
+	ld a, b :: sbc d :: ld b, a
+		pop de ; X
+
+	; Update display position, visibility
+	entity_index Entity_Info
+	res ENTINFOB_INVIEW, [hl]
+	call SprxTestVisibility
+	jr nc, :+
+	; visible
+	set ENTINFOB_INVIEW, [hl]
+	entity_index Entity_DispX
+	ld a, c :: ld [hl+], a ; DispX
+	ld a, e :: ld [hl+], a ; DispY
+:
+
+	ret
+
+
+;; Add a delta to entity's position
+;; @param HL: pointer to entity position
+;; @param E: step
+;; @ret BC: updated position
+;; @mut: AF, BC
+_apply_step:
+	ld a, [hl+] :: ld c, a
+	ld a, [hl-] :: ld b, a
+
+	; Update position (16 bit + signed 8 bit)
+	ld a, e
+	add c
+	ld c, a
+	adc b
+	rl e ; Set F.C from sign of velocity
+	sbc c
+	ld b, a
+
+	ld a, c :: ld [hl+], a
+	ld a, b :: ld [hl-], a
+
+	ret
+
+
 ;; @param HL: Pointer to beginning of an Entity motion block.
 ;; @param A: constant accel
 ;; @ret B: velocity for the current frame
@@ -242,10 +417,13 @@ endm
 	xor a :: sub b :: ld b, a
 	velocity_deflate_positive
 	xor a :: sub b :: ld b, a
-	ret
+.end
+	; Finally! Clamp velocity (B) to the valid range.
+	ld de, SPEED_RANGE_CLAMP_PARAM
+	jp ClampS8
 .positive
 	velocity_deflate_positive
-	ret
+	jr .end
 
 
 ;; Get gravity accel for an entity

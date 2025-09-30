@@ -73,7 +73,8 @@ modeGamePrep_Enter::
 	call MapGetPlayerStart
 	coord_from_dots16 bc
 	coord_from_dots16 de
-	ld hl, wEntity
+
+	xor a ; player entity index
 	call PlayerSpawn
 
 	ld a, MODE_STATE_EXTRA :: ldh [hModeState], a
@@ -97,24 +98,10 @@ modeGame_Enter::
 
 
 modeGame_Process::
-	call PlayerUpdate
 	call EntityUpdate
 	call _ViewUpdate
 
-	; Use player position as Items collide point
-	ld hl, wPlayer.ent
-	ld a, [hl+]
-	ld h, [hl]
-	ld l, a
-	ld a, [hl] ; .Info
-	and ENTINFOF_INVIEW
-	jr z, :+
-	entity_index Entity_DispX
-	ld a, [hl+] :: ld e, a
-	ld a, [hl+] :: ld d, a
-	ld a, 1
-:
-	call ItemsSetCollidePoint
+	call _ItemsUpdateCollision
 	call ItemsUpdate
 
 	call ScrollUpdate
@@ -124,6 +111,26 @@ modeGame_Process::
 	call PlayerRender
 
 	ret
+
+
+_ItemsUpdateCollision:
+	; Use player position as Items collide point
+	ld a, [wPlayer.ent]
+	call EntityAt
+	jr nc, .disable_item_collision
+
+	ld a, [hl] ; .Info
+	and ENTINFOF_INVIEW
+	jr z, :+
+	entity_index Entity_DispX
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+	ld a, 1
+:
+	jp ItemsSetCollidePoint
+.disable_item_collision
+	xor a
+	jp ItemsSetCollidePoint
 
 
 _ViewUpdate:

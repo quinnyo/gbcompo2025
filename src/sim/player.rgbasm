@@ -17,7 +17,7 @@ def THRUST_TICK equ $07
 section "wPlayer", wram0
 wPlayer::
 	.vkeys: db
-	.ent:: dw
+	.ent:: db
 	.vis:: ds szVisDiver
 
 
@@ -35,20 +35,21 @@ PlayerInit::
 	ldh [hPlayerDriveY], a
 	ldh [hPlayerDriveX], a
 	ld a, $FF
-	ld [wPlayer.ent+0], a
-	ld [wPlayer.ent+1], a
+	ld [wPlayer.ent], a
 
 	ld hl, wPlayer.vis
 	jp VisDiverReset
 
 
-;; @param HL: player entity
+;; @param A: player entity index
 ;; @param BC: Y position
 ;; @param DE: X position
 ;; @mut: AF, HL
 PlayerSpawn::
-	ld a, l :: ld [wPlayer.ent+0], a
-	ld a, h :: ld [wPlayer.ent+1], a
+	ld [wPlayer.ent], a
+
+	ld a, [wPlayer.ent]
+	call EntityAt
 
 	ld a, ENTINFOF_ALIVE | $01
 	ld [hl+], a
@@ -65,16 +66,29 @@ PlayerSpawn::
 	ld a, c :: ld [hl+], a ; posy.lo
 	ld a, b :: ld [hl+], a ; posy.hi
 
+	; FnUpdate impl
+	ld de, EntityFnUpdateMoveCollide
+	ld b, bank(EntityFnUpdateMoveCollide)
+	ld a, [wPlayer.ent]
+	call EntitySetFnUpdate
+
+	; FnThink impl
+	ld de, PlayerThink
+	ld b, bank(PlayerThink)
+	ld a, [wPlayer.ent]
+	call EntitySetFnThink
+
 	ret
 
 
-;; Player entity controller: per-tick update function
+;; Entity impl FnThink for player entity controller.
 ;; @mut: AF, BC, D, HL
-PlayerUpdate::
+PlayerThink:
 	call PlayerInputUpdate
 
-	call PlayerGetEntity
-	ret z
+	; get entity pointer
+	ldh a, [hEntityActive.state + 0] :: ld l, a
+	ldh a, [hEntityActive.state + 1] :: ld h, a
 
 	entity_index Entity_Ctrl
 	; set NOGRAV if active directional input.
@@ -97,21 +111,10 @@ PlayerUpdate::
 	ret
 
 
-;; @ret HL: pointer to player entity (if F.NZ)
-;; @ret F.Z: null entity
-PlayerGetEntity::
-	ld hl, wPlayer.ent
-	ld a, [hl+]
-	ld h, [hl]
-	ld l, a
-	; if .ent == $FFFF, abort
-	and h :: inc a
-	ret
-
-
 PlayerRender::
-	call PlayerGetEntity
-	ret z
+	ld a, [wPlayer.ent]
+	call EntityAt
+	ret nc
 
 	; After scrolling, adjust display position
 	entity_index Entity_DispX
@@ -166,8 +169,9 @@ PlayerRender::
 
 
 PlayerViewTarget::
-	call PlayerGetEntity
-	ret z
+	ld a, [wPlayer.ent]
+	call EntityAt
+	ret nc
 
 	; player entity Y position
 	entity_index Entity_PosY
