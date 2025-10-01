@@ -13,6 +13,9 @@ def ROMB_LO equ $2000
 
 
 ;; rombsel BANK
+;; Directly set the ROMX bank.
+;; The current state is not preserved.
+;; @mut: A
 macro rombsel
 	assert _NARG == 1
 	ld a, \#
@@ -63,6 +66,17 @@ endm
 macro rombpop
 	pop af
 	ld [ROMB_LO], a
+endm
+
+
+;; wrambsel BANK
+;; Directly set the WRAMX bank.
+;; The current state is not preserved.
+;; @mut: A
+macro wrambsel
+	assert _NARG == 1
+	ld a, \#
+	ldh [rSVBK], a
 endm
 
 
