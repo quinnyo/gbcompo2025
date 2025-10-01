@@ -2,6 +2,7 @@ include "hardware.inc"
 include "sim/entity.rgbinc"
 include "coord.rgbinc"
 include "vis/diver.rgbinc"
+include "banker.rgbinc"
 
 
 def bVKEY_FLAP        equ 0
@@ -13,32 +14,35 @@ def AUTOFLAP_THRESHOLD equ $02
 
 def THRUST_TICK equ $07
 
+rsreset
+def Player_vis rb szVisDiver
+;def Player_vkeys rb 1
+;def Player_ydrive rb 1
+;def Player_xdrive rb 1
+def szPlayer rb 0
+assert szPlayer <= szEntityUsr0, "Player struct exceeds Entity Usr0 allocation. ({d:szPlayer} > {d:szEntityUsr0})"
+
 
 section "wPlayer", wram0
 wPlayer::
 	.vkeys: db
+	;; Direct directional movement vector, Y axis
+	.driveY: db
+	;; 'Drive' movement control vector, X axis
+	.driveX: db
+	;; Entity index
 	.ent:: db
-	.vis:: ds szVisDiver
-
-
-section "hPlayer", hram
-;; Direct directional movement vector, Y axis
-hPlayerDriveY: db
-;; 'Drive' movement control vector, X axis
-hPlayerDriveX: db
 
 
 section "Player", rom0
 PlayerInit::
 	xor a
 	ld [wPlayer.vkeys], a
-	ldh [hPlayerDriveY], a
-	ldh [hPlayerDriveX], a
+	ld [wPlayer.driveY], a
+	ld [wPlayer.driveX], a
 	ld a, $FF
 	ld [wPlayer.ent], a
-
-	ld hl, wPlayer.vis
-	jp VisDiverReset
+	ret
 
 
 ;; @param A: player entity index
@@ -83,6 +87,14 @@ PlayerSpawn::
 	ld b, bank(PlayerRender)
 	ld a, [wPlayer.ent]
 	call EntitySetFnRender
+
+	; vis struct in Usr0
+	ld a, [wPlayer.ent]
+	call EntityGetUsr0
+		wrambpush bank(wEntityUsr0)
+	assert Player_vis == 0
+	call VisDiverReset
+		wrambpop
 
 	ret
 
@@ -136,9 +148,9 @@ PlayerRender:
 
 	; Update vis ctl speed
 	ld b, 0
-	ldh a, [hPlayerDriveY]
+	ld a, [wPlayer.driveY]
 	ld c, a
-	ldh a, [hPlayerDriveX]
+	ld a, [wPlayer.driveX]
 	or c
 	jr z, .nodrive
 	entity_index Entity_VelY
@@ -156,22 +168,25 @@ PlayerRender:
 :
 	ld b, a
 .nodrive
+	; player.vis (in entity usr0)
+	ldh a, [hEntityActive.usr0 + 0] :: ld l, a
+	ldh a, [hEntityActive.usr0 + 1] :: ld h, a
+
 	; ctl.HEADING
 	ldh a, [hKeys]
 	and VisDiverCtl_HEADING
 	or b
-	ld hl, wPlayer.vis
 	call VisDiverSetCtl
 
 		pop bc
 
+	ldh a, [hEntityActive.usr0 + 0] :: ld l, a
+	ldh a, [hEntityActive.usr0 + 1] :: ld h, a
 	; update position
-	ld hl, wPlayer.vis
 	ld a, b :: ld [hl+], a
 	ld a, c :: ld [hl-], a
-	call VisDiverUpdate
-
-	ret
+	; update/display
+	jp VisDiverUpdate
 
 
 PlayerViewTarget::
@@ -292,8 +307,8 @@ PlayerInputUpdate:
 ;	ld de, (1 << 8) | 2
 	ldh a, [hKeys] :: ld b, a
 	call Vecdir8FromKeys
-	ld a, d :: ldh [hPlayerDriveY], a
-	ld a, e :: ldh [hPlayerDriveX], a
+	ld a, d :: ld [wPlayer.driveY], a
+	ld a, e :: ld [wPlayer.driveX], a
 
 	; B will hold the new vkeys state...
 	ld b, 0

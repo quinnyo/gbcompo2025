@@ -1,6 +1,7 @@
 include "entity.rgbinc"
 include "collide.rgbinc"
 include "coord.rgbinc"
+include "hardware.inc"
 include "banker.rgbinc"
 
 
@@ -15,6 +16,7 @@ section "hEntityActive", hram
 hEntityActive::
 	.index:: db
 	.state:: dw
+	.usr0:: dw
 
 
 section "wEntity", wram0, align[8]
@@ -29,6 +31,11 @@ wEntityFnUpdate:: ds szEntityFnTable
 wEntityFnThink:: ds szEntityFnTable
 ;; EntityFn impl FnRender
 wEntityFnRender:: ds szEntityFnTable
+
+
+section "wEntityUsr0", wramx, align[bitwidth(szEntityUsr0 - 1)]
+;; Per-Entity implementor-use area
+wEntityUsr0:: ds ENTITY_COUNT_MAX * szEntityUsr0
 
 
 section "Entity", rom0
@@ -70,41 +77,23 @@ EntityInit::
 EntityUpdate::
 		; Preserve bank out here -- allow lightweight switching in the loop.
 		rombopen
-	; all entities have the same high address
-	assert sizeof("wEntity") == 256
-	ld a, high(wEntity) :: ldh [hEntityActive.state + 1], a
+		wrambopen
+
 	; entity index
 	ld b, 0
 .loop
-	ld a, b :: ldh [hEntityActive.index], a
-
-	; get entity state pointer
-	assert szEntity == 16
-	swap a ; mul 16
-	ldh [hEntityActive.state + 0], a
-	ld l, a
-	ld h, high(wEntity)
+	call EntityActiveSelect
 
 	; only process ALIVE entities
 	bit ENTINFOB_ALIVE, [hl] :: jr z, .next
 
 	; FnThink
 	ld hl, wEntityFnThink / szEntityFn
-	ldh a, [hEntityActive.index]
-	call EntityGetFn
-		; Target function bank
-		rombsel [hl+]
-	; skip second byte ~~~ wEntityFn is aligned so inc low byte alone is OK
-	inc l
-	rst RST_CallPtrPtr
+	call EntityActiveInvoke
 
 	; FnUpdate
 	ld hl, wEntityFnUpdate / szEntityFn
-	ldh a, [hEntityActive.index]
-	call EntityGetFn
-		rombsel [hl+]
-	inc l
-	rst RST_CallPtrPtr
+	call EntityActiveInvoke
 
 .next
 	ldh a, [hEntityActive.index] :: ld b, a
@@ -122,20 +111,12 @@ EntityUpdate::
 EntityRender::
 		; Preserve bank out here -- allow lightweight switching in the loop.
 		rombopen
-	; all entities have the same high address
-	assert sizeof("wEntity") == 256
-	ld a, high(wEntity) :: ldh [hEntityActive.state + 1], a
+		wrambopen
+
 	; entity index
 	ld b, 0
 .loop
-	ld a, b :: ldh [hEntityActive.index], a
-
-	; get entity state pointer
-	assert szEntity == 16
-	swap a ; mul 16
-	ldh [hEntityActive.state + 0], a
-	ld l, a
-	ld h, high(wEntity)
+	call EntityActiveSelect
 
 	; only process ALIVE and INVIEW entities
 	ld a, [hl+]
@@ -145,11 +126,7 @@ EntityRender::
 
 	; FnRender
 	ld hl, wEntityFnRender / szEntityFn
-	ldh a, [hEntityActive.index]
-	call EntityGetFn
-		rombsel [hl+]
-	inc l
-	rst RST_CallPtrPtr
+	call EntityActiveInvoke
 
 .next
 	ldh a, [hEntityActive.index] :: ld b, a
@@ -157,6 +134,60 @@ EntityRender::
 	cp ENTITY_COUNT_MAX - 1
 	jr c, .loop
 
+	ret
+
+
+section "EntityActiveInvoke", rom0
+;; Invoke an impl (EntityFn) of the active entity.
+;; NOTE: ROMX and WRAMX banks will be changed.
+;; @param HL: function table start address divided by szEntityFn
+;; @mut: AF, HL, (BC), (DE)
+EntityActiveInvoke:
+	ldh a, [hEntityActive.index]
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	assert szEntityFn == 4
+	add hl, hl
+	add hl, hl
+		; Target function bank
+		rombsel [hl+]
+	; skip second byte ~~~ wEntityFn is aligned so inc low byte alone is OK
+	inc l
+		wrambsel bank(wEntityUsr0)
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a
+	jp hl
+
+
+section "EntityActiveSelect", rom0
+;; Set the active entity, update hEntityActive.
+;; @param B: index of entity to select
+;; @ret HL: Entity state pointer
+;; @mut: AF, HL
+EntityActiveSelect::
+	ld a, b :: ldh [hEntityActive.index], a
+
+	ld hl, wEntityUsr0 / szEntityUsr0
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	assert szEntityUsr0 == 16
+	add hl, hl
+	add hl, hl
+	add hl, hl
+	add hl, hl
+	ld a, l :: ldh [hEntityActive.usr0 + 0], a
+	ld a, h :: ldh [hEntityActive.usr0 + 1], a
+
+	; get entity state pointer
+	assert szEntity == 16
+	ld a, b
+	swap a ; mul 16
+	ldh [hEntityActive.state + 0], a
+	ld l, a
+	ld a, high(wEntity)
+	ldh [hEntityActive.state + 1], a
+	ld h, a
 	ret
 
 
@@ -274,6 +305,24 @@ EntityAt::
 	add hl, hl
 	add hl, hl
 	scf ; ret F.C
+	ret
+
+
+section "EntityGetUsr0", rom0
+;; Returns a pointer to an Entity's block in wEntityUsr0.
+;; @param A: entity index
+;; @param HL: user region start address divided by szEntityUsr0
+;; @ret HL: pointer to the user region
+;; @mut: AF, HL
+EntityGetUsr0::
+	ld hl, wEntityUsr0 / szEntityUsr0
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	assert szEntityUsr0 == 16
+	add hl, hl
+	add hl, hl
+	add hl, hl
+	add hl, hl
 	ret
 
 

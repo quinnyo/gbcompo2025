@@ -93,4 +93,8 @@ def szEntityFn rb 0
 assert szEntityFn == 1 << (bitwidth(szEntityFn - 1)), "Expected power of two szEntityFn."
 
 
+;; Size of per-Entity implementor use block
+def szEntityUsr0 equ 16
+
+
 endc ; Q_ENTITY_INC_b4moRE1M
