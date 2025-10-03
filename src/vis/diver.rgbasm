@@ -258,6 +258,7 @@ VisDiverResourceInit::
 
 section "VisDiverReset", rom0
 ;; @param HL: this VisDiver
+;; @mut: AF, BC, DE, HL
 VisDiverReset::
 	xor a
 	; y, x

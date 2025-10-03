@@ -48,7 +48,7 @@ PlayerInit::
 ;; @param A: player entity index
 ;; @param BC: Y position
 ;; @param DE: X position
-;; @mut: AF, HL
+;; @mut: AF, BC, DE, HL
 PlayerSpawn::
 	ld [wPlayer.ent], a
 
