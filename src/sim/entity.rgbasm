@@ -82,7 +82,7 @@ EntityUpdate::
 	; entity index
 	ld b, 0
 .loop
-	call EntityActiveSelect
+	ld a, b :: call EntityActiveSelect
 
 	; only process ALIVE entities
 	bit ENTINFOB_ALIVE, [hl] :: jr z, .next
@@ -116,7 +116,7 @@ EntityRender::
 	; entity index
 	ld b, 0
 .loop
-	call EntityActiveSelect
+	ld a, b :: call EntityActiveSelect
 
 	; only process ALIVE and INVIEW entities
 	ld a, [hl+]
@@ -162,13 +162,14 @@ EntityActiveInvoke:
 
 section "EntityActiveSelect", rom0
 ;; Set the active entity, update hEntityActive.
-;; @param B: index of entity to select
+;; @param A: index of entity to select
 ;; @ret HL: Entity state pointer
 ;; @mut: AF, HL
 EntityActiveSelect::
-	ld a, b :: ldh [hEntityActive.index], a
+	ldh [hEntityActive.index], a
 
 	ld hl, wEntityUsr0 / szEntityUsr0
+	ldh a, [hEntityActive.index]
 	add l :: ld l, a
 	adc h :: sub l :: ld h, a
 	assert szEntityUsr0 == 16
@@ -181,7 +182,7 @@ EntityActiveSelect::
 
 	; get entity state pointer
 	assert szEntity == 16
-	ld a, b
+	ldh a, [hEntityActive.index]
 	swap a ; mul 16
 	ldh [hEntityActive.state + 0], a
 	ld l, a
