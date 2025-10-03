@@ -55,7 +55,7 @@ PlayerSpawn::
 	ld a, [wPlayer.ent]
 	call EntityAt
 
-	ld a, ENTINFOF_ALIVE | $01
+	ld a, ENTINFOF_OCCUPIED | ENTINFOF_ALIVE | $01
 	ld [hl+], a
 	xor a :: ld [hl+], a
 

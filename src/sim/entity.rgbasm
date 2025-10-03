@@ -85,7 +85,10 @@ EntityUpdate::
 	ld a, b :: call EntityActiveSelect
 
 	; only process ALIVE entities
-	bit ENTINFOB_ALIVE, [hl] :: jr z, .next
+	ld a, [hl+]
+	cpl
+	and ENTINFOF_OCCUPIED | ENTINFOF_ALIVE
+	jr nz, .next
 
 	; FnThink
 	ld hl, wEntityFnThink / szEntityFn
@@ -121,7 +124,7 @@ EntityRender::
 	; only process ALIVE and INVIEW entities
 	ld a, [hl+]
 	cpl
-	and ENTINFOF_ALIVE | ENTINFOF_INVIEW
+	and ENTINFOF_OCCUPIED | ENTINFOF_ALIVE | ENTINFOF_INVIEW
 	jr nz, .next
 
 	; FnRender
@@ -189,6 +192,42 @@ EntityActiveSelect::
 	ld a, high(wEntity)
 	ldh [hEntityActive.state + 1], a
 	ld h, a
+	ret
+
+
+section "EntityActiveSelectEmpty", rom0
+;; Select the first unoccupied entity slot, if any.
+;; @ret HL: address of empty slot
+;; @ret C: index
+;; @ret F.C: set if successful
+;; @mut: AF, C, HL
+EntityActiveSelectEmpty::
+	ld hl, wEntity + szEntity * ENTITY_AUTO_ASSIGN_START
+	ld c, ENTITY_AUTO_ASSIGN_START
+:
+	ld a, [hl]
+	and ENTINFOF_OCCUPIED
+	jr z, .ok
+
+	inc c
+	ld a, c
+	cp ENTITY_COUNT_MAX
+	ret nc
+
+	ld a, szEntity
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	jr :-
+.ok
+	ld a, l :: ldh [hEntityActive.state + 0], a
+	ld a, h :: ldh [hEntityActive.state + 1], a
+	ld a, c :: ldh [hEntityActive.index], a
+		push hl
+	call EntityGetUsr0
+	ld a, l :: ldh [hEntityActive.usr0 + 0], a
+	ld a, h :: ldh [hEntityActive.usr0 + 1], a
+		pop hl
+	scf
 	ret
 
 
