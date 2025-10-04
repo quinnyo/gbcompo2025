@@ -77,6 +77,8 @@ modeGamePrep_Enter::
 	xor a ; player entity index
 	call PlayerSpawn
 
+	call ItemsSetupSpecial
+
 	ld a, MODE_STATE_EXTRA :: ldh [hModeState], a
 	ret
 

@@ -101,11 +101,14 @@ wMapHeader::
 	.chunk_table:: dw
 	.objects:: dw
 
-wMapObjectCache:
-	.typeid: db
-	.extra: db
-	.y: dw
-	.x: dw
+
+section "wMapObjectCache", wram0
+;; Copy of MapObject that's being worked on.
+wMapObjectCache::
+	.typeid:: db
+	.extra:: db
+	.y:: dw
+	.x:: dw
 assert @ - wMapObjectCache == szMapObject
 
 
@@ -236,7 +239,7 @@ _SetupObjects:
 
 	; process object
 		push bc :: push hl
-	ld hl, wMapObjectCache
+	ld de, wMapObjectCache
 	call .do_object
 		pop hl :: pop bc
 
@@ -247,26 +250,15 @@ _SetupObjects:
 
 
 .do_object:
-	ld a, [hl+] ; typeid
+	ld a, [de] ; typeid
 	cp MapObject_ITEM_ID_MAX
-	jr c, .do_item
+	jp c, ItemsSpawnMapObject
 	cp MapObject_PLAYER_START
 	jr z, .do_player_start
 
 .err_unexpected_object_type
 	ld b, b
 	jr .err_unexpected_object_type
-
-
-.do_item:
-	ld hl, wMapObjectCache.y
-	ld a, [hl+] :: ld c, a ; y.lo
-	ld a, [hl+] :: ld b, a ; y.hi
-	ld a, [hl+] :: ld e, a ; x.lo
-	ld a, [hl+] :: ld d, a ; x.hi
-	ld a, [wMapObjectCache.typeid]
-	sub MapObject_ITEM_ID
-	jp ItemsSpawn
 
 
 .do_player_start:

@@ -1,35 +1,105 @@
+include "hardware.inc"
 include "quest.rgbinc"
+include "banker.rgbinc"
+
 
 /*
-Quest: progression / collectables / unlocks 
+Quest: progression / collectables / unlocks
 */
 
 
-section "wQuest", wram0
-wFinds: ds szFinds
+section "wQuest", wramx
+;; Finds collection storage, 1 bit per item: got or not.
+wFinds: ds FINDS_COUNT >> 3
 
 
 section "QuestInit", rom0
 QuestInit::
+	wrambopen bank("wQuest")
 	ld hl, startof("wQuest")
 	ld c, sizeof("wQuest")
 	xor a
 	jp MemFillSmall
 
 
-section "FindsAdd", rom0
-;; Add an item to the collection.
-;; @param L: item group / location (wFinds index)
-;; @param B: item value / tag / quantity
-;; @mut: AF, HL
-FindsAdd::
-	ld h, high(wFinds)
-	ld a, low(wFinds)
-	add l :: ld l, a
-	adc h :: sub l :: ld h, a
+section "FindIdDecode", rom0
+;; Extract components from a FindId.
+;; @param A: ID
+;; @ret D: store byte (only if success)
+;; @ret E: member index (only if success)
+;; @ret F.C: success; set if ID in range and valid
+;; @mut: AF, DE
+FindIdDecode::
+	cp FINDS_COUNT
+	ret nc
 
-	ld a, [hl]
-	or b
-	ld [hl], a
+	ld d, a
+	and $07
+	ld e, a ; member index
+	xor d
+	rrca :: rrca :: rrca
+	ld d, a ; store byte
+	scf
 	ret
 
+
+section "FindsAdd", rom0
+;; Add a find to the collection.
+;; @param A: Find ID
+;; @mut: AF, DE, HL
+FindsAdd::
+	call FindIdDecode
+	jr nc, .err_out_of_range
+
+	ld hl, BitmaskTable
+	ld a, e :: add l :: ld l, a
+	ld e, [hl]
+
+		wrambpush bank(wFinds)
+	ld hl, wFinds
+	ld a, d :: add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	ld a, [hl]
+	; TODO: something if it was unset ?
+	or e
+	ld [hl], a
+		wrambpop
+	ret
+
+.err_out_of_range:
+	ld b, b
+	xor a ; clear F.Z
+	ret
+
+
+section "FindsQuery", rom0
+;; Check if a find is in the collection.
+;; @param A: Find ID
+;; @ret A: Find state (if valid)
+;; @ret F.Z: set if find is *not* in the collection.
+;; @ret F.C: set if result is valid
+;; @mut: AF, DE, HL
+FindsQuery::
+	call FindIdDecode
+	jr nc, .not_found
+
+	ld hl, BitmaskTable
+	ld a, e :: add l :: ld l, a
+	ld e, [hl]
+
+		wrambpush bank(wFinds)
+	ld hl, wFinds
+	ld a, d :: add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	ld a, [hl]
+	and e
+	ld e, a
+		wrambpop
+	ld a, e
+	and a
+	scf
+	ret
+
+.not_found:
+	xor a ; clear F.Z
+	ret
