@@ -1,4 +1,11 @@
 
+pushs "BitmaskTable", rom0, align[3]
+;; 8 bit single-bit bitmask lookup table.
+BitmaskTable:: db $01, $02, $04, $08, $10, $20, $40, $80
+
+pops ; BitmaskTable
+
+
 pushs "ClampS8", rom0
 ;; @param B: Value
 ;; @param E: Preflambered lower bound ($80 ^ lo)

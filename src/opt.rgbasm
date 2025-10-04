@@ -85,15 +85,11 @@ OptLookup::
 	ld c, a
 
 	push hl
-	ld hl, OptBitTable
+	ld hl, BitmaskTable
 	ld a, b
 	and $07
 	add l :: ld l, a
 	ld a, [hl]
 	pop hl
 	ret
-
-
-section "OptBitTable", rom0, align[3]
-OptBitTable: db $01, $02, $04, $08, $10, $20, $40, $80
 
