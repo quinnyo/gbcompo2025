@@ -14,8 +14,8 @@ def SprobOriginX equ 32
 ;; sprob_raw Y, X, I, A
 macro sprob_raw
 	assert fail, _NARG == 4
-	assert (\1) >= 0 && (\1) < 64, "sprob Y position out of range. Expected 0 >= (\1) < 64."
-	assert (\2) >= 0 && (\2) < 64, "sprob X position out of range. Expected 0 >= (\2) < 64."
+	assert (\1) >= 0 && (\1) < 64, "sprob Y position out of range. Expected 0 <= (\1) < 64."
+	assert (\2) >= 0 && (\2) < 64, "sprob X position out of range. Expected 0 <= (\2) < 64."
 	db (\1), (\2), (\3), (\4)
 endm
 
