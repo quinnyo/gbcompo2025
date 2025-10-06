@@ -39,6 +39,7 @@ def ANI_ASCEND45_0_CHRI rb ANI_ASCEND45_FRAME_COUNT * 2
 def ANI_ASCEND45_1_CHRI rb ANI_ASCEND45_FRAME_COUNT * 2
 def ANI_DESCEND45_0_CHRI rb ANI_DESCEND45_FRAME_COUNT * 2
 def ANI_DESCEND45_1_CHRI rb ANI_DESCEND45_FRAME_COUNT * 2
+def VIS_DIVER_CHR_COUNT rb 0
 
 
 def IDLE_SPEED_MAX equ 1
@@ -204,54 +205,86 @@ VisDiverResourceInit::
 	ld de, DiverIdle_1_pal
 	call PalettePalLoadObRomx
 
-	ld a, VIS_DIVER_CHR_IDX :: ld [wVisDiver_chri], a
-	ld hl, VIS_DIVER_CHR_ADDR
+	ld c, VIS_DIVER_CHR_COUNT
+	call ChrmanAllocOb
+	jr nc, :+
+.err_alloc_ob
+	ld b, b
+	ret
+:
+	ld a, b :: ld [wVisDiver_chri], a
+
 	ld b, bank(DiverIdle_0_chr)
 	ld de, DiverIdle_0_chr
 	ld c, DiverIdle_0_CHR_COUNT - 1
+		push hl
 	call VxLoadRom
+		pop hl
+	ld de, DiverIdle_0_CHR_COUNT * $10
+	add hl, de
 
-	ld hl, VIS_DIVER_CHR_ADDR + DiverIdle_0_CHR_COUNT * $10
 	ld b, bank(DiverIdle_1_chr)
 	ld de, DiverIdle_1_chr
 	ld c, DiverIdle_1_CHR_COUNT - 1
+		push hl
 	call VxLoadRom
+		pop hl
+	ld de, DiverIdle_1_CHR_COUNT * $10
+	add hl, de
 
-	ld hl, VIS_DIVER_CHR_ADDR + ANI_MOVE_0_CHRI * $10
 	ld b, bank(DiverMove_0_chr)
 	ld de, DiverMove_0_chr
 	ld c, DiverMove_0_CHR_COUNT - 1
+		push hl
 	call VxLoadRom
+		pop hl
+	ld de, DiverMove_0_CHR_COUNT * $10
+	add hl, de
 
-	ld hl, VIS_DIVER_CHR_ADDR + ANI_MOVE_1_CHRI * $10
 	ld b, bank(DiverMove_1_chr)
 	ld de, DiverMove_1_chr
 	ld c, DiverMove_1_CHR_COUNT - 1
+		push hl
 	call VxLoadRom
+		pop hl
+	ld de, DiverMove_1_CHR_COUNT * $10
+	add hl, de
 
-	ld hl, VIS_DIVER_CHR_ADDR + ANI_ASCEND45_0_CHRI * $10
 	ld b, bank(DiverAscend45_0_chr)
 	ld de, DiverAscend45_0_chr
 	ld c, DiverAscend45_0_CHR_COUNT - 1
+		push hl
 	call VxLoadRom
+		pop hl
+	ld de, DiverAscend45_0_CHR_COUNT * $10
+	add hl, de
 
-	ld hl, VIS_DIVER_CHR_ADDR + ANI_ASCEND45_1_CHRI * $10
 	ld b, bank(DiverAscend45_1_chr)
 	ld de, DiverAscend45_1_chr
 	ld c, DiverAscend45_1_CHR_COUNT - 1
+		push hl
 	call VxLoadRom
+		pop hl
+	ld de, DiverAscend45_1_CHR_COUNT * $10
+	add hl, de
 
-	ld hl, VIS_DIVER_CHR_ADDR + ANI_DESCEND45_0_CHRI * $10
 	ld b, bank(DiverDescend45_0_chr)
 	ld de, DiverDescend45_0_chr
 	ld c, DiverDescend45_0_CHR_COUNT - 1
+		push hl
 	call VxLoadRom
+		pop hl
+	ld de, DiverDescend45_0_CHR_COUNT * $10
+	add hl, de
 
-	ld hl, VIS_DIVER_CHR_ADDR + ANI_DESCEND45_1_CHRI * $10
 	ld b, bank(DiverDescend45_1_chr)
 	ld de, DiverDescend45_1_chr
 	ld c, DiverDescend45_1_CHR_COUNT - 1
+		push hl
 	call VxLoadRom
+		pop hl
+	ld de, DiverDescend45_1_CHR_COUNT * $10
+	add hl, de
 
 	ret
 

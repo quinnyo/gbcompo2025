@@ -125,14 +125,19 @@ ItemsInit::
 
 	; TODO: only load item graphics that are being used
 
+	ld c, Items_CHR_COUNT
+	call ChrmanAllocOb
+	jr c, .err_alloc_ob
+	ld a, b :: ld [wItemsRes_chri], a
 	ld b, bank(Items_chr)
-	ld a, 0 :: ld [wItemsRes_chri], a
-	ld hl, $8000
 	ld de, Items_chr
 	ld c, Items_CHR_COUNT - 1
 	call VxLoadRom
 
 	jp ItemsReset
+.err_alloc_ob
+	ld b, b
+	ret
 
 
 section "ItemsReset", rom0

@@ -1,0 +1,174 @@
+include "hardware.inc"
+include "banker.rgbinc"
+
+
+rsreset
+;; Region capacity
+def ChrAlloc_capacity rb 1
+;; Allocated count
+def ChrAlloc_count rb 1
+;; Region start address with VRAM bank in bit 0.
+def ChrAlloc_startAddr rb 2
+;; Region start CHR index
+def ChrAlloc_startIndex rb 1
+def szChrAlloc rb 0
+
+
+pushs "wChrAlloc", wramx
+wChrAllocA0: ds szChrAlloc
+wChrAllocB0: ds szChrAlloc
+wChrAllocC0: ds szChrAlloc
+wChrAllocA1: ds szChrAlloc
+wChrAllocB1: ds szChrAlloc
+wChrAllocC1: ds szChrAlloc
+
+pops ; wChrAlloc
+
+
+pushs "Chrman", rom0
+ChrmanInit::
+		wrambopen bank("wChrAlloc")
+	ld bc, $00_80 :: ld de, $8000
+	ld hl, wChrAllocA0 :: call ChrAllocInit
+	ld bc, $80_80 :: ld de, $8800
+	ld hl, wChrAllocB0 :: call ChrAllocInit
+	ld bc, $00_80 :: ld de, $9000
+	ld hl, wChrAllocC0 :: call ChrAllocInit
+
+	ld bc, $00_80 :: ld de, $8001
+	ld hl, wChrAllocA1 :: call ChrAllocInit
+	ld bc, $80_80 :: ld de, $8801
+	ld hl, wChrAllocB1 :: call ChrAllocInit
+	ld bc, $00_80 :: ld de, $9001
+	ld hl, wChrAllocC1 :: call ChrAllocInit
+
+	ret
+
+
+;; @param B: region select, lowest 6 bits
+;; @mut: AF, DE, HL
+ChrmanReset::
+		wrambopen bank("wChrAlloc")
+	ld hl, wChrAllocA0 :: bit 0, b :: call nz, ChrAllocReset
+	ld hl, wChrAllocB0 :: bit 1, b :: call nz, ChrAllocReset
+	ld hl, wChrAllocC0 :: bit 2, b :: call nz, ChrAllocReset
+	ld hl, wChrAllocA1 :: bit 3, b :: call nz, ChrAllocReset
+	ld hl, wChrAllocB1 :: bit 4, b :: call nz, ChrAllocReset
+	ld hl, wChrAllocC1 :: bit 5, b :: call nz, ChrAllocReset
+	ret
+
+
+ChrmanResetAll::
+		wrambopen bank("wChrAlloc")
+	ld hl, wChrAllocA0 :: call ChrAllocReset
+	ld hl, wChrAllocB0 :: call ChrAllocReset
+	ld hl, wChrAllocC0 :: call ChrAllocReset
+	ld hl, wChrAllocA1 :: call ChrAllocReset
+	ld hl, wChrAllocB1 :: call ChrAllocReset
+	ld hl, wChrAllocC1 :: call ChrAllocReset
+	ret
+
+
+;; @param C: request alloc size
+;; @ret F.C: NC if successful
+;; @ret B: allocIndex
+;; @ret HL: address of allocated block
+;; @mut: AF, B, HL
+ChrmanAllocOb::
+		wrambopen bank("wChrAlloc")
+	; use first Ob region (of A0, B0, A1, B1) that has the available space
+	ld hl, wChrAllocA0
+	call ChrAllocContiguous
+	ret nc
+
+	ld hl, wChrAllocB0
+	call ChrAllocContiguous
+	ret nc
+
+	ld hl, wChrAllocA1
+	call ChrAllocContiguous
+	ret nc
+
+	ld hl, wChrAllocB1
+	call ChrAllocContiguous
+	ret
+
+pops ; Chrman
+
+
+pushs "ChrAlloc", rom0
+;; @param B: startIndex
+;; @param C: capacity
+;; @param DE: startAddress
+;; @param HL: this
+ChrAllocInit:
+	ld a, c :: ld [hl+], a ; capacity
+	xor a :: ld [hl+], a ; count
+	ld a, e :: ld [hl+], a ; startAddress.lo
+	ld a, d :: ld [hl+], a ; startAddress.hi
+	ld a, b :: ld [hl+], a ; startIndex
+	ret
+
+
+;; @param HL: this
+;; @mut: AF, HL
+ChrAllocReset:
+	inc hl
+	xor a :: ld [hl+], a ; count
+	ret
+
+
+;; @param HL: this
+;; @ret A: avail
+;; @mut: AF
+ChrAllocAvail:
+	ld a, [hl+] ; capacity
+	; avail = capacity - count
+	sub [hl]
+	dec hl
+	ret nc
+	xor a ; max(0, capacity - count)
+	ret
+
+
+;; @param C: requested alloc size
+;; @param HL: this
+;; @ret F.C: NC if successful
+;; @ret B: allocIndex
+;; @ret HL: address of allocated block (if successful)
+;; @mut: AF, B, HL
+ChrAllocContiguous:
+	call ChrAllocAvail
+	cp c
+	ret c ; no fits
+	inc hl
+	ld a, [hl]
+	ld b, a ; B: count0
+	add c
+	ld [hl+], a ; update count
+
+		push de
+	ld a, [hl+] :: ld e, a ; start.lo
+	ld a, [hl+] :: ld d, a ; start.hi
+	ld a, [hl+] :: ld c, a ; startIndex
+	; offset (size in bytes) = count * 16
+	ld l, b
+	ld h, 0
+	rept 4
+		add hl, hl
+	endr
+	; address = startAddress + offset
+	add hl, de
+		pop de
+
+	; B: allocIndex = count0 + startIndex
+	ld a, c
+	add b
+	ld b, a
+
+	xor a ; clear F.C
+	ret
+
+
+pops ; ChrAlloc
+

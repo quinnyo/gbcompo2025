@@ -122,6 +122,7 @@ Main::
 	call CurtainForceClose
 	call MapInit
 	call VramxInit
+	call ChrmanInit
 	call audio_init
 	call MusInit
 	call OptInit
