@@ -24,7 +24,7 @@ def TASK_LOAD_ROM_SIZE equ 1 + 6
 def TASK_SYNC_BG_SIZE equ 1 + 2
 
 
-def QUEUE_CAPACITY equ 64
+def QUEUE_CAPACITY equ 128
 
 
 section "wVxQueue", wram0, align[8]
