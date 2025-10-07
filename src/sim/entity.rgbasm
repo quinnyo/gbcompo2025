@@ -496,7 +496,7 @@ EntityFnUpdateMotionOnly::
 	set ENTINFOB_INVIEW, [hl]
 	entity_index Entity_DispX
 	ld a, c :: ld [hl+], a ; DispX
-	ld a, e :: ld [hl+], a ; DispY
+	ld a, b :: ld [hl+], a ; DispY
 :
 
 	ret
