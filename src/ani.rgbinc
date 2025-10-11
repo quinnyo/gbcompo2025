@@ -15,5 +15,14 @@ def Ani_next rb 2
 def szAni rb 0
 
 
+;; ani_frame DURATION, NEXT
+;; Create a new frame
+macro ani_frame
+	assert fail, _NARG == 2
+	db (\1)
+	dw (\2)
+endm
+
+
 endc ; Q_ANI_INC_e6pWgwvG
 
