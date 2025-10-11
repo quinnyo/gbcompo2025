@@ -548,7 +548,7 @@ _velocity_update:
 	and SIM_DRAG_TICK
 	jr nz, .no_drag
 
-	ld a, b :: call _fric_1_32
+	call _drag1
 	add c :: ld c, a
 .no_drag
 
@@ -593,6 +593,32 @@ _get_gravity:
 .nograv
 	xor a
 	ret
+
+
+;; @param B: vel
+;; @ret A: drag
+;; @mut: AF
+_drag1:
+	ld a, b
+	and a
+	ret z
+		push hl
+	ld hl, drag16_cubic
+	call AbsS8
+	swap a
+	and $0F
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	ld a, [hl]
+		pop hl
+	bit 7, b
+	ret nz
+	cpl
+	inc a
+	ret
+
+;; cd=0.047, exp=3, yoffset=1.5
+drag16_cubic: db 1, 1, 2, 3, 4, 6, 9, 13, 18, 25, 32, 42, 53, 65, 80, 97
 
 
 ;; Returns +/- 1, with the sign opposite the input velocity.
