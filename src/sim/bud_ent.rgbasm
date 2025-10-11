@@ -1,0 +1,364 @@
+include "hardware.inc"
+include "sim/entity.rgbinc"
+include "coord.rgbinc"
+include "banker.rgbinc"
+include "chrimp.rgbinc"
+include "sprite.rgbinc"
+include "ani.rgbinc"
+
+
+;; Action period duration range mask.
+def PERIOD_MASK equ $3A
+;; Action period duration minimum value (offset).
+def PERIOD_MIN equ $05
+
+;; Action will only be applied when period timer state & ACTION_TICK_MASK == 0
+def ACTION_TICK_MASK equ $07
+
+
+rsreset
+def bBudEnt__0 rb 1
+def bBudEnt__1 rb 1
+def bBudEnt__2 rb 1
+def bBudEnt__3 rb 1
+def bBudEnt__4 rb 1
+;; Facing left
+def bBudEnt_LEFT rb 1
+def bBudEnt__6 rb 1
+;; Set if anchor is 'home' item.
+def bBudEnt_HOME rb 1
+
+assert bBudEnt_LEFT == OAMB_XFLIP
+
+def BudEnt_HOME equ 1 << bBudEnt_HOME
+def BudEnt_STATUS_DEFAULT equ BudEnt_HOME
+
+
+rsreset
+def BudEnt_status rb 1
+def BudEnt_timer rb 1
+;; Anchor object ID -- home item or leader entity (if picked up).
+def BudEnt_anchor rb 1
+def BudEnt_driveX rb 1
+def BudEnt_driveY rb 1
+;; Find/Item typeid
+def BudEnt_typeid rb 1
+def BudEnt_ani rb szAni
+
+def szBudEnt rb 0
+assert szBudEnt <= szEntityUsr0, "Bud struct exceeds Entity Usr0 allocation. ({d:szBudEnt} > {d:szEntityUsr0})"
+
+
+import_chr "assets/ent/afish.chr", Afish, pal
+
+
+section "Afish_ani", romx
+
+Afish_aniRight:
+	.f0:
+		ani_frame 13, .f1
+		sprob 8, -4, 0, 0
+		sprob_end
+	.f1:
+		ani_frame 17, .f0
+		sprob 8, -4, 1, 0
+		sprob_end
+
+Afish_aniRightTurn:
+	.f0:
+		ani_frame 13, .f1
+		sprob 8 - 1, -4 + 2, 2, 0
+		sprob_end
+	.f1:
+		ani_frame 13, Afish_aniLeft.f0
+		sprob 8, -4, 2, 0
+		sprob_end
+
+Afish_aniLeft:
+	.f0:
+		ani_frame 13, .f1
+		sprob 8, -4, 0, OAMF_XFLIP
+		sprob_end
+	.f1:
+		ani_frame 17, .f0
+		sprob 8, -4, 1, OAMF_XFLIP
+		sprob_end
+
+Afish_aniLeftTurn:
+	.f0:
+		ani_frame 13, .f1
+		sprob 8 - 1, -4 + 2, 2, 0
+		sprob_end
+	.f1:
+		ani_frame 13, Afish_aniRight.f0
+		sprob 8, -4, 2, 0
+		sprob_end
+
+
+section "wBudEntRes", wram0
+wAfishPal0: db
+wAfishChri: db
+
+
+section "BudEntResourceInit", rom0
+BudEntResourceInit::
+	ld b, bank(Afish_pal)
+	ld de, Afish_pal
+	call PalettePalLoadObRomx
+	ld a, b :: and $07 :: ld [wAfishPal0], a
+
+	ld c, Afish_CHR_COUNT
+	call ChrmanAllocOb
+	ld a, b :: ld [wAfishChri], a
+	jr c, .err_alloc_ob
+	ld c, Afish_CHR_COUNT - 1
+	ld b, bank(Afish_chr)
+	ld de, Afish_chr
+	call VxLoadRom
+
+	ret
+.err_alloc_ob
+	ld b, b
+	ret
+
+
+section "BudEntSpawn", rom0
+;; NOTE: Assumes entity to possess is selected/active (hEntityActive)
+;; @param B: home Item index
+;; @param C: Find typeid
+;; @param SP+0: PosX
+;; @param SP+2: PosY
+;; @mut: AF, BC, DE, HL
+BudEntSpawn::
+	ldh a, [hEntityActive.state + 0] :: ld l, a
+	ldh a, [hEntityActive.state + 1] :: ld h, a
+	ld a, ENTINFOF_OCCUPIED | ENTINFOF_ALIVE | $02
+	ld [hl+], a ; info
+	xor a
+	ld [hl+], a ; ctrl
+	ld [hl+], a ; accx
+	ld a, -63
+	ld [hl+], a ; velx
+		pop de ; x
+	ld a, e :: ld [hl+], a ; posx.lo
+	ld a, d :: ld [hl+], a ; posx.hi
+	xor a
+	ld [hl+], a ; accy
+	ld a, -47
+	ld [hl+], a ; vely
+		pop de ; y
+	ld a, e :: ld [hl+], a ; posy.lo
+	ld a, d :: ld [hl+], a ; posy.hi
+
+		wrambpush bank(wEntityUsr0)
+	ldh a, [hEntityActive.usr0 + 0] :: ld l, a
+	ldh a, [hEntityActive.usr0 + 1] :: ld h, a
+	ld a, BudEnt_STATUS_DEFAULT :: ld [hl+], a ; .status
+	ld a, 1 :: ld [hl+], a ; .timer
+	ld a, b :: ld [hl+], a ; .anchor
+	xor a
+	ld [hl+], a ; .driveX
+	ld [hl+], a ; .driveY
+	ld a, c :: ld [hl+], a ; .typeid
+		push hl
+	call AniInit
+		pop hl
+	ld de, Afish_aniRight.f0
+	ld b, bank("Afish_ani")
+	call AniSetFrame
+		wrambpop
+
+	ld de, EntityFnUpdateMotionOnly
+	ld b, bank(EntityFnUpdateMotionOnly)
+	ldh a, [hEntityActive.index]
+	call EntitySetFnUpdate
+
+	ld de, BudEntFnThink
+	ld b, bank(BudEntFnThink)
+	ldh a, [hEntityActive.index]
+	call EntitySetFnThink
+
+	ld de, BudEntFnRender
+	ld b, bank(BudEntFnRender)
+	ldh a, [hEntityActive.index]
+	call EntitySetFnRender
+
+	ret
+
+
+section "BudEntFnThink", romx
+BudEntFnThink::
+		wrambsel bank(wEntityUsr0)
+	ldh a, [hEntityActive.usr0 + 0] :: ld l, a
+	ldh a, [hEntityActive.usr0 + 1] :: ld h, a
+
+	ld a, [hl+] :: ld b, a ; .status
+	; tick timer
+	dec [hl]
+	jr z, .reset
+	ld a, [hl+]
+	and ACTION_TICK_MASK
+	jr z, .action
+	ret
+
+.reset:
+	; start a new period
+	call _ResetTimer
+	; pick new drive direction
+	ld a, [hl+] ; .anchor
+	call _GetAnchorPoint
+
+		push bc ; targetY
+	ldh a, [hEntityActive.state + 0] :: ld l, a
+	ldh a, [hEntityActive.state + 1] :: ld h, a
+
+	entity_index Entity_PosX
+	ld a, [hl+] :: ld c, a
+	ld b, [hl]
+	call _CalcDrive
+	entity_index Entity_PosY
+	ld a, [hl+] :: ld c, a
+	ld b, [hl]
+	ld l, e ; Done with HL Entity pointer, hold driveX in L temporarily
+		pop de ; targetY
+	call _CalcDrive
+	ld c, l ; driveX
+	
+	; store drive vec
+	ldh a, [hEntityActive.usr0 + 0] :: ld l, a
+	ldh a, [hEntityActive.usr0 + 1] :: ld h, a
+	inc hl :: inc hl :: inc hl ; skip (.status, .timer, .anchor) to driveX
+	ld a, c :: ld [hl+], a ; driveX
+	ld a, e :: ld [hl-], a ; driveY
+	jr .apply_drive_accel ; ensure each action applied at least once
+
+.action:
+	inc hl ; skip .anchor
+	; set accel from drive vector
+.apply_drive_accel
+	ld a, [hl+] :: ld c, a ; driveX
+	ld a, [hl+] :: ld b, a ; driveY
+	ldh a, [hEntityActive.state + 0] :: ld l, a
+	ldh a, [hEntityActive.state + 1] :: ld h, a
+	entity_index Entity_AccX
+	ld [hl], c
+	entity_index Entity_AccY
+	ld [hl], b
+
+	ret
+
+
+def _DRIVE_RSHIFTS equ 3
+def _DRIVE_SAT_MAX equ 127 >> _DRIVE_RSHIFTS
+;; @param DE: target position
+;; @param BC: current position
+;; @ret E: drive
+;; @mut: AF, E
+_CalcDrive:
+	coord_sub de, bc
+	; if (D == $FF || D == $00) && (D & 0x80 == E & 0x80): drive = E
+	ld a, e
+	rlca
+	sbc a
+	cp d
+	jr nz, .saturate
+	ld a, e
+	and a
+	jr z, .fallback
+	rept _DRIVE_RSHIFTS
+		sra e
+	endr
+	ret
+
+.fallback
+	ldh a, [rDIV]
+	and $1E
+	add $71
+	ret
+
+.saturate
+	ld e, _DRIVE_SAT_MAX
+	bit 7, d
+	ret z
+	ld e, -_DRIVE_SAT_MAX
+	ret
+
+
+;; @param HL: pointer to .timer
+;; @mut: AF, HL
+_ResetTimer:
+	ldh a, [rDIV]
+	ld [hl], a
+	ld a, [wVBlankCount]
+	swap a
+	xor [hl]
+	and PERIOD_MASK
+	add PERIOD_MIN
+	ld [hl+], a
+	ret
+
+
+;; @param A: BudEnt.anchor
+;; @param B: BudEnt.status
+;; @ret F.C: success
+;; @ret DE: anchorX
+;; @ret BC: anchorY
+;; @mut: AF, BC, DE, HL
+_GetAnchorPoint:
+	bit bBudEnt_HOME, b
+	jp nz, ItemsGetPosition ; anchor is home item
+	; anchor is leader entity
+	call EntityAt
+	ret nc
+	entity_index Entity_PosX
+	ld a, [hl+] :: ld e, a
+	ld d, [hl]
+	entity_index Entity_PosY
+	ld a, [hl+] :: ld c, a
+	ld b, [hl]
+	scf
+	ret
+
+
+section "BudEntFnRender", romx
+BudEntFnRender::
+	ld a, [wAfishChri] :: ld d, a
+	ld a, [wAfishPal0] :: ld e, a
+
+		wrambsel bank(wEntityUsr0)
+	ldh a, [hEntityActive.usr0 + 0] :: ld l, a
+	ldh a, [hEntityActive.usr0 + 1] :: ld h, a
+	ld a, [hl] ; status
+	; (update render atrbs)
+	and OAMF_XFLIP
+	or e :: ld e, a
+
+		push de
+	ld bc, BudEnt_ani
+	add hl, bc
+	ld d, 1 ; delta time
+	call AniUpdate
+		pop de
+
+	; HL: Ani drawable pointer, abort if $FFFF
+	ld a, l :: and h
+	inc a
+	jp nz, _BudEntSprxRender
+	ret
+
+
+section "_BudEntSprxRender", rom0
+;; End of BudEnt render function, in ROM0 for safe banking.
+_BudEntSprxRender:
+		rombsel b
+	; position
+		push hl
+	ldh a, [hEntityActive.state + 0] :: ld l, a
+	ldh a, [hEntityActive.state + 1] :: ld h, a
+	entity_index Entity_DispX
+	ld a, [hl+] :: add 8 :: ld c, a
+	ld a, [hl+] :: add 4 :: ld b, a
+		pop hl
+
+	jp SprxRenderMod
+

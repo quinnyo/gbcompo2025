@@ -105,8 +105,7 @@ wMapHeader::
 section "wMapObjectCache", wram0
 ;; Copy of MapObject that's being worked on.
 wMapObjectCache::
-	.typeid:: db
-	.extra:: db
+	.typeid:: dw
 	.y:: dw
 	.x:: dw
 assert @ - wMapObjectCache == szMapObject

@@ -45,9 +45,8 @@ Item (in-world item instance)
 rsreset
 ;; Status & control flags
 def Item_ctl rb 1
-;; ItemDef ID (index in ItemInfo)
-def Item_id rb 1
-def Item_extra rb 1
+;; Find/Item typeid
+def Item_typeid rb 2
 ;; Y position of the item in dots.
 def Item_y rb 2
 ;; X position of the item in dots.
@@ -219,17 +218,17 @@ section "ItemsSetupSpecial", rom0
 ;; @mut: AF, C, DE, HL
 ItemsSetupSpecial::
 		wrambopen bank("wItems")
-	ld c, 0
+	ld b, 0
 :
 		push bc
-	ld a, c
+	ld a, b
 	call ItemsIndex
 	ld a, [hl+]
 	and ItemCtl_ENABLE
 	jr z, .next
 
-	ld a, [hl+]
-	inc hl ; skip .extra
+	ld a, [hl+] :: ld c, a ; .typeid.lo
+	inc hl ; skip .typeid.hi
 	call FindIdDecode
 	; Check if item is a Bud spawnpoint/home.
 	; HACK: treat index == 0 as Bud
@@ -238,17 +237,18 @@ ItemsSetupSpecial::
 	call z, .spawn_bud
 .next
 		pop bc
-	inc c
-	ld a, c
+	inc b
+	ld a, b
 	cp ITEMS_MAX
 	jr c, :-
 	ret
 
 .spawn_bud
+		push bc :: push hl ; preserve item typeid (C), index (B), pointer (HL)
 	call EntityActiveSelectEmpty
+		pop hl :: pop bc
 	ret nc
 
-/*
 	ld a, [hl+] :: ld e, a
 	ld a, [hl+] :: ld d, a
 	coord_from_dots16 de
@@ -258,8 +258,6 @@ ItemsSetupSpecial::
 	coord_from_dots16 de
 		push de ; x
 	jp BudEntSpawn
-*/
-	ret
 
 
 section "ItemsGetPosition", rom0
@@ -271,6 +269,9 @@ ItemsGetPosition::
 	call ItemsIndex
 	ret nc
 		wrambopen bank("wItems")
+	ld a, Item_y
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
 	ld a, [hl+] :: ld c, a
 	ld a, [hl+] :: ld b, a
 	coord_from_dots16 bc
@@ -323,7 +324,7 @@ ItemsUpdate::
 _update_item:
 	res bItemCtl_TOUCHED, [hl]
 		push hl
-	inc hl :: inc hl :: inc hl ; skip .ctl, .id, .extra
+	inc hl :: inc hl :: inc hl ; skip .ctl, .typeid
 	call _get_screen_position ; B,C: Y,X
 		pop hl
 	ret nc

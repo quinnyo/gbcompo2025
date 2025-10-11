@@ -60,7 +60,9 @@ _done:
 
 
 modeGamePrep_Enter::
+	call ChrmanResetAll
 	call VisDiverResourceInit
+	call BudEntResourceInit
 
 	call QuestInit
 	call ScrollInit

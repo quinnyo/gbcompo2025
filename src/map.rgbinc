@@ -20,8 +20,7 @@ def szMapHeader rb 0
 
 
 rsreset
-def MapObject_typeid rb 1
-def MapObject_extra rb 1
+def MapObject_typeid rb 2
 def MapObject_y rb 2
 def MapObject_x rb 2
 def szMapObject rb 0
