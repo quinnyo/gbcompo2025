@@ -68,7 +68,6 @@ FindsAdd::
 
 .err_out_of_range:
 	ld b, b
-	xor a ; clear F.Z
 	ret
 
 
@@ -101,5 +100,5 @@ FindsQuery::
 	ret
 
 .not_found:
-	xor a ; clear F.Z
+	xor a ; F.NC, F.Z
 	ret
