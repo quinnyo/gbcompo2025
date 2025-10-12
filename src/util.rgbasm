@@ -11,7 +11,7 @@ pushs "ClampS8", rom0
 ;; @param E: Preflambered lower bound ($80 ^ lo)
 ;; @param D: Preflambered upper bound ($80 ^ hi)
 ;; @ret B: Result
-;; @mut: AF, BC
+;; @mut: AF, B
 ClampS8::
 	ld a, b :: xor $80 :: ld b, a
 	ld a, d
