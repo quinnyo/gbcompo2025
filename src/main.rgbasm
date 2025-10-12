@@ -113,6 +113,7 @@ Main::
 	stop
 :
 
+	call CnsInit
 	call VBlankInit
 	call ObxInit
 	call InputInit

@@ -1,0 +1,120 @@
+
+/**********************************************************
+************************************************ ROTATO ***
+**********************************************************/
+;; cns_state_rotato SIZE
+macro cns_state_rotato
+	align bitwidth((\1) - 1)
+	ds (\1)
+endm
+
+;; cns_impl_init_rotato STATE, SIZE
+;; @arg STATE: address/label of generator state
+;; @arg SIZE: length of generator state
+macro cns_impl_init_rotato
+	ld hl, (\1)
+	ld c, (\2)
+	xor a
+:
+	adc 217
+	ld [hl+], a
+	dec c
+	jr nz, :-
+endm
+
+
+;; cns_impl_next_rotato STATE, SIZE
+;; @arg STATE: address/label of generator state
+;; @arg SIZE: length of generator state
+macro cns_impl_next_rotato
+	assert _NARG == 2
+	assert high(\1) == high((\1) + (\2) - 1)
+	ld hl, (\1) + 1
+	ld a, [hl-]
+	xor [hl]
+	rrca :: rrca ; get bit 1 into F.C
+	ccf
+	rept (\2) - 1
+		rr [hl]
+		inc l
+	endr
+	ld a, [hl]
+	rra
+	ld [hl], a
+endm
+
+
+/**********************************************************
+*************************************************** LCG ***
+**********************************************************/
+;; LCG PRNG impl by Pinobatch
+;; (via https://gbdev.io/gb-asm-tutorial/cheatsheet.html#generate-random-numbers)
+
+def szLCG equ 4
+
+macro cns_state_lcg
+	ds szLCG
+endm
+
+
+macro cns_impl_init_lcg
+	ld hl, (\1)
+	ld c, szLCG
+	xor a
+:
+	ld [hl+], a
+	dec c
+	jr nz, :-
+endm
+
+
+macro cns_impl_next_lcg
+	ld hl, (\1)
+	ld a, [hl]
+	add $B3
+	ld [hl+], a
+	adc [hl]
+	ld [hl+], a
+	adc [hl]
+	ld [hl+], a
+	adc [hl]
+	ld [hl], a
+endm
+
+
+/**********************************************************
+******************************* Chaotic Number Selector ***
+**********************************************************/
+def szRotato equ 9
+pushs "wRotato", wram0
+wRotato:
+	cns_state_rotato szRotato
+
+pops ; wRotato
+
+
+pushs "CnsInit", rom0
+;; @mut: AF, BC, HL
+CnsInit::
+	cns_impl_init_rotato wRotato, szRotato
+
+	ld c, 50
+:
+	call CnsNext
+	dec c
+	jr nz, :-
+	ret
+
+pops ; CnsInit
+
+
+pushs "CnsNext", rom0
+;; Select the next reasonably unpredictable number.
+;; @ret A: next
+;; @mut: AF, HL
+CnsNext::
+	cns_impl_next_rotato wRotato, szRotato
+	ret
+
+pops ; CnsNext
+
