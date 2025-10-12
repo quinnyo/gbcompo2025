@@ -34,7 +34,8 @@ wEntityFnRender:: ds szEntityFnTable
 
 
 section "wEntityUsr0", wramx, align[bitwidth(szEntityUsr0 - 1)]
-;; Per-Entity implementor-use area
+;; Per-Entity implementor-use area.
+;; @aligned: full per-instance
 wEntityUsr0:: ds ENTITY_COUNT_MAX * szEntityUsr0
 
 

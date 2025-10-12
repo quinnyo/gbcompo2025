@@ -192,8 +192,29 @@ BudEntFnThink::
 	ldh a, [hEntityActive.usr0 + 0] :: ld l, a
 	ldh a, [hEntityActive.usr0 + 1] :: ld h, a
 
+	; If at home, monitor home item collection status.
+	; Switch to following player entity if home item is picked up.
+	bit bBudEnt_HOME, [hl]
+	jr z, :+
+		push hl
+	ld a, BudEnt_typeid
+	add l :: ld l, a
+	ld a, [hl] ; .typeid
+	call FindsQuery
+		pop hl
+	jr z, :+
+	; clear HOME flag & change anchor to player entity
+	res bBudEnt_HOME, [hl]
+	ld e, l ; keep pointer to .status
+	rept BudEnt_anchor - BudEnt_status
+		inc l
+	endr
+	ld a, [wPlayer.ent] :: ld [hl], a ; .anchor
+	ld l, e ; back to .status
+:
+
+.tick:
 	ld a, [hl+] :: ld b, a ; .status
-	; tick timer
 	dec [hl]
 	jr z, .reset
 	ld a, [hl+]
