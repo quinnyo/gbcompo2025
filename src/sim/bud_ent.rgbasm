@@ -8,12 +8,12 @@ include "ani.rgbinc"
 
 
 ;; Action period duration range mask.
-def PERIOD_MASK equ $18
+def PERIOD_MASK equ $1F
 ;; Action period duration minimum value (offset).
-def PERIOD_MIN equ $07
+def PERIOD_MIN equ $20
 
 ;; Action will only be applied when period timer state & ACTION_TICK_MASK == 0
-def ACTION_TICK_MASK equ $1F
+def ACTION_TICK_MASK equ $0F
 
 def DRIVE_RSHIFTS equ 3
 def DRIVE_SAT_MAX equ 127 >> DRIVE_RSHIFTS
@@ -24,7 +24,7 @@ def bBudEnt__0 rb 1
 def bBudEnt__1 rb 1
 def bBudEnt__2 rb 1
 def bBudEnt__3 rb 1
-def bBudEnt__4 rb 1
+def bBudEnt_XTURNING rb 1
 ;; Facing left
 def bBudEnt_LEFT rb 1
 def bBudEnt__6 rb 1
@@ -33,6 +33,8 @@ def bBudEnt_HOME rb 1
 
 assert bBudEnt_LEFT == OAMB_XFLIP
 
+def BudEnt_XTURNING equ 1 << bBudEnt_XTURNING
+def BudEnt_LEFT equ 1 << bBudEnt_LEFT
 def BudEnt_HOME equ 1 << bBudEnt_HOME
 def BudEnt_STATUS_DEFAULT equ BudEnt_HOME
 
@@ -57,44 +59,24 @@ import_chr "assets/ent/afish.chr", Afish, pal
 
 section "Afish_ani", romx
 
-Afish_aniRight:
+Afish_aniDefault:
 	.f0:
 		ani_frame 13, .f1
-		sprob 8, -4, 0, 0
+		sprob 8, 0, 0, 0
 		sprob_end
 	.f1:
 		ani_frame 17, .f0
-		sprob 8, -4, 1, 0
+		sprob 8, 0, 1, 0
 		sprob_end
 
-Afish_aniRightTurn:
+Afish_aniTurn:
 	.f0:
-		ani_frame 13, .f1
-		sprob 8 - 1, -4 + 2, 2, 0
+		ani_frame 9, .f1
+		sprob 8 - 1, 2, 2, OAMF_XFLIP
 		sprob_end
 	.f1:
-		ani_frame 13, Afish_aniLeft.f0
-		sprob 8, -4, 2, 0
-		sprob_end
-
-Afish_aniLeft:
-	.f0:
-		ani_frame 13, .f1
-		sprob 8, -4, 0, OAMF_XFLIP
-		sprob_end
-	.f1:
-		ani_frame 17, .f0
-		sprob 8, -4, 1, OAMF_XFLIP
-		sprob_end
-
-Afish_aniLeftTurn:
-	.f0:
-		ani_frame 13, .f1
-		sprob 8 - 1, -4 + 2, 2, 0
-		sprob_end
-	.f1:
-		ani_frame 13, Afish_aniRight.f0
-		sprob 8, -4, 2, 0
+		ani_frame 5, Afish_aniDefault.f0
+		sprob 8, 0, 2, 0
 		sprob_end
 
 
@@ -166,7 +148,7 @@ BudEntSpawn::
 		push hl
 	call AniInit
 		pop hl
-	ld de, Afish_aniRight.f0
+	ld de, Afish_aniDefault.f0
 	ld b, bank("Afish_ani")
 	call AniSetFrame
 		wrambpop
@@ -267,6 +249,21 @@ BudEntFnThink::
 	; store drive vec
 	ldh a, [hEntityActive.usr0 + 0] :: ld l, a
 	ldh a, [hEntityActive.usr0 + 1] :: ld h, a
+
+	; update left/right facing flag
+	ld a, c :: rla :: sbc a :: ld d, a
+	ld a, [hl]
+	ld b, a
+	xor d
+	and ~BudEnt_LEFT
+	xor d
+	; if changed
+	cp b
+	jr z, :+
+	or BudEnt_XTURNING
+	ld [hl], a
+:
+
 	inc hl :: inc hl :: inc hl ; skip (.status, .timer, .anchor) to driveX
 	ld a, c :: ld [hl+], a ; driveX
 	ld a, e :: ld [hl-], a ; driveY
@@ -346,14 +343,27 @@ BudEntFnRender::
 		wrambsel bank(wEntityUsr0)
 	ldh a, [hEntityActive.usr0 + 0] :: ld l, a
 	ldh a, [hEntityActive.usr0 + 1] :: ld h, a
-	ld a, [hl] ; status
+	ld b, [hl] ; status
+	res bBudEnt_XTURNING, [hl]
+
 	; (update render atrbs)
-	and OAMF_XFLIP
+	ld a, b :: and OAMF_XFLIP
 	or e :: ld e, a
 
 		push de
-	ld bc, BudEnt_ani
-	add hl, bc
+	ld de, BudEnt_ani
+	add hl, de
+
+	; trigger turn animation if reversed X direction this frame
+	bit bBudEnt_XTURNING, b
+	jr z, :+
+	; turn anim
+		push hl
+	ld de, Afish_aniTurn.f0
+	ld b, bank("Afish_ani")
+	call AniSetFrame
+		pop hl
+:
 	ld d, 1 ; delta time
 	call AniUpdate
 		pop de
