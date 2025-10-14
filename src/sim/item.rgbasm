@@ -265,6 +265,7 @@ section "ItemsGetPosition", rom0
 ;; @ret DE: X position in Entity coords
 ;; @ret BC: Y position in Entity coords
 ;; @ret F.C: success
+;; @mut: AF, BC, DE, HL
 ItemsGetPosition::
 	call ItemsIndex
 	ret nc

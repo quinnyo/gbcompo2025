@@ -8,12 +8,15 @@ include "ani.rgbinc"
 
 
 ;; Action period duration range mask.
-def PERIOD_MASK equ $3A
+def PERIOD_MASK equ $18
 ;; Action period duration minimum value (offset).
-def PERIOD_MIN equ $05
+def PERIOD_MIN equ $07
 
 ;; Action will only be applied when period timer state & ACTION_TICK_MASK == 0
-def ACTION_TICK_MASK equ $07
+def ACTION_TICK_MASK equ $1F
+
+def DRIVE_RSHIFTS equ 3
+def DRIVE_SAT_MAX equ 127 >> DRIVE_RSHIFTS
 
 
 rsreset
@@ -224,10 +227,26 @@ BudEntFnThink::
 
 .reset:
 	; start a new period
-	call _ResetTimer
+		push hl
+	call CnsNext
+		pop hl
+	and PERIOD_MASK
+	add PERIOD_MIN
+	ld [hl+], a
 	; pick new drive direction
 	ld a, [hl+] ; .anchor
 	call _GetAnchorPoint
+
+	; random offset
+	call CnsNext
+	ld l, a
+	add c :: ld c, a
+	adc b :: rl l :: sbc c :: ld b, a
+	dec b ; constant offset -16 Y
+	call CnsNext
+	ld l, a
+	add e :: ld e, a
+	adc d :: rl l :: sbc e :: ld d, a
 
 		push bc ; targetY
 	ldh a, [hEntityActive.state + 0] :: ld l, a
@@ -269,53 +288,31 @@ BudEntFnThink::
 	ret
 
 
-def _DRIVE_RSHIFTS equ 3
-def _DRIVE_SAT_MAX equ 127 >> _DRIVE_RSHIFTS
 ;; @param DE: target position
 ;; @param BC: current position
 ;; @ret E: drive
-;; @mut: AF, E
+;; @mut: AF, DE
 _CalcDrive:
 	coord_sub de, bc
-	; if (D == $FF || D == $00) && (D & 0x80 == E & 0x80): drive = E
-	ld a, e
-	rlca
-	sbc a
-	cp d
-	jr nz, .saturate
-	ld a, e
+	ld a, d
 	and a
-	jr z, .fallback
-	rept _DRIVE_RSHIFTS
-		sra e
-	endr
-	ret
-
-.fallback
-	ldh a, [rDIV]
-	and $1E
-	add $71
-	ret
-
-.saturate
-	ld e, _DRIVE_SAT_MAX
+	jr z, .thing
+	inc a
+	jr z, .thing
+	ld e, DRIVE_SAT_MAX
 	bit 7, d
 	ret z
-	ld e, -_DRIVE_SAT_MAX
+	ld e, -DRIVE_SAT_MAX
 	ret
-
-
-;; @param HL: pointer to .timer
-;; @mut: AF, HL
-_ResetTimer:
-	ldh a, [rDIV]
-	ld [hl], a
-	ld a, [wVBlankCount]
-	swap a
-	xor [hl]
-	and PERIOD_MASK
-	add PERIOD_MIN
-	ld [hl+], a
+.thing
+	ld a, d
+	rept DRIVE_RSHIFTS - 1
+		rra
+		rr e
+	endr
+	; take sign bit from actual difference
+	rl d
+	rr e
 	ret
 
 
