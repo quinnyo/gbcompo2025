@@ -45,14 +45,6 @@ section "assets/fonty8.chr", romx, align[4]
 incbin "assets/fonty8.chr"
 
 
-section "assets/enviro1.chr", romx, align[4]
-incbin "assets/enviro1.chr"
-
-
-section "assets/enviro1.chr.pal", romx
-incbin "assets/enviro1.chr.pal"
-
-
 section "assets/enviro0.chr", romx, align[4]
 incbin "assets/enviro0.chr"
 
