@@ -121,7 +121,7 @@ Main::
 	call OptInit
 	call QmenuInit
 	call ModeInit
-	ld de, rModes_modeDefault
+	ld de, rModes_modeTitle
 	;ld de, rModes_modeSoundTest
 	call ModeSetActive
 
