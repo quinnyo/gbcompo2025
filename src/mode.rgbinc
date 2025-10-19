@@ -7,18 +7,26 @@ def Q_MODE_INC_9oUcDich equ 1
 rsreset
 def MODE_STATE_ENTER rb 1
 def MODE_STATE_PROCESS rb 1
+def MODE_STATE_CORE_MAX rb 0
+def MODE_STATE_NULL rb 1
 
-;; Mask state index (used as index to state handler func table).
-;; Bits used for state index
-def MODE_STATE_INDEX equ $7F
 ;; Set to indicate custom 'extra' state. A pointer to the state handler
 ;; function will be found in the mode's extra functions table.
 def bMODE_STATE_EXTRA equ 7
 def MODE_STATE_EXTRA equ 1 << bMODE_STATE_EXTRA
 
-
 ;; Name of the WRAM union section common to all modes.
 def MODE_COMMON equs "wModeCommon"
+
+
+rsreset
+def MODE_FN_ENTER rb 1
+def MODE_FN_PROCESS rb 1
+def MODE_FN_EXIT rb 1
+def MODE_FN_HALT rb 1
+def MODE_FN_RESUME rb 1
+def MODE_FN_CORE_MAX rb 0
+def MODE_FN_EXTRA equ $80
 
 
 rsreset
@@ -30,10 +38,22 @@ def Mode_core_funcs rb 0
 def Mode_fn_enter rb 2
 ;; Address of the mode's `Process` state handler function.
 def Mode_fn_process rb 2
+def Mode_fn_exit rb 2
+def Mode_fn_halt rb 2
+def Mode_fn_resume rb 2
 ;; Pointer to optional functions table (handler functions for EXTRA states).
-;; Set to $FFFF if unused.
+;; Set to $FF00 if unused.
 def Mode_extra_funcs rb 2
 def szMode rb 0
+
+
+rsreset
+;; Copy of hModeState at stash time.
+def ModeStashed_state rb 1
+;; Pointer to the Mode that's stashed.
+def ModeStashed_mode rb 2
+;; Size of ModeStashed struct in bytes.
+def szModeStashed rb 0
 
 
 ;; Name of the section in ROM that stores mode metadata.
@@ -43,22 +63,62 @@ def szMode rb 0
 def MODES_SECTION equs "rModes"
 
 
+;; mode_def NAME, FN_ENTER, FN_PROCESS, FN_EXIT, FN_HALT, FN_RESUME, [EXTRA_FUNCS]
+;; FN_*: One arg per core state func. Should be the label of the impl or `-` if unimplemented.
+;;
 ;; mode_def NAME, [EXTRA_FUNCS]
-;; Add an entry to the modes table.
 ;; NAME: used as a label prefix to find the implementation.
+;;
 ;; EXTRA_FUNCS: pointer to optional functions table (EXTRA state handlers).
+;;
+;; Add an entry to the modes table.
 macro mode_def
-	assert _NARG == 1 || _NARG == 2
-	section fragment "{MODES_SECTION}", romx
-	rModes_\1::
-		.impl_bank: db bank(\1_Enter)
-		.fn_enter: dw \1_Enter
-		.fn_process: dw \1_Process
-	if _NARG == 2
-		.extra_funcs: dw \2
+	assert _NARG >= 1
+	def _MODE_NAME equs "\1"
+	shift
+
+	pushs fragment "{MODES_SECTION}", romx
+	rModes_{_MODE_NAME}::
+
+	if _NARG < MODE_FN_CORE_MAX
+		; legacy auto label mode
+		.impl_bank: db bank({_MODE_NAME}_Enter)
+		.fn_enter: dw {_MODE_NAME}_Enter
+		.fn_process: dw {_MODE_NAME}_Process
+		.fn_exit: dw $FF00
+		.fn_halt: dw $FF00
+		.fn_resume: dw $FF00
 	else
-		.extra_funcs: dw $FFFF
+		assert _NARG == MODE_FN_CORE_MAX || _NARG == MODE_FN_CORE_MAX + 1
+		; each arg is a core state func impl
+		def _DID_BANK equ 0
+		for I, MODE_FN_CORE_MAX
+			if strcmp("\1", "-")
+				if _DID_BANK == 0
+					redef _DID_BANK equ 1
+					db bank(\1)
+				endc
+				dw (\1)
+			else
+				; null impl
+				assert I != MODE_FN_PROCESS, "Mode must implement func Process."
+				dw $FF00
+			endc
+			shift
+		endr
+		purge _DID_BANK
 	endc
+
+	; extra_funcs
+	if _NARG == 0
+		dw $FF00
+	else
+		assert _NARG == 1
+		dw \1
+	endc
+
+	pops ; rModes
+	purge _MODE_NAME
 endm
 
 

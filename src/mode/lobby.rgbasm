@@ -4,8 +4,7 @@ include "banker.rgbinc"
 include "chrimp.rgbinc"
 
 
-	mode_def modeLobby, modeLobby_ExtraFuncs
-
+	mode_def modeLobby, modeLobby_Enter, modeLobby_Process, modeLobby_Exit, modeLobby_Halt, modeLobby_Resume, modeLobby_ExtraFuncs
 
 	import_screen "assets/screen_Lobby.chr", screen_Lobby
 
@@ -17,8 +16,6 @@ def _STATE_EXTRA_WAIT0 rb 1
 	dw _wait0
 def _STATE_EXTRA_WAIT_CURTAIN rb 1
 	dw _waitCurtain
-def _STATE_EXTRA_EXITING rb 1
-	dw _exiting
 
 _wait0:
 	call ModeLoadWaitVx :: ret nc
@@ -35,11 +32,11 @@ _waitCurtain:
 	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
 	ret
 
-_exiting:
-	ret
-
 
 modeLobby_Enter::
+	call ChrmanResetAll
+	call PalettePalInit
+
 	xor a :: ld [wSCY], a :: ld [wSCX], a
 
 	ld h, bank("assets/screen_Lobby.chr.pal")
@@ -97,13 +94,23 @@ modeLobby_Process::
 	ld a, bank(map_c1)
 	call MapSelect
 
-	; Change to 'exiting' state so we don't need to deal with being mid transition in Process.
-	ld a, _STATE_EXTRA_EXITING :: ldh [hModeState], a
-
 	; Start transition to the game world
+	call ModePush
 	ld de, rModes_modeGamePrep
 	jp CurtainModeTransitionBegin
 :
 
 	ret
+
+
+modeLobby_Exit:
+	ret
+
+
+modeLobby_Halt:
+	ret
+
+
+modeLobby_Resume:
+	jp modeLobby_Enter
 

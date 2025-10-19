@@ -1,6 +1,10 @@
 include "mode.rgbinc"
 include "hardware.inc"
 include "banker.rgbinc"
+include "stack.rgbinc"
+
+
+	stack_def ModeStack, szModeStashed, 10
 
 
 ;; Ensure the modes table is created.
@@ -17,12 +21,28 @@ hModeState:: db
 
 
 section "wActiveMode", wram0
-wActiveMode:: ds szMode
+wActiveMode::
+	; HACK: need copy of hModeState contiguous with mode pointer for stack operations.
+	._state: db
+	;; Pointer to source Mode
+	.source: dw
+	;; Mode definition clone starts here
+	.clone:
+	.impl_bank: db
+	.fn_enter: dw
+	.fn_process: dw
+	.fn_exit: dw
+	.fn_halt: dw
+	.fn_resume: dw
+	.extra_funcs: dw
+	assert @ - .clone == szMode
 
 
 section "Mode", rom0
 ModeInit::
-	ld a, MODE_STATE_ENTER
+	ld hl, ModeStack
+	call StackInit
+	ld a, MODE_STATE_NULL
 	ldh [hModeState], a
 	ret
 
@@ -30,59 +50,41 @@ ModeInit::
 ;; Set the active mode.
 ;; @param DE: the mode to change to (expected to be in the rModes table)
 ModeSetActive::
-	; copy mode from table to hMode
-	rombopen bank("{MODES_SECTION}")
-	ld hl, wActiveMode
+	ldh a, [hModeState]
+	cp MODE_STATE_NULL
+	jr z, :+
+		push de
+	ld c, MODE_FN_EXIT
+	ld hl, wActiveMode.clone
+	call ModeInvoke
+		pop de
+:
+	ld hl, wActiveMode.source
+	ld a, e :: ld [hl+], a
+	ld a, d :: ld [hl+], a
+	; copy mode from table to wActiveMode
+		rombopen bank("{MODES_SECTION}")
 	ld c, szMode
 	call MemCopySmall
 
-	ld a, MODE_STATE_ENTER
-	ldh [hModeState], a
-	ret
+	ld a, MODE_STATE_ENTER :: ldh [hModeState], a
+	ld c, MODE_FN_ENTER
+	ld hl, wActiveMode.clone
+	jp ModeInvoke
 
 
+;; Invoke active mode impl for the current state
+;; @mut: AF, BC, DE, HL
 ModeUpdate::
-	; get mode impl bank
-	ld hl, wActiveMode
-	ld a, [hl+] :: ld b, a
-
-	; check/decode mode's current state
 	ldh a, [hModeState]
-	sla a ; Shift EXTRA flag into F.C & multiply INDEX by two.
-	ld c, a
-	jr nc, :+
-	; EXTRA state: dereference extra function table pointer
-	ld hl, wActiveMode + Mode_extra_funcs
-	ld a, [hl+]
-	ld h, [hl]
-	ld l, a
-
-	; if extra function table pointer is $FFFF, abort/error
-	and h :: inc a
-	jr z, .err_no_extra_funcs ; if H == L == $FF
+	bit bMODE_STATE_EXTRA, a
+	jr nz, :+
+	cp MODE_STATE_CORE_MAX
+	ret nc
 :
-
-	; add offset to function table pointer
-	ld a, c :: add l :: ld l, a
-	adc h :: sub l :: ld h, a
-
-	; invoke state handler function
-	wrambpush bank("{MODE_COMMON}")
-	rombpush b
-	call _goto_hl
-	rombpop
-	wrambpop
-	ret
-.err_no_extra_funcs:
-	ld b, b
-	jr .err_no_extra_funcs
-
-
-;; Read function pointer from memory and jump to it.
-;; @param HL: address of function pointer
-_goto_hl:
-	ld a, [hl+] :: ld h, [hl] :: ld l, a
-	jp hl
+	ld c, a
+	ld hl, wActiveMode.clone
+	jp ModeInvoke
 
 
 ;; Generic impl for common mode setup/loading pattern.
@@ -100,4 +102,118 @@ ModeLoadWaitVx::
 
 	scf ; F.C = tasks complete
 	ret
+
+
+pushs "ModeInvoke", rom0
+;; Invoke a Mode impl function
+;; @param C: mode impl function id
+;; @param HL: Mode* self
+;; @mut: AF, BC, DE, HL
+ModeInvoke::
+	ld a, [hl+] :: ld b, a ; impl bank
+
+	; decode impl function id
+	sla c ; Shift EXTRA flag into F.C & multiply INDEX by two.
+	jr nc, .core
+.extra
+	; get & deref extra_funcs pointer
+	ld a, Mode_extra_funcs - Mode_core_funcs
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+
+	; if $FFxx, abort/error
+	ld a, h :: inc a
+	jr nz, .invoke
+.err_no_extra_funcs
+	ld b, b
+	ret
+.core
+	; bounds check
+	ld a, c
+	cp MODE_FN_CORE_MAX * 2
+	jr nc, .err_core_func_out_of_range
+.invoke
+		rombopen b ; impl bank
+
+	; add offset to function table pointer
+	ld a, c
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+
+	; get fn
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+	; abort if $FFxx
+	ld a, h :: inc a
+	ret z
+	; invoke state handler function
+	jp hl
+
+.err_core_func_out_of_range
+	ld b, b
+	ret
+
+pops ; ModeInvoke
+
+
+pushs "ModePush", rom0
+;; @mut: AF, BC, DE, HL
+ModePush::
+	; HALT mode before stashing it
+	ldh a, [hModeState]
+	cp MODE_STATE_NULL
+	ret z
+	ld c, MODE_FN_HALT
+	ld hl, wActiveMode.clone
+	call ModeInvoke
+
+	; copy mode state (mode to resume in)
+	ldh a, [hModeState] :: ld [wActiveMode._state], a
+	; disable current mode
+	ld a, MODE_STATE_NULL :: ldh [hModeState], a
+
+	ld de, wActiveMode
+	ld hl, ModeStack
+	jp StackPush
+
+pops ; ModePush
+
+
+pushs "ModePop", rom0
+;; @mut: AF, BC, DE, HL
+ModePop::
+	; EXIT current mode (if any)
+	ldh a, [hModeState]
+	cp MODE_STATE_NULL
+	jr z, :+
+	ld c, MODE_FN_EXIT
+	ld hl, wActiveMode.clone
+	call ModeInvoke
+:
+
+	; restore mode (state & source address) from stack
+	ld de, wActiveMode
+	ld hl, ModeStack
+	call StackPop
+
+	; activate the restored mode
+	ld hl, wActiveMode.source
+	ld a, [hl+] :: ld e, a
+	ld d, [hl]
+		rombpush bank("{MODES_SECTION}")
+	ld c, szMode
+	ld hl, wActiveMode.clone
+	call MemCopySmall
+		rombpop
+
+	; restore stashed state
+	ld a, [wActiveMode._state] :: ldh [hModeState], a
+	; RESUME
+	cp MODE_STATE_NULL
+	ret z
+	ld c, MODE_FN_RESUME
+	ld hl, wActiveMode.clone
+	jp ModeInvoke
+
+pops ; ModePop
 

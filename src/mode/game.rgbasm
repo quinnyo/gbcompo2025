@@ -114,6 +114,11 @@ modeGame_Process::
 	call MapUpdate
 	call EntityRender
 
+	; TODO: push pause mode
+	; TEST: check mode stack working -- exit to menu
+	ldh a, [hKeysPressed]
+	and PADF_START
+	jp nz, ModePop
 	ret
 
 
