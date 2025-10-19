@@ -34,20 +34,18 @@ wBankerRomb:: align STACK_ALIGN_BITS
 
 
 section "Banker", rom0
-RombInit::
+BankerInit::
 	ld a, 1 :: ld [ROMB_LO], a
 	ld hl, wRomb
-	jp StackInit
+	call _BankerStackInit
 
-
-WrambInit::
 	ld a, 1 :: ldh [rSVBK], a
 	ld hl, wWramb
-	jp StackInit
+	jp _BankerStackInit
 
 
 ;; @param HL: &stack
-StackInit:
+_BankerStackInit:
 	ld c, BANKER_STACK_SIZE
 	ld a, c :: inc a :: ld [hl+], a
 	ld a, $FF
