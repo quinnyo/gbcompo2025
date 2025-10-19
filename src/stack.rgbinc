@@ -1,0 +1,57 @@
+if !def(Q_STACK_INC_TtlYehTu)
+def Q_STACK_INC_TtlYehTu equ 1
+
+
+rsreset
+;; Size of the items this stack contains.
+def StackDef_szUnit rb 1
+;; Maximum number of items that can be added to the stack.
+def StackDef_capacity rb 1
+;; Bank of stack state & buffer
+def StackDef_stateBank rb 1
+;; Address of stack state & buffer
+def StackDef_state rb 2
+;; Size in bytes of the StackDef struct.
+def szStackDef rb 0
+
+
+rsreset
+;; Number of items currently in the stack (below the tip).
+def StackCtl_size rb 1
+;; Stack pointer -- the address at the top of the stack.
+def StackCtl_tip rb 2
+;; Size in bytes of the StackCtl struct.
+def szStackCtl rb 0
+
+
+def STACK_INFO_SECTION equs "StackInfo"
+
+
+;; stack_def LABEL, SZ_UNIT, CAPACITY
+;; Creates a StackDef in the StackInfo (ROMX) section, with the label LABEL.
+;; Creates a WRAMX section for the stack's state (StackCtl and the storage buffer).
+macro stack_def
+	assert _NARG == 3
+	def SZ_BUF equ (\3) * (\2)
+
+	pushs "w\1", wramx
+	w\1_buffer:
+		ds SZ_BUF
+	w\1:
+		ds szStackCtl
+	pops
+
+	pushs fragment "{STACK_INFO_SECTION}", romx
+		\1::
+			.szUnit:: db (\2)
+			.capacity:: db (\3)
+			.stateBank:: db bank("w\1")
+			.stateAddr:: dw w\1
+	pops
+
+	purge SZ_BUF
+endm
+
+
+endc ; Q_STACK_INC_TtlYehTu
+

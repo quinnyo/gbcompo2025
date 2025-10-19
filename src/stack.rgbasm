@@ -1,0 +1,120 @@
+include "stack.rgbinc"
+include "banker.rgbinc"
+include "hardware.inc"
+
+
+pushs "StackPush", rom0
+;; @param DE: item to push
+;; @param HL: StackDef* self
+;; @mut: AF, BC, DE, HL
+StackPush::
+		rombopen bank("{STACK_INFO_SECTION}")
+		wrambopen
+	ld a, [hl+] :: ld c, a ; szUnit
+	ld a, [hl+] :: ld b, a ; capacity
+		wrambsel [hl+] ; stateBank
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a ; stateAddr
+
+	ld a, [hl] ; StackCtl.size
+	; capacity check
+	cp b
+	jr nc, .err_stack_overflow
+	inc a :: ld [hl+], a
+
+	; StackCtl.tip -= szUnit
+	ld a, [hl] :: sub c :: ld [hl+], a
+	jr nc, :+
+	dec [hl] ; borrow
+:
+	ld h, [hl] :: ld l, a
+
+	; copy item in
+.loop
+	ld a, [de] :: inc de
+	ld [hl+], a
+	dec c
+	jr nz, .loop
+
+	ret
+
+.err_stack_overflow:
+	ld b, b
+	ret
+
+pops ; StackPush
+
+
+pushs "StackPop", rom0
+;; @param DE: item buffer (popped item will be copied here)
+;; @param HL: StackDef* self
+;; @mut: AF, BC, DE, HL
+StackPop::
+		rombopen bank("{STACK_INFO_SECTION}")
+		wrambopen
+	ld a, [hl+] :: ld c, a ; szUnit
+	ld a, [hl+] :: ld b, a ; capacity
+		wrambsel [hl+] ; stateBank
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a ; stateAddr
+
+	ld a, [hl+] ; StackCtl.size
+	and a
+	jr z, .err_stack_empty
+
+	ld a, [hl+]
+		push hl ; &StackCtl.tip+1
+	ld h, [hl]
+	ld l, a
+
+	; copy item out
+.loop:
+	ld a, [hl+]
+	ld [de], a :: inc de
+	dec c
+	jr nz, .loop
+
+	; update tip & size
+	ld c, l :: ld a, h
+		pop hl ; &StackCtl.tip+1
+	ld [hl-], a
+	ld a, c :: ld [hl-], a
+	dec [hl]
+
+	ret
+
+.err_stack_empty:
+	ld b, b
+	ret
+
+pops ; StackPop
+
+
+pushs "StackInit", rom0
+;; @param HL: StackDef* self
+;; @mut: AF, DE, HL
+StackInit::
+		rombopen bank("{STACK_INFO_SECTION}")
+		wrambopen
+	ld a, StackDef_stateBank
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+		wrambsel [hl+] ; stateBank
+	; get stateAddr & keep a copy (DE) for initial tip address
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a
+	ld e, l :: ld d, h
+
+	; size = 0
+	xor a :: ld [hl+], a
+	; tip = stateAddr = buffer + capacity * szUnit
+	ld a, e :: ld [hl+], a
+	ld a, d :: ld [hl+], a
+
+	ret
+
+pops ; StackInit
+
