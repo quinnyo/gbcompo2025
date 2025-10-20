@@ -73,24 +73,16 @@ def MODES_SECTION equs "rModes"
 ;;
 ;; Add an entry to the modes table.
 macro mode_def
-	assert _NARG >= 1
+	assert _NARG >= 1, "mode_def: 0 args supplied"
 	def _MODE_NAME equs "\1"
 	shift
 
 	pushs fragment "{MODES_SECTION}", romx
 	rModes_{_MODE_NAME}::
 
-	if _NARG < MODE_FN_CORE_MAX
-		; legacy auto label mode
-		.impl_bank: db bank({_MODE_NAME}_Enter)
-		.fn_enter: dw {_MODE_NAME}_Enter
-		.fn_process: dw {_MODE_NAME}_Process
-		.fn_exit: dw $FF00
-		.fn_halt: dw $FF00
-		.fn_resume: dw $FF00
-	else
-		assert _NARG == MODE_FN_CORE_MAX || _NARG == MODE_FN_CORE_MAX + 1
-		; each arg is a core state func impl
+	if _NARG > 1
+		assert _NARG >= MODE_FN_CORE_MAX, "mode_def: Mode {_MODE_NAME} missing impl args."
+		; each arg is a core func
 		def _DID_BANK equ 0
 		for I, MODE_FN_CORE_MAX
 			if strcmp("\1", "-")
@@ -101,12 +93,20 @@ macro mode_def
 				dw (\1)
 			else
 				; null impl
-				assert I != MODE_FN_PROCESS, "Mode must implement func Process."
+				assert I != MODE_FN_PROCESS, "mode_def: Mode {_MODE_NAME} must implement func Process."
 				dw $FF00
 			endc
 			shift
 		endr
 		purge _DID_BANK
+	else
+		; legacy auto label mode
+		.impl_bank: db bank({_MODE_NAME}_Enter)
+		.fn_enter: dw {_MODE_NAME}_Enter
+		.fn_process: dw {_MODE_NAME}_Process
+		.fn_exit: dw $FF00
+		.fn_halt: dw $FF00
+		.fn_resume: dw $FF00
 	endc
 
 	; extra_funcs
