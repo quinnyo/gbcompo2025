@@ -114,12 +114,17 @@ modeGame_Process::
 	call MapUpdate
 	call EntityRender
 
-	; TODO: push pause mode
-	; TEST: check mode stack working -- exit to menu
+	; Pause game key input
 	ldh a, [hKeysPressed]
 	and PADF_START
-	jp nz, ModePop
+	jr nz, _GotoPause
 	ret
+
+
+_GotoPause:
+	call ModePush
+	ld de, rModes_modePause
+	jp ModeSetActive
 
 
 _ItemsUpdateCollision:

@@ -1,0 +1,93 @@
+include "hardware.inc"
+include "banker.rgbinc"
+include "mode.rgbinc"
+
+
+def HOLD_QUIT_TICKS equ 90
+def KEYS_UNPAUSE equ PADF_START | PADF_B
+def KEYS_QUIT equ PADF_UP
+
+
+	mode_def modePause, modePause_Enter, modePause_Process, modePause_Exit, -, -
+
+
+section union "{MODE_COMMON}", wramx
+wHoldQuitTicks: db
+
+
+section "modePause", romx
+
+modePause_Enter:
+		wrambopen bank("{MODE_COMMON}")
+	xor a :: ld [wHoldQuitTicks], a
+
+	; TODO: music
+
+	; TODO: palette fade?
+
+	; TODO: display pause menu
+
+	; TODO: 'paused' sound effect
+
+	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
+
+	ret
+
+
+modePause_Process:
+	ldh a, [hKeysPressed]
+	and KEYS_UNPAUSE
+	jr nz, _unpause
+
+		wrambopen bank("{MODE_COMMON}")
+	ld a, [wHoldQuitTicks] :: ld b, a
+	ld c, KEYS_QUIT
+	call _hold_keys
+	ld a, b :: ld [wHoldQuitTicks], a
+	cp HOLD_QUIT_TICKS
+	jr nc, _quit
+
+	ret
+
+
+_unpause:
+	; TODO: 'unpaused' sound effect
+
+	jp ModePop
+
+
+_quit:
+	call ModePop
+	jp ModePop
+
+
+;; @param B: held ticks state
+;; @param C: keys
+_hold_keys:
+	ld a, b
+	and a
+	jr nz, :+
+	; only count as held if initial press detected
+	ldh a, [hKeysPressed]
+	cp c
+	ret nz
+	inc b
+	ret
+:
+
+	ldh a, [hKeys]
+	cp c
+	jr nz, :+
+	inc b
+	ret
+:
+	ld b, 0
+	ret
+
+
+modePause_Exit:
+
+	; TODO: hide pause menu
+
+	ret
+
