@@ -8,21 +8,21 @@ pops ; BitmaskTable
 
 pushs "ClampS8", rom0
 ;; @param B: Value
-;; @param E: Preflambered lower bound ($80 ^ lo)
-;; @param D: Preflambered upper bound ($80 ^ hi)
+;; @param E: signed upper bound xored with $80
+;; @param D: signed lower bound xored with $80
 ;; @ret B: Result
 ;; @mut: AF, B
 ClampS8::
 	ld a, b :: xor $80 :: ld b, a
 	ld a, d
 	cp b
-	jr c, .end
+	jr nc, .end ; clamp to lower bound
 
-	cp e
 	ld a, e
-	jr c, .end
+	cp b
+	jr c, .end ; clamp to upper bound
 
-	ld a, b
+	ld a, b ; in range, keep value
 .end
 	xor $80
 	ld b, a
