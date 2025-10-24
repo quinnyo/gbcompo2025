@@ -17,6 +17,7 @@ hEntityActive::
 	.index:: db
 	.state:: dw
 	.usr0:: dw
+	.ctrl:: db
 
 
 section "wEntity", wram0, align[8]
@@ -193,6 +194,10 @@ EntityActiveSelect::
 	ld a, high(wEntity)
 	ldh [hEntityActive.state + 1], a
 	ld h, a
+
+	ld a, [hl+] ; Info
+	ld a, [hl-] ; Ctrl
+	ldh [hEntityActive.ctrl], a
 	ret
 
 
@@ -387,7 +392,6 @@ EntityFnUpdateMoveCollide::
 	ld a, [hl+] :: ldh [hCollide.px+1], a
 
 	; Update motion Y
-	entity_index Entity_Ctrl
 	call _get_gravity :: ld b, a
 	entity_index Entity_AccY
 	ld a, b :: call _velocity_update
@@ -474,7 +478,6 @@ EntityFnUpdateMotionOnly::
 		push bc
 
 	; Update motion Y
-	entity_index Entity_Ctrl
 	call _get_gravity :: ld b, a
 	entity_index Entity_AccY
 	ld a, b :: call _velocity_update
@@ -544,47 +547,23 @@ _velocity_update:
 	ld b, [hl]
 	call AddS8_sat
 
-	; Apply friction|drag but not on every frame!
-	ldh a, [hSim.tick]
-	and SIM_DRAG_TICK
-	jr nz, .no_drag
-
-	call _drag1
-	add c :: ld c, a
-.no_drag
-
-	ld b, [hl]
-	ld a, c :: ld [hl+], a
-
-;; "Deflate" velocity -- scale the velocity down to get the position delta.
-;; I can't remember exactly why this was the way it ended up, but I think it had
-;; something to do with having only an hour or two before submission deadline.
-;; TODO: ideally, not this?
-;_velocity_deflate:
-macro velocity_deflate_positive
-	sra b :: sra b; :: sra b; :: sra b
-endm
-	ld a, b
-	rlca
-	jr nc, .positive
-	xor a :: sub b :: ld b, a
-	velocity_deflate_positive
-	xor a :: sub b :: ld b, a
-.end
-	; Finally! Clamp velocity (B) to the valid range.
+	ldh a, [hEntityActive.ctrl]
+	and ENTCTRL_DRAG :: ld e, a
+	ld b, c :: call Drag1
+	ld b, d :: call AddS8_sat
 	ld de, SPEED_RANGE_CLAMP_PARAM
-	jp ClampS8
-.positive
-	velocity_deflate_positive
-	jr .end
+	ld b, c
+	call ClampS8
+	ld a, b :: ld [hl+], a
+	ret
 
 
 ;; Get gravity accel for an entity
-;; @param HL: pointer to entity ctrl field
 ;; @ret A: gravity accel to apply
 ;; @mut: AF
 _get_gravity:
-	bit bENTCTRL_NOGRAV, [hl]
+	ldh a, [hEntityActive.ctrl]
+	and ENTCTRL_NOGRAV
 	jr nz, .nograv
 	ldh a, [hSim.tick]
 	and SIM_GRAVITY_TICK
@@ -596,125 +575,53 @@ _get_gravity:
 	ret
 
 
+pushs "Drag16", romx, align[8]
+;; gendrag(cd=1.30, A=44.4, m=2.10, v=1,128, yoffset=1.0, exp=3.0)
+Drag16_A:: db 1, 1, 1, 2, 3, 5, 8, 13, 18, 25, 34, 45, 58, 73, 91, 111
+
+pops ; Drag16
+
+
+pushs "Drag", rom0
+;; 1D drag very approximation
 ;; @param B: vel
-;; @ret A: drag
-;; @mut: AF
-_drag1:
+;; @param E: drag model/curve selection
+;; @ret D: drag
+;; @mut: AF, DE
+Drag1::
+	ld d, 0 ; zero drag
+	; zero vel?
 	ld a, b
 	and a
 	ret z
-		push hl
-	ld hl, drag16_cubic
+	; drag disabled?
+	ld a, e
+	cp ENTCTRL_DRAG_NONE
+	ret nc
+
+	swap e ; mul 16 to get low byte of drag table
+
+	; divide abs(vel) to get LUT index [0..16)
+	ld a, b
 	call AbsS8
-	swap a
+	assert 127 >> DRAGTAB_INPUT_DIVS <= $0F
+	rept DRAGTAB_INPUT_DIVS
+		rrca
+	endr
 	and $0F
-	add l :: ld l, a
-	adc h :: sub l :: ld h, a
-	ld a, [hl]
-		pop hl
+	add e :: ld e, a
+
+		rombpush bank("Drag16")
+	ld d, high(startof("Drag16"))
+	ld a, [de]
+	ld d, a
+		rombpop
+	ld a, d
+	; sign(drag) = -sign(vel)
 	bit 7, b
 	ret nz
-	cpl
-	inc a
+	xor a :: sub d :: ld d, a
 	ret
 
-;; cd=0.047, exp=3, yoffset=1.5
-drag16_cubic: db 1, 1, 2, 3, 4, 6, 9, 13, 18, 25, 32, 42, 53, 65, 80, 97
-
-
-;; Returns +/- 1, with the sign opposite the input velocity.
-;; @param A: vel
-;; @ret A: friction(vel)
-;; @mut: AF
-_fric_min:
-	rlca
-	ret z
-	sbc a :: cpl :: or 1
-	ret
-
-
-; Calculate simple friction (1/16) for the given velocity.
-; The result is an acceleration (with magnitude in the range `[1..abs(vel)]`) opposed to the direction (sign) of the input velocity, or zero if the velocity is zero.
-; @param A: vel
-; @ret A: friction(vel)
-; @mut: AF
-_fric_1_16:
-	and a :: ret z
-	cp $80
-	jr nc, .negative
-	; positive: divide first
-	swap a :: and $0E
-	cpl; :: inc a
-	;dec a
-	ret
-.negative
-	; negative: invert first
-	cpl :: inc a
-	swap a :: and $0E
-	inc a
-	ret
-
-_fric_1_32:
-	and a :: ret z
-	cp $80
-	jr nc, .negative
-	; positive: divide first
-	rlca :: rlca :: rlca :: and $06
-	cpl; :: inc a
-	;dec a
-	ret
-.negative
-	; negative: invert first
-	cpl :: inc a
-	rlca :: rlca :: rlca :: and $06
-	inc a
-	ret
-
-_fric_1_8:
-	and a :: ret z
-	cp $80
-	jr nc, .negative
-	; positive: divide first
-	rrca :: rrca :: rrca :: and $1E
-	cpl; :: inc a
-	;dec a
-	ret
-.negative
-	; negative: invert first
-	cpl :: inc a
-	rrca :: rrca :: rrca :: and $1E
-	inc a
-	ret
-
-_fric_1_4:
-	and a :: ret z
-	cp $80
-	jr nc, .negative
-	; positive: divide first
-	rrca :: rrca :: and $3E
-	cpl; :: inc a
-	;dec a
-	ret
-.negative
-	; negative: invert first
-	cpl :: inc a
-	rrca :: rrca :: and $3E
-	inc a
-	ret
-
-_fric_1_2:
-	and a :: ret z
-	cp $80
-	jr nc, .negative
-	; positive: divide first
-	rrca :: and $7E
-	cpl; :: inc a
-	;dec a
-	ret
-.negative
-	; negative: invert first
-	cpl :: inc a
-	rrca :: and $7E
-	inc a
-	ret
+pops ; Drag
 

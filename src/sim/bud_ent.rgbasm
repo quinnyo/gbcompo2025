@@ -8,16 +8,16 @@ include "ani.rgbinc"
 
 
 ;; Action period duration range mask.
-def PERIOD_MASK equ $1F
+def PERIOD_MASK equ $00
 ;; Action period duration minimum value (offset).
-def PERIOD_MIN equ $20
+def PERIOD_MIN equ $0F
 
-;; Action will only be applied when period timer state & ACTION_TICK_MASK == 0
-def ACTION_TICK_MASK equ $0F
-
+;; Drive vector scale as number of bits to shift right
 def DRIVE_RSHIFTS equ 3
-def DRIVE_SAT_MAX equ 127 >> DRIVE_RSHIFTS
 
+;; Target point offset range bitmask
+def TARGET_OFFSET_MASK equ 31
+assert TARGET_OFFSET_MASK & (TARGET_OFFSET_MASK + 1) == 0
 
 rsreset
 def bBudEnt__0 rb 1
@@ -119,8 +119,9 @@ BudEntSpawn::
 	ldh a, [hEntityActive.state + 1] :: ld h, a
 	ld a, ENTINFOF_OCCUPIED | ENTINFOF_ALIVE | $02
 	ld [hl+], a ; info
-	xor a
+	ld a, ENTCTRL_DRAG_A
 	ld [hl+], a ; ctrl
+	xor a
 	ld [hl+], a ; accx
 	ld a, -63
 	ld [hl+], a ; velx
@@ -171,11 +172,32 @@ BudEntSpawn::
 	ret
 
 
+pushs "aaaQuickMon", wram0
+
+aaa_BudStatus: db
+aaa_BudTimer: db
+
+pops ; aaaQuickMon
+
+
+pushs "_Bud", wram0
+_BudAnchorX: dw
+_BudTargetX: dw
+_BudDriveX: db
+_BudAnchorY: dw
+_BudTargetY: dw
+_BudDriveY: db
+pops ; _Bud
+
+
 section "BudEntFnThink", romx
 BudEntFnThink::
 		wrambsel bank(wEntityUsr0)
 	ldh a, [hEntityActive.usr0 + 0] :: ld l, a
 	ldh a, [hEntityActive.usr0 + 1] :: ld h, a
+
+															ld a, [hl+] :: ld [aaa_BudStatus], a
+															ld a, [hl-] :: ld [aaa_BudTimer], a
 
 	; If at home, monitor home item collection status.
 	; Switch to following player entity if home item is picked up.
@@ -201,73 +223,8 @@ BudEntFnThink::
 .tick:
 	ld a, [hl+] :: ld b, a ; .status
 	dec [hl]
-	jr z, .reset
+	jr z, .period_start
 	ld a, [hl+]
-	and ACTION_TICK_MASK
-	jr z, .action
-	ret
-
-.reset:
-	; start a new period
-		push hl
-	call CnsNext
-		pop hl
-	and PERIOD_MASK
-	add PERIOD_MIN
-	ld [hl+], a
-	; pick new drive direction
-	ld a, [hl+] ; .anchor
-	call _GetAnchorPoint
-
-	; random offset
-	call CnsNext
-	ld l, a
-	add c :: ld c, a
-	adc b :: rl l :: sbc c :: ld b, a
-	dec b ; constant offset -16 Y
-	call CnsNext
-	ld l, a
-	add e :: ld e, a
-	adc d :: rl l :: sbc e :: ld d, a
-
-		push bc ; targetY
-	ldh a, [hEntityActive.state + 0] :: ld l, a
-	ldh a, [hEntityActive.state + 1] :: ld h, a
-
-	entity_index Entity_PosX
-	ld a, [hl+] :: ld c, a
-	ld b, [hl]
-	call _CalcDrive
-	entity_index Entity_PosY
-	ld a, [hl+] :: ld c, a
-	ld b, [hl]
-	ld l, e ; Done with HL Entity pointer, hold driveX in L temporarily
-		pop de ; targetY
-	call _CalcDrive
-	ld c, l ; driveX
-	
-	; store drive vec
-	ldh a, [hEntityActive.usr0 + 0] :: ld l, a
-	ldh a, [hEntityActive.usr0 + 1] :: ld h, a
-
-	; update left/right facing flag
-	ld a, c :: rla :: sbc a :: ld d, a
-	ld a, [hl]
-	ld b, a
-	xor d
-	and ~BudEnt_LEFT
-	xor d
-	; if changed
-	cp b
-	jr z, :+
-	or BudEnt_XTURNING
-	ld [hl], a
-:
-
-	inc hl :: inc hl :: inc hl ; skip (.status, .timer, .anchor) to driveX
-	ld a, c :: ld [hl+], a ; driveX
-	ld a, e :: ld [hl-], a ; driveY
-	jr .apply_drive_accel ; ensure each action applied at least once
 
 .action:
 	inc hl ; skip .anchor
@@ -281,56 +238,137 @@ BudEntFnThink::
 	ld [hl], c
 	entity_index Entity_AccY
 	ld [hl], b
-
 	ret
 
+	; start a new period
+.period_start:
+	; get up to date anchor/target point and pick a new drive vector (towards the target)
+									inc hl ; skip .timer
+	ld a, [hl+] ; .anchor
+	call _GetTargetPoint
+	ret nc ; _GetTargetPoint failed
 
-;; @param DE: target position
-;; @param BC: current position
-;; @ret E: drive
-;; @mut: AF, DE
-_CalcDrive:
-	coord_sub de, bc
-	ld a, d
-	and a
-	jr z, .thing
-	inc a
-	jr z, .thing
-	ld e, DRIVE_SAT_MAX
-	bit 7, d
-	ret z
-	ld e, -DRIVE_SAT_MAX
-	ret
-.thing
-	ld a, d
-	rept DRIVE_RSHIFTS - 1
-		rra
-		rr e
+															ld a, e :: ld [_BudTargetX + 0], a
+															ld a, d :: ld [_BudTargetX + 1], a
+															ld a, c :: ld [_BudTargetY + 0], a
+															ld a, b :: ld [_BudTargetY + 1], a
+
+	; DriveY
+	ldh a, [hEntityActive.state + 0] :: ld l, a
+	ldh a, [hEntityActive.state + 1] :: ld h, a
+	entity_index Entity_PosY
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a
+	coord_int16 hl ; working in Dots
+	coord_sub bc, hl
+	rl b :: sbc a ; to shift sign into the low byte
+	rept DRIVE_RSHIFTS
+		rra :: rr c
 	endr
-	; take sign bit from actual difference
-	rl d
-	rr e
+															ld a, c :: ld [_BudDriveY], a
+
+	; DriveX
+	ldh a, [hEntityActive.state + 0] :: ld l, a
+	ldh a, [hEntityActive.state + 1] :: ld h, a
+	entity_index Entity_PosX
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a
+	coord_int16 hl ; working in Dots
+	coord_sub de, hl
+	rl d :: sbc a ; to shift sign into the low byte
+	rept DRIVE_RSHIFTS
+		rra :: rr e
+	endr
+															ld a, e :: ld [_BudDriveX], a
+	
+	; next timer duration
+	call CnsNext :: and PERIOD_MASK :: add PERIOD_MIN
+	ld b, a ; hang on to this for a moment
+
+	; store drive vec
+	ldh a, [hEntityActive.usr0 + 0] :: ld l, a
+	ldh a, [hEntityActive.usr0 + 1] :: ld h, a
+
+	; update left/right facing flag
+	; D is already signed from DriveX
+	ld a, [hl]
+	xor d
+	and ~BudEnt_LEFT
+	xor d
+	; if changed do turning animation
+	cp [hl]
+	jr z, :+
+	or BudEnt_XTURNING
+:
+	ld [hl+], a ; .status
+	ld a, b :: ld [hl+], a ; .timer
+	inc hl ; skip .anchor
+	; store the new drive vector
+	ld a, e :: ld [hl+], a ; driveX
+	ld [hl], c ; driveY
 	ret
 
 
 ;; @param A: BudEnt.anchor
 ;; @param B: BudEnt.status
 ;; @ret F.C: success
-;; @ret DE: anchorX
-;; @ret BC: anchorY
+;; @ret DE: TargetX (dots)
+;; @ret BC: TargetY (dots)
 ;; @mut: AF, BC, DE, HL
-_GetAnchorPoint:
+_GetTargetPoint:
+	; Anchor
 	bit bBudEnt_HOME, b
-	jp nz, ItemsGetPosition ; anchor is home item
+	jr z, .leader_entity
+	; anchor is home item
+	call ItemsGetPosition
+	jr .do_target_offset
+
+.leader_entity
 	; anchor is leader entity
 	call EntityAt
 	ret nc
 	entity_index Entity_PosX
 	ld a, [hl+] :: ld e, a
 	ld d, [hl]
+	coord_int16 de
 	entity_index Entity_PosY
 	ld a, [hl+] :: ld c, a
 	ld b, [hl]
+	coord_int16 bc
+
+.do_target_offset
+	; Target = Anchor + random offset
+
+															ld a, e :: ld [_BudAnchorX + 0], a
+															ld a, d :: ld [_BudAnchorX + 1], a
+															ld a, c :: ld [_BudAnchorY + 0], a
+															ld a, b :: ld [_BudAnchorY + 1], a
+
+	; TargetY random offset
+	call CnsNext :: and TARGET_OFFSET_MASK :: ld l, a
+	ld h, 0 ; H will collect our borrow
+	ld a, c :: sub TARGET_OFFSET_MASK >> 1
+	rl h ; H[0] <~~~ F.C
+	add l :: ld c, a
+	adc b :: sub c
+	sub h :: ld b, a
+	jr nc, :+
+	; underflow: clamp to low bound
+	ld bc, WORLD_ORIGIN >> 4
+:
+	; TargetX random offset
+	call CnsNext :: and TARGET_OFFSET_MASK :: ld l, a
+	ld h, 0
+	ld a, e :: sub TARGET_OFFSET_MASK >> 1
+	rl h
+	add l :: ld e, a
+	adc d :: sub e
+	sub h :: ld d, a
+	jr nc, :+
+	ld de, WORLD_ORIGIN >> 4
+:
 	scf
 	ret
 

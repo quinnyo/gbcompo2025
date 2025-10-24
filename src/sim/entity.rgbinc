@@ -9,13 +9,13 @@ def GRAVITY_DEFAULT equ $0_4
 
 def SIM_GRAVITY_TICK equ $07
 
-;; Drag will only be applied when SIM_DRAG_TICK & tick == zero.
-def SIM_DRAG_TICK equ $01
+;; Number of shifts (divide by 2) used to scale velocity
+def DRAGTAB_INPUT_DIVS equ 3
 
-def SPEED_LIMIT equ 64
+def SPEED_LIMIT equ 30
 def SPEED_RANGE_LO equ SPEED_LIMIT
 def SPEED_RANGE_HI equ 256 - SPEED_LIMIT
-def SPEED_RANGE_CLAMP_PARAM equ ($80 ^ (SPEED_RANGE_HI << 8)) | ($80 ^ SPEED_RANGE_LO)
+def SPEED_RANGE_CLAMP_PARAM equ $8080 ^ ((SPEED_RANGE_HI << 8) | SPEED_RANGE_LO)
 
 ;; Y axis adjustment offset for placing Entity sprites
 def ENT_SPRITE_Y_OFF equ 0
@@ -66,8 +66,15 @@ def ENTINFOF_ALIVE equ 1 << ENTINFOB_ALIVE
 def ENTINFOF_OCCUPIED equ 1 << ENTINFOB_OCCUPIED
 
 
+rsreset
+;; Drag model/curve selection
+def bENTCTRL_DRAG rb 2
 ;; Disable gravity
 def bENTCTRL_NOGRAV equ 4
+
+def ENTCTRL_DRAG_A equ 0
+def ENTCTRL_DRAG_NONE equ 1
+def ENTCTRL_DRAG equ $03
 def ENTCTRL_NOGRAV equ 1 << bENTCTRL_NOGRAV
 
 

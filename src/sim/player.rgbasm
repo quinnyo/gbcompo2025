@@ -5,41 +5,30 @@ include "vis/diver.rgbinc"
 include "banker.rgbinc"
 
 
-def bVKEY_FLAP        equ 0
-def bVKEY_AUTOFLAP    equ 1
+;; Ticks between applying drive/accel.
+def DRIVE_INTERVAL equ 2
 
-def FLAP_FULL equ $0D
-def FLAP_AUTO equ $0C
-def AUTOFLAP_THRESHOLD equ $02
-
-def THRUST_TICK equ $07
 
 rsreset
 def Player_vis rb szVisDiver
-;def Player_vkeys rb 1
-;def Player_ydrive rb 1
-;def Player_xdrive rb 1
 def szPlayer rb 0
 assert szPlayer <= szEntityUsr0, "Player struct exceeds Entity Usr0 allocation. ({d:szPlayer} > {d:szEntityUsr0})"
 
 
 section "wPlayer", wram0
 wPlayer::
-	.vkeys: db
 	;; Direct directional movement vector, Y axis
 	.driveY: db
 	;; 'Drive' movement control vector, X axis
 	.driveX: db
 	;; Entity index
 	.ent:: db
+	.inputDir: db
+	.driveTimer: db
 
 
 section "Player", rom0
 PlayerInit::
-	xor a
-	ld [wPlayer.vkeys], a
-	ld [wPlayer.driveY], a
-	ld [wPlayer.driveX], a
 	ld a, $FF
 	ld [wPlayer.ent], a
 	ret
@@ -52,12 +41,20 @@ PlayerInit::
 PlayerSpawn::
 	ld [wPlayer.ent], a
 
+	xor a
+	ld [wPlayer.driveY], a
+	ld [wPlayer.driveX], a
+	ld [wPlayer.inputDir], a
+	ld a, DRIVE_INTERVAL
+	ld [wPlayer.driveTimer], a
+
 	ld a, [wPlayer.ent]
 	call EntityAt
 
 	ld a, ENTINFOF_OCCUPIED | ENTINFOF_ALIVE | $01
 	ld [hl+], a
-	xor a :: ld [hl+], a
+	ld a, ENTCTRL_DRAG_A
+	ld [hl+], a
 
 	xor a
 	ld [hl+], a ; accx
@@ -102,11 +99,29 @@ PlayerSpawn::
 ;; Entity impl FnThink for player entity controller.
 ;; @mut: AF, BC, D, HL
 PlayerThink:
-	call PlayerInputUpdate
+	ldh a, [hKeys]
+	and $F0
+	ld [wPlayer.inputDir], a
+
+	ld hl, wPlayer.driveTimer
+	dec [hl]
+	ret nz
+	ld a, DRIVE_INTERVAL :: ld [hl], a
+
+	; update drive vector
+	ld a, [wPlayer.inputDir] :: ld b, a
+	ld de, (5 << 8) | 7
+	call Vecdir8FromKeys
+	ld a, d :: ld [wPlayer.driveY], a
+	ld a, e :: ld [wPlayer.driveX], a
 
 	; get entity pointer
 	ldh a, [hEntityActive.state + 0] :: ld l, a
 	ldh a, [hEntityActive.state + 1] :: ld h, a
+	entity_index Entity_AccY
+	ld [hl], d
+	entity_index Entity_AccX
+	ld [hl], e
 
 	entity_index Entity_Ctrl
 	; set NOGRAV if active directional input.
@@ -115,16 +130,6 @@ PlayerThink:
 	jr z, :+
 	set bENTCTRL_NOGRAV, [hl]
 :
-
-	; Directional movement
-	ldh a, [hSim.tick]
-	and THRUST_TICK
-	ret nz
-
-	entity_index Entity_AccY
-	ld [hl], d
-	entity_index Entity_AccX
-	ld [hl], e
 
 	ret
 
@@ -256,77 +261,5 @@ _ScrollFenceThing:
 	sub -SCROLL_FENCE
 	ret c
 	xor a
-	ret
-
-
-/*
-;; @param B: vkeys
-PlayerFlap:
-	; Keep the 'ctrl' field available in C, and save any changes made to it down below.
-	ld a, [wEntity + Entity_Ctrl] :: ld c, a
-
-	; Flap!
-	bit bVKEY_FLAP, b
-	jr z, :+
-	ld a, FLAP_FULL
-	jr .flap
-:
-
-	; Autoflap!
-	bit bVKEY_AUTOFLAP, b
-	jr z, :+
-	ld a, c :: and mENTCTRL_FLAP
-	cp AUTOFLAP_THRESHOLD
-	jr nc, :+
-	ld a, FLAP_FULL
-	jr .flap
-:
-	jr .noflap
-
-.flap:
-	xor c :: and mENTCTRL_FLAP :: xor c
-	ld c, a
-	; @SFX?
-	; @VFX
-.noflap:
-
-	ld hl, wEntity + Entity_Ctrl
-	ld a, c :: ld [hl+], a
-	ret
-*/
-
-
-;; Read input, update vkeys
-;; @ret B: vkeys
-;; @ret D,E: Drive Y,X
-;; @mut: AF, BC, DE
-PlayerInputUpdate:
-;	ld de, (12 << 8) | 17
-	ld de, (5 << 8) | 7
-;	ld de, (2 << 8) | 3
-;	ld de, (1 << 8) | 2
-	ldh a, [hKeys] :: ld b, a
-	call Vecdir8FromKeys
-	ld a, d :: ld [wPlayer.driveY], a
-	ld a, e :: ld [wPlayer.driveX], a
-
-	; B will hold the new vkeys state...
-	ld b, 0
-
-	; autoflap
-	bit PADB_A, c
-	jr z, :+
-	set bVKEY_AUTOFLAP, b
-:
-
-	; manual flap
-	ldh a, [hKeysPressed]
-	bit PADB_A, a
-	jr z, :+
-	set bVKEY_FLAP, b
-	res bVKEY_AUTOFLAP, b ; overrides autoflap
-:
-
-	ld a, b :: ld [wPlayer.vkeys], a
 	ret
 

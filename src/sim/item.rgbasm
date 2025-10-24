@@ -261,12 +261,35 @@ ItemsSetupSpecial::
 
 
 section "ItemsGetPosition", rom0
+;; Get item position in dots
+;; @param A: index
+;; @ret DE: X position in dots
+;; @ret BC: Y position in dots
+;; @ret F.C: success
+;; @mut: AF, BC, DE, HL
+ItemsGetPosition::
+	call ItemsIndex
+	ret nc
+		wrambopen bank("wItems")
+	ld a, Item_y
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	ld a, [hl+] :: ld c, a
+	ld a, [hl+] :: ld b, a
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+	scf
+	ret
+
+
+section "ItemsGetPositionCoord", rom0
+;; Get item position as Entity coords
 ;; @param A: index
 ;; @ret DE: X position in Entity coords
 ;; @ret BC: Y position in Entity coords
 ;; @ret F.C: success
 ;; @mut: AF, BC, DE, HL
-ItemsGetPosition::
+ItemsGetPositionCoord::
 	call ItemsIndex
 	ret nc
 		wrambopen bank("wItems")
