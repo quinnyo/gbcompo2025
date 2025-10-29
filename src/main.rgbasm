@@ -138,7 +138,6 @@ Main::
 	ldh [rIF], a
 	ei
 .loop:
-	call InputRead
 	call InputUpdate
 	call ChordProcess
 	ld a, d

@@ -1,6 +1,10 @@
 include "hardware.inc"
 
 
+def READ_DIR_COUNT equ 2
+def READ_BTN_COUNT equ 2
+
+
 section "Input State", hram
 ;; Current input state -- keys that are depressed.
 hKeys:: db
@@ -19,10 +23,50 @@ InputInit::
 	ret
 
 
-; Process the new input state.
-; @param B: new input state
-; @mut: A, C
+;; @mut: AF, BC
 InputUpdate::
+	ld c, low(rP1)
+
+	ld a, P1F_GET_DPAD
+	ldh [c], a
+	rept READ_DIR_COUNT
+		ldh a, [c]
+	endr
+	or $F0
+	ld b, a
+	swap b
+
+	ld a, P1F_GET_BTN
+	ldh [c], a
+
+	; filter opposite directions
+	ld a, b
+	and PADF_LEFT | PADF_RIGHT
+	ld a, b
+	jr nz, :+
+	or PADF_LEFT | PADF_RIGHT
+	ld b, a
+:
+	and PADF_UP | PADF_DOWN
+	ld a, b
+	jr nz, :+
+	or PADF_UP | PADF_DOWN
+	ld b, a
+:
+
+	rept READ_BTN_COUNT
+		ldh a, [c]
+	endr
+
+	; combine buttons with dirs & invert (so pressed keys are set bits)
+	or $F0
+	xor b
+	ld b, a
+
+	ld a, P1F_GET_NONE
+	ldh [c], a
+
+	; update key state
 	ldh a, [hKeys]
 	xor b
 	ld c, a ; C = keys that changed
@@ -33,29 +77,5 @@ InputUpdate::
 	cpl
 	and c
 	ldh [hKeysReleased], a
-	ret
-
-
-; Read current input state
-; @ret B: input state
-; @mut: A
-InputRead::
-	ld a, P1F_GET_DPAD
-	ldh [rP1], a
-	ldh a, [rP1]
-	ldh a, [rP1]
-	ld b, a
-	ld a, P1F_GET_BTN
-	ldh [rP1], a
-	ld a, b
-	or $F0
-	swap a
-	ld b, a
-	ldh a, [rP1]
-	or $F0
-	xor b
-	ld b, a
-	ld a, P1F_GET_NONE
-	ldh [rP1], a
 	ret
 
