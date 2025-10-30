@@ -172,32 +172,11 @@ BudEntSpawn::
 	ret
 
 
-pushs "aaaQuickMon", wram0
-
-aaa_BudStatus: db
-aaa_BudTimer: db
-
-pops ; aaaQuickMon
-
-
-pushs "_Bud", wram0
-_BudAnchorX: dw
-_BudTargetX: dw
-_BudDriveX: db
-_BudAnchorY: dw
-_BudTargetY: dw
-_BudDriveY: db
-pops ; _Bud
-
-
 section "BudEntFnThink", romx
 BudEntFnThink::
 		wrambsel bank(wEntityUsr0)
 	ldh a, [hEntityActive.usr0 + 0] :: ld l, a
 	ldh a, [hEntityActive.usr0 + 1] :: ld h, a
-
-															ld a, [hl+] :: ld [aaa_BudStatus], a
-															ld a, [hl-] :: ld [aaa_BudTimer], a
 
 	; If at home, monitor home item collection status.
 	; Switch to following player entity if home item is picked up.
@@ -243,15 +222,10 @@ BudEntFnThink::
 	; start a new period
 .period_start:
 	; get up to date anchor/target point and pick a new drive vector (towards the target)
-									inc hl ; skip .timer
+	inc hl ; skip .timer
 	ld a, [hl+] ; .anchor
 	call _GetTargetPoint
 	ret nc ; _GetTargetPoint failed
-
-															ld a, e :: ld [_BudTargetX + 0], a
-															ld a, d :: ld [_BudTargetX + 1], a
-															ld a, c :: ld [_BudTargetY + 0], a
-															ld a, b :: ld [_BudTargetY + 1], a
 
 	; DriveY
 	ldh a, [hEntityActive.state + 0] :: ld l, a
@@ -266,7 +240,6 @@ BudEntFnThink::
 	rept DRIVE_RSHIFTS
 		rra :: rr c
 	endr
-															ld a, c :: ld [_BudDriveY], a
 
 	; DriveX
 	ldh a, [hEntityActive.state + 0] :: ld l, a
@@ -281,8 +254,7 @@ BudEntFnThink::
 	rept DRIVE_RSHIFTS
 		rra :: rr e
 	endr
-															ld a, e :: ld [_BudDriveX], a
-	
+
 	; next timer duration
 	call CnsNext :: and PERIOD_MASK :: add PERIOD_MIN
 	ld b, a ; hang on to this for a moment
@@ -340,11 +312,6 @@ _GetTargetPoint:
 
 .do_target_offset
 	; Target = Anchor + random offset
-
-															ld a, e :: ld [_BudAnchorX + 0], a
-															ld a, d :: ld [_BudAnchorX + 1], a
-															ld a, c :: ld [_BudAnchorY + 0], a
-															ld a, b :: ld [_BudAnchorY + 1], a
 
 	; TargetY random offset
 	call CnsNext :: and TARGET_OFFSET_MASK :: ld l, a
