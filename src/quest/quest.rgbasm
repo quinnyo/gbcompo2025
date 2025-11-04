@@ -8,6 +8,51 @@ Quest: progression / collectables / unlocks
 */
 
 
+pushs "TypInfo", romx
+TypInfo::
+	;; Number of Typs defined
+	.count:: db TYP_COUNT
+	;; Number of TypClasses defined
+	.class_count:: db TYP_CLASS_COUNT
+
+	;; Member of class
+	.class:: db {ALL_TYP_CLASS}
+	;; Position in class
+	.class_ord:: db {ALL_TYP_CLASS_ORD}
+
+pops ; TypInfo
+
+
+pushs "TypGetClass", rom0
+;; @param E: TypId
+;; @ret D: class that TypId belongs to.
+;; @ret E: TypId ordinal position in class
+;; @ret F.C: set on success
+;; @mut: AF, DE
+TypGetClass::
+	ld a, e
+	cp TYP_COUNT
+	ret nc
+
+		rombopen bank(TypInfo)
+		push hl
+	ld d, 0
+	ld hl, TypInfo.class
+	add hl, de
+	ld a, [hl] ; class
+
+	ld hl, TypInfo.class_ord
+	add hl, de
+	ld d, a ; class
+	ld e, [hl] ; ord
+		pop hl
+
+	scf
+	ret
+
+pops ; TypGetClass
+
+
 section "wQuest", wramx
 ;; Finds collection storage, 1 bit per item: got or not.
 wFinds: ds FINDS_COUNT >> 3

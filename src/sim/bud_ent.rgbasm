@@ -21,33 +21,40 @@ assert TARGET_OFFSET_MASK & (TARGET_OFFSET_MASK + 1) == 0
 
 rsreset
 def bBudEnt__0 rb 1
-def bBudEnt__1 rb 1
-def bBudEnt__2 rb 1
-def bBudEnt__3 rb 1
+;; Heading left changed
 def bBudEnt_XTURNING rb 1
-;; Facing left
+;; Heading up changed
+def bBudEnt_YTURNING rb 1
+def bBudEnt__3 rb 1
+def bBudEnt__4 rb 1
+;; Heading left
 def bBudEnt_LEFT rb 1
-def bBudEnt__6 rb 1
+;; Heading up
+def bBudEnt_UP rb 1
 ;; Set if anchor is 'home' item.
 def bBudEnt_HOME rb 1
 
 assert bBudEnt_LEFT == OAMB_XFLIP
+assert bBudEnt_UP == OAMB_YFLIP
+assert bBudEnt_LEFT == (bBudEnt_XTURNING + 4) % 8
+assert bBudEnt_UP == (bBudEnt_YTURNING + 4) % 8
 
 def BudEnt_XTURNING equ 1 << bBudEnt_XTURNING
+def BudEnt_YTURNING equ 1 << bBudEnt_YTURNING
 def BudEnt_LEFT equ 1 << bBudEnt_LEFT
+def BudEnt_UP equ 1 << bBudEnt_UP
 def BudEnt_HOME equ 1 << bBudEnt_HOME
 def BudEnt_STATUS_DEFAULT equ BudEnt_HOME
 
 
 rsreset
+def BudEnt_typ rb 1
 def BudEnt_status rb 1
 def BudEnt_timer rb 1
 ;; Anchor object ID -- home item or leader entity (if picked up).
 def BudEnt_anchor rb 1
 def BudEnt_driveX rb 1
 def BudEnt_driveY rb 1
-;; Find/Item typeid
-def BudEnt_typeid rb 1
 def BudEnt_ani rb szAni
 
 def szBudEnt rb 0
@@ -55,34 +62,96 @@ assert szBudEnt <= szEntityUsr0, "Bud struct exceeds Entity Usr0 allocation. ({d
 
 
 import_chr "assets/ent/afish.chr", Afish, pal
+import_chr "assets/ent/squidge.chr", Squidge, pal
 
 
 section "Afish_ani", romx
-
 Afish_aniDefault:
 	.f0:
 		ani_frame 13, .f1
-		sprob 8, 0, 0, 0
+		sprob 0, 0, 0, 0
 		sprob_end
 	.f1:
 		ani_frame 17, .f0
-		sprob 8, 0, 1, 0
+		sprob 0, 0, 1, 0
 		sprob_end
 
 Afish_aniTurn:
 	.f0:
 		ani_frame 9, .f1
-		sprob 8 - 1, 2, 2, OAMF_XFLIP
+		sprob 0 - 1, 2, 2, OAMF_XFLIP
 		sprob_end
 	.f1:
 		ani_frame 5, Afish_aniDefault.f0
-		sprob 8, 0, 2, 0
+		sprob 0, 0, 2, 0
 		sprob_end
+
+
+section "Squidge_ani", romx
+Squidge_aniCharge:
+	.f0:
+		ani_frame 15, .f0
+		sprob 0, 0, 0, OAMF_YFLIP
+		sprob_end
+
+Squidge_aniRelease:
+	.f0:
+;		ani_frame SQUIDGE_PERIOD_DRIVE, Squidge_aniCharge.f0
+		ani_frame 15, .f0
+		sprob 0, 0, 1, OAMF_YFLIP
+		sprob_end
+
+
+;; bud_ent_info FN_SPAWN, FN_THINK, FN_RENDER
+macro bud_ent_info
+	assert _NARG == 3
+	if !def(_BUD_ENT_INFO_SIZE)
+		def _BUD_ENT_INFO_SIZE equ 0
+	endc
+	def BUD_ENT_ANI_DEFAULT_{d:_BUD_ENT_INFO_SIZE} equs "\1"
+	def BUD_ENT_FN_THINK_{d:_BUD_ENT_INFO_SIZE} equs "\2"
+	def BUD_ENT_FN_RENDER_{d:_BUD_ENT_INFO_SIZE} equs "\3"
+	redef _BUD_ENT_INFO_SIZE equ _BUD_ENT_INFO_SIZE + 1
+endm
+
+
+;; bud_ent_info_build
+;; Generate the BudEntInfo table
+macro bud_ent_info_build
+	assert def(_BUD_ENT_INFO_SIZE)
+	pushs "BudEntInfo", romx
+BudEntInfo:
+	.ani_default:
+	for I, _BUD_ENT_INFO_SIZE
+		dw bank({BUD_ENT_ANI_DEFAULT_{d:I}})
+		dw {BUD_ENT_ANI_DEFAULT_{d:I}}
+	endr
+
+	.fn_think:
+	for I, _BUD_ENT_INFO_SIZE
+		dw bank({BUD_ENT_FN_THINK_{d:I}})
+		dw {BUD_ENT_FN_THINK_{d:I}}
+	endr
+
+	.fn_render:
+	for I, _BUD_ENT_INFO_SIZE
+		dw bank({BUD_ENT_FN_RENDER_{d:I}})
+		dw {BUD_ENT_FN_RENDER_{d:I}}
+	endr
+	pops ; BudEntInfo
+endm
+
+
+	bud_ent_info Afish_aniDefault, BudEntFnThink_Afish, BudEntFnRender_Afish
+	bud_ent_info Squidge_aniCharge, BudEntFnThink_Squidge, BudEntFnRender_Squidge
+	bud_ent_info_build
 
 
 section "wBudEntRes", wram0
 wAfishPal0: db
 wAfishChri: db
+wSquidgePal0: db
+wSquidgeChri: db
 
 
 section "BudEntResourceInit", rom0
@@ -101,6 +170,20 @@ BudEntResourceInit::
 	ld de, Afish_chr
 	call VxLoadRom
 
+	ld b, bank(Squidge_pal)
+	ld de, Squidge_pal
+	call PalettePalLoadObRomx
+	ld a, b :: and $07 :: ld [wSquidgePal0], a
+
+	ld c, Squidge_CHR_COUNT
+	call ChrmanAllocOb
+	ld a, b :: ld [wSquidgeChri], a
+	jr c, .err_alloc_ob
+	ld c, Squidge_CHR_COUNT - 1
+	ld b, bank(Squidge_chr)
+	ld de, Squidge_chr
+	call VxLoadRom
+
 	ret
 .err_alloc_ob
 	ld b, b
@@ -110,7 +193,7 @@ BudEntResourceInit::
 section "BudEntSpawn", rom0
 ;; NOTE: Assumes entity to possess is selected/active (hEntityActive)
 ;; @param B: home Item index
-;; @param C: Find typeid
+;; @param C: typ (TypId)
 ;; @param SP+0: PosX
 ;; @param SP+2: PosY
 ;; @mut: AF, BC, DE, HL
@@ -119,7 +202,7 @@ BudEntSpawn::
 	ldh a, [hEntityActive.state + 1] :: ld h, a
 	ld a, ENTINFOF_OCCUPIED | ENTINFOF_ALIVE | $02
 	ld [hl+], a ; info
-	ld a, ENTCTRL_DRAG_A
+	ld a, ENTCTRL_DRAG_A | ENTCTRL_NOGRAV
 	ld [hl+], a ; ctrl
 	xor a
 	ld [hl+], a ; accx
@@ -136,56 +219,240 @@ BudEntSpawn::
 	ld a, e :: ld [hl+], a ; posy.lo
 	ld a, d :: ld [hl+], a ; posy.hi
 
-		wrambpush bank(wEntityUsr0)
+		wrambopen bank(wEntityUsr0)
 	ldh a, [hEntityActive.usr0 + 0] :: ld l, a
 	ldh a, [hEntityActive.usr0 + 1] :: ld h, a
+	ld a, c :: ld [hl+], a ; .typ
 	ld a, BudEnt_STATUS_DEFAULT :: ld [hl+], a ; .status
 	ld a, 1 :: ld [hl+], a ; .timer
 	ld a, b :: ld [hl+], a ; .anchor
 	xor a
 	ld [hl+], a ; .driveX
 	ld [hl+], a ; .driveY
-	ld a, c :: ld [hl+], a ; .typeid
 		push hl
 	call AniInit
 		pop hl
-	ld de, Afish_aniDefault.f0
-	ld b, bank("Afish_ani")
+
+	; Check that class is Bud
+	ld e, c
+	call TypGetClass
+	ld a, d
+	cp typclBud
+	jr z, :+
+.err_typ_not_bud:
+	ld b, b
+	ret
+:
+	; use Bud class member ordinal ID as index in BudEntInfo table.
+	ld a, e
+	cp _BUD_ENT_INFO_SIZE
+	jr nc, .err_bud_ent_info_index_out_of_range
+	; BudEntInfo offset into DE
+	add a :: add a ; fn offset = index * 4
+	ld e, a
+	ld d, 0
+
+		rombpush bank(BudEntInfo)
+	ld hl, BudEntInfo.ani_default
+	add hl, de
+		push de
+	ld a, [hl+] :: ld b, a
+	inc hl
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+	ldh a, [hEntityActive.usr0 + 0] :: ld l, a
+	ldh a, [hEntityActive.usr0 + 1] :: ld h, a
+	ld a, BudEnt_ani
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
 	call AniSetFrame
-		wrambpop
+		pop de
+
+	ld hl, BudEntInfo.fn_think
+	add hl, de
+		push de
+	ld a, [hl+] :: ld b, a
+	inc hl
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+	ldh a, [hEntityActive.index]
+	call EntitySetFnThink
+		pop de
+
+	ld hl, BudEntInfo.fn_render
+	add hl, de
+		push de
+	ld a, [hl+] :: ld b, a
+	inc hl
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+	ldh a, [hEntityActive.index]
+	call EntitySetFnRender
+		pop de
+		rombpop ; BudEntInfo
 
 	ld de, EntityFnUpdateMotionOnly
 	ld b, bank(EntityFnUpdateMotionOnly)
 	ldh a, [hEntityActive.index]
-	call EntitySetFnUpdate
+	jp EntitySetFnUpdate
 
-	ld de, BudEntFnThink
-	ld b, bank(BudEntFnThink)
-	ldh a, [hEntityActive.index]
-	call EntitySetFnThink
-
-	ld de, BudEntFnRender
-	ld b, bank(BudEntFnRender)
-	ldh a, [hEntityActive.index]
-	call EntitySetFnRender
-
-	ret
+.err_bud_ent_info_index_out_of_range
+	ld b, b
+	jr .err_bud_ent_info_index_out_of_range
 
 
 section "BudEntFnThink", romx
-BudEntFnThink::
+BudEntFnThink_Afish:
+	call BudEntFnThink_First
+	jr z, .period_start
+
+.action:
+	inc hl ; skip .timer
+	inc hl ; skip .anchor
+	; set accel from drive vector
+	ld a, [hl+] :: ld c, a ; driveX
+	ld a, [hl+] :: ld b, a ; driveY
+	ldh a, [hEntityActive.state + 0] :: ld l, a
+	ldh a, [hEntityActive.state + 1] :: ld h, a
+	entity_index Entity_AccX
+	ld [hl], c
+	entity_index Entity_AccY
+	ld [hl], b
+	ret
+
+.period_start:
+	; next timer duration
+		push hl
+	call CnsNext :: and PERIOD_MASK :: add PERIOD_MIN
+		pop hl
+	ld [hl+], a ; .timer
+
+	; get up to date anchor/target point and pick a new drive vector (towards the target)
+	ld a, [hl+] ; .anchor
+	call _GetTargetPoint
+	ret nc ; _GetTargetPoint failed
+
+	jp BudEntFnThink_SetDriveTarget
+
+
+def SQUIDGE_PERIOD_MASK equ $07
+def SQUIDGE_PERIOD_MIN equ $0C
+;; Begin applying drive impulse on this tick (period timer)
+def SQUIDGE_PERIOD_DRIVE equ $0A
+assert SQUIDGE_PERIOD_MIN > SQUIDGE_PERIOD_DRIVE
+
+_squidge_drive_curve: db 3, 5, 7, 10, 12, 16, 19, 24, 28, 33, 38, 44, 51, 57, 65
+def SQUIDGE_DRIVE_MAX equ @ - _squidge_drive_curve
+
+
+BudEntFnThink_Squidge:
+	call BudEntFnThink_First
+	jr z, .period_start
+
+.action:
+	ld a, [hl+] :: ld d, a ; .timer
+	inc hl ; skip .anchor
+	ld a, [hl+] :: ld c, a ; driveX
+	ld a, [hl+] :: ld b, a ; driveY
+
+	ld a, SQUIDGE_PERIOD_DRIVE
+	cp d
+	ret c
+	jr nz, :+
+		push bc
+	ld de, Squidge_aniRelease
+	ld b, bank(Squidge_aniRelease)
+	call AniSetFrame
+		pop bc
+	:
+
+	ld d, SQUIDGE_DRIVE_MAX
+	; Lookup impulse (Y accel)
+	ld a, b
+	call AbsS8
+	cp d
+	jr c, :+
+	ld a, d
+	dec a
+:
+	ld hl, _squidge_drive_curve
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	ld a, [hl]
+	bit 7, b
+	jr z, :+
+	cpl :: inc a
+:
+	ld b, a
+
+	; Lookup impulse (X accel)
+	ld a, c
+	call AbsS8
+	cp d
+	jr c, :+
+	ld a, d
+	dec a
+:
+	ld hl, _squidge_drive_curve
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	ld a, [hl]
+	bit 7, c
+	jr z, :+
+	cpl :: inc a
+:
+	ld c, a
+
+.apply:
+	ldh a, [hEntityActive.state + 0] :: ld l, a
+	ldh a, [hEntityActive.state + 1] :: ld h, a
+	entity_index Entity_AccX
+	ld [hl], c
+	entity_index Entity_AccY
+	ld [hl], b
+	ret
+
+.period_start:
+	; next timer duration
+		push hl
+	call CnsNext :: and SQUIDGE_PERIOD_MASK :: add SQUIDGE_PERIOD_MIN
+		pop hl
+	ld [hl+], a ; .timer
+
+	; get up to date anchor/target point and pick a new drive vector (towards the target)
+	ld a, [hl+] ; .anchor
+	call _GetTargetPoint
+	ret nc ; _GetTargetPoint failed
+	call BudEntFnThink_SetDriveTarget
+
+	ldh a, [hEntityActive.usr0 + 0] :: ld l, a
+	ldh a, [hEntityActive.usr0 + 1] :: ld h, a
+	ld de, BudEnt_ani
+	add hl, de
+	ld de, Squidge_aniCharge
+	ld b, bank(Squidge_aniCharge)
+	jp AniSetFrame
+
+
+;; Common impl for beginning of FnThink.
+;; Monitor Finds status and update anchor if unlocked.
+;; Ticks the period timer.
+;; @ret B: self.status
+;; @ret HL: pointer to self.timer
+;; @ret F.Z: set if timer expired
+BudEntFnThink_First:
 		wrambsel bank(wEntityUsr0)
 	ldh a, [hEntityActive.usr0 + 0] :: ld l, a
 	ldh a, [hEntityActive.usr0 + 1] :: ld h, a
+
+	ld a, [hl+] :: ld b, a ; .typ
 
 	; If at home, monitor home item collection status.
 	; Switch to following player entity if home item is picked up.
 	bit bBudEnt_HOME, [hl]
 	jr z, :+
 		push hl
-	ld a, BudEnt_typeid
-	add l :: ld l, a
-	ld a, [hl] ; .typeid
+	ld a, b
 	call FindsQuery
 		pop hl
 	jr z, :+
@@ -199,34 +466,20 @@ BudEntFnThink::
 	ld l, e ; back to .status
 :
 
-.tick:
-	ld a, [hl+] :: ld b, a ; .status
+	ld a, [hl] ; .status
+	; clear TURNING flags
+	and ~(BudEnt_XTURNING|BudEnt_YTURNING)
+	ld [hl+], a :: ld b, a ; .status
 	dec [hl]
-	jr z, .period_start
-	ld a, [hl+]
-
-.action:
-	inc hl ; skip .anchor
-	; set accel from drive vector
-.apply_drive_accel
-	ld a, [hl+] :: ld c, a ; driveX
-	ld a, [hl+] :: ld b, a ; driveY
-	ldh a, [hEntityActive.state + 0] :: ld l, a
-	ldh a, [hEntityActive.state + 1] :: ld h, a
-	entity_index Entity_AccX
-	ld [hl], c
-	entity_index Entity_AccY
-	ld [hl], b
 	ret
 
-	; start a new period
-.period_start:
-	; get up to date anchor/target point and pick a new drive vector (towards the target)
-	inc hl ; skip .timer
-	ld a, [hl+] ; .anchor
-	call _GetTargetPoint
-	ret nc ; _GetTargetPoint failed
 
+;; Default drive vector -- drive toward target point.
+;; @param DE: TargetX (dots)
+;; @param BC: TargetY (dots)
+;; @ret B: updated status
+;; @mut: AF, BC, DE, HL
+BudEntFnThink_SetDriveTarget:
 	; DriveY
 	ldh a, [hEntityActive.state + 0] :: ld l, a
 	ldh a, [hEntityActive.state + 1] :: ld h, a
@@ -237,6 +490,7 @@ BudEntFnThink::
 	coord_int16 hl ; working in Dots
 	coord_sub bc, hl
 	rl b :: sbc a ; to shift sign into the low byte
+	ld b, a ; $00 if positive, $FF if negative
 	rept DRIVE_RSHIFTS
 		rra :: rr c
 	endr
@@ -251,31 +505,29 @@ BudEntFnThink::
 	coord_int16 hl ; working in Dots
 	coord_sub de, hl
 	rl d :: sbc a ; to shift sign into the low byte
+	ld d, a ; $00 if positive, $FF if negative
 	rept DRIVE_RSHIFTS
 		rra :: rr e
 	endr
 
-	; next timer duration
-	call CnsNext :: and PERIOD_MASK :: add PERIOD_MIN
-	ld b, a ; hang on to this for a moment
-
-	; store drive vec
 	ldh a, [hEntityActive.usr0 + 0] :: ld l, a
 	ldh a, [hEntityActive.usr0 + 1] :: ld h, a
+	inc hl ; skip .typ
 
-	; update left/right facing flag
-	; D is already signed from DriveX
-	ld a, [hl]
-	xor d
-	and ~BudEnt_LEFT
-	xor d
-	; if changed do turning animation
-	cp [hl]
-	jr z, :+
-	or BudEnt_XTURNING
-:
-	ld [hl+], a ; .status
-	ld a, b :: ld [hl+], a ; .timer
+	ld a, [hl] ; .status
+	; update UP/LEFT facing flags from drive sign
+	xor d :: and ~BudEnt_LEFT :: xor d
+	xor b :: and ~BudEnt_UP :: xor b
+	; update TURNING flags
+	and ~(BudEnt_XTURNING|BudEnt_YTURNING)
+	ld b, a
+	xor [hl]
+	and BudEnt_LEFT|BudEnt_UP ; LEFT/UP changed
+	swap a
+	or b
+	ld [hl+], a :: ld b, a ; .status
+
+	inc hl ; skip .timer
 	inc hl ; skip .anchor
 	; store the new drive vector
 	ld a, e :: ld [hl+], a ; driveX
@@ -290,7 +542,6 @@ BudEntFnThink::
 ;; @ret BC: TargetY (dots)
 ;; @mut: AF, BC, DE, HL
 _GetTargetPoint:
-	; Anchor
 	bit bBudEnt_HOME, b
 	jr z, .leader_entity
 	; anchor is home item
@@ -341,24 +592,15 @@ _GetTargetPoint:
 
 
 section "BudEntFnRender", romx
-BudEntFnRender::
+BudEntFnRender_Afish::
 	ld a, [wAfishChri] :: ld d, a
 	ld a, [wAfishPal0] :: ld e, a
 
-		wrambsel bank(wEntityUsr0)
-	ldh a, [hEntityActive.usr0 + 0] :: ld l, a
-	ldh a, [hEntityActive.usr0 + 1] :: ld h, a
-	ld b, [hl] ; status
-	res bBudEnt_XTURNING, [hl]
-
-	; (update render atrbs)
+	call BudEntFnRender_First
 	ld a, b :: and OAMF_XFLIP
-	or e :: ld e, a
+	xor e :: ld e, a
 
 		push de
-	ld de, BudEnt_ani
-	add hl, de
-
 	; trigger turn animation if reversed X direction this frame
 	bit bBudEnt_XTURNING, b
 	jr z, :+
@@ -380,17 +622,54 @@ BudEntFnRender::
 	ret
 
 
+BudEntFnRender_Squidge::
+	ld a, [wSquidgeChri] :: ld d, a
+	ld a, [wSquidgePal0] :: ld e, a
+
+	call BudEntFnRender_First
+	ld a, b :: and OAMF_YFLIP|OAMF_XFLIP
+	xor e :: ld e, a
+
+		push de
+	ld d, 1 ; delta time
+	call AniUpdate
+		pop de
+
+	; HL: Ani drawable pointer, abort if $FFFF
+	ld a, l :: and h
+	inc a
+	jp nz, _BudEntSprxRender
+	ret
+
+
+;; @param E: Sprite atrb
+;; @ret B: BudEnt status
+;; @ret E: Sprite atrb
+;; @ret HL: pointer to self.ani
+BudEntFnRender_First:
+		wrambsel bank(wEntityUsr0)
+	ldh a, [hEntityActive.usr0 + 0] :: ld l, a
+	ldh a, [hEntityActive.usr0 + 1] :: ld h, a
+	inc hl ; skip .typ
+	ld b, [hl] ; status
+
+	assert wEntityUsr0 & (szEntityUsr0 - 1) == 0, "Unexpected wEntityUsr0 alignment"
+	ld a, BudEnt_ani - BudEnt_status
+	add l :: ld l, a
+
+	ret
+
+
 section "_BudEntSprxRender", rom0
 ;; End of BudEnt render function, in ROM0 for safe banking.
 _BudEntSprxRender:
 		rombsel b
-	; position
 		push hl
 	ldh a, [hEntityActive.state + 0] :: ld l, a
 	ldh a, [hEntityActive.state + 1] :: ld h, a
 	entity_index Entity_DispX
-	ld a, [hl+] :: add 8 :: ld c, a
-	ld a, [hl+] :: add 4 :: ld b, a
+	ld a, [hl+] :: add 4 :: ld c, a
+	ld a, [hl+] :: add 12 :: ld b, a
 		pop hl
 
 	jp SprxRenderMod

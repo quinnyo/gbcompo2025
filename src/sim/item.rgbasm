@@ -227,14 +227,17 @@ ItemsSetupSpecial::
 	and ItemCtl_ENABLE
 	jr z, .next
 
+	; Check if item is a Bud spawnpoint/home.
 	ld a, [hl+] :: ld c, a ; .typeid.lo
 	inc hl ; skip .typeid.hi
-	call FindIdDecode
-	; Check if item is a Bud spawnpoint/home.
-	; HACK: treat index == 0 as Bud
-	ld a, e
-	and a
-	call z, .spawn_bud
+	ld e, c
+	call TypGetClass
+	; check Typ lookup success
+	jr nc, .next
+	ld a, d
+	cp typclBud
+	call z, .spawn_bud ; spawn Bud entity if class is Bud
+
 .next
 		pop bc
 	inc b
@@ -388,9 +391,7 @@ _update_item:
 	bit bItemCtl_TOUCHED, a
 	jr z, :+
 	; DEBUG: swap palette to show TOUCHED state
-	ld a, e
-	xor $03
-	ld e, a
+	dec e
 :
 
 		push de :: push hl
@@ -401,8 +402,8 @@ _update_item:
 	; DEBUG: show 'not collected' with cycling palette
 	ld a, [wVBlankCount]
 	rrca :: rrca
-	and $03
-	xor e
+	add e
+	and $07
 	ld e, a
 :
 

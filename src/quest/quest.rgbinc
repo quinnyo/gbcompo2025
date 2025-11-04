@@ -6,5 +6,56 @@ def Q_QUEST_INC_IpxEY4hb equ 1
 def FINDS_COUNT equ $40
 
 
+;; _append LIST, VALUE
+macro _append
+	if !def(\1)
+		def \1 equs "\2"
+	else
+		redef \1 equs "{\1}, \2"
+	endc
+endm
+
+
+;; typ IDENT, CLASS
+macro typ
+	assert _NARG == 2
+	if !def(TYP_COUNT)
+		def TYP_COUNT equ 0
+	endc
+
+	def typ\1 equ TYP_COUNT
+
+	if !def(typcl\2)
+		if !def(TYP_CLASS_COUNT)
+			def TYP_CLASS_COUNT equ 0
+		endc
+		export def typcl\2 equ TYP_CLASS_COUNT
+		export def typcl\2_SIZE equ 0
+		_append ALL_TYPCL, "typcl\2"
+		redef TYP_CLASS_COUNT equ TYP_CLASS_COUNT + 1
+	endc
+
+	_append ALL_TYP_IDENT, "\1"
+	_append ALL_TYP_CLASS, typcl\2
+	_append ALL_TYP_CLASS_ORD, {typcl\2_SIZE}
+	_append typcl\2_MEMBERS, "typ\1"
+
+	redef TYP_COUNT equ TYP_COUNT + 1
+	redef typcl\2_SIZE equ typcl\2_SIZE + 1
+endm
+
+
+/*******************************************************************************
+TYP DECLS
+Declare all unique objects/types that require a TypId.
+IDs are assigned based on the order of appearance in this list.
+Add new entries at the end of the list only.
+
+*******************************************************************************/
+
+	typ Afish, Bud
+	typ Squidge, Bud
+
+
 endc ; Q_QUEST_INC_IpxEY4hb
 
