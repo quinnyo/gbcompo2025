@@ -4,6 +4,7 @@ include "banker.rgbinc"
 
 section "Ani", rom0
 ;; @param HL: this Ani
+;; @mut AF, HL
 AniInit::
 	xor a :: ld [hl+], a ; bank
 	inc a :: ld [hl+], a ; timer
