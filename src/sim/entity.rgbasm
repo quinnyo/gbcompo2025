@@ -510,7 +510,7 @@ EntityFnUpdateMotionOnly::
 ;; @param HL: pointer to entity position
 ;; @param E: step
 ;; @ret BC: updated position
-;; @mut: AF, BC
+;; @mut: AF, E, BC
 _apply_step:
 	ld a, [hl+] :: ld c, a
 	ld a, [hl-] :: ld b, a
@@ -520,10 +520,22 @@ _apply_step:
 	add c
 	ld c, a
 	adc b
-	rl e ; Set F.C from sign of velocity
+	rlc e ; Set F.C from sign of velocity
 	sbc c
 	ld b, a
 
+	; clamp to $0100 .. $FEFF
+	and a
+	jr nz, :+
+	ld bc, $0100
+	jr .done
+:
+	inc a
+	jr nz, :+
+	ld bc, $FEFF
+:
+
+.done
 	ld a, c :: ld [hl+], a
 	ld a, b :: ld [hl-], a
 
