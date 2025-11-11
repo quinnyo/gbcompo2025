@@ -130,9 +130,10 @@ Main::
 	ld hl, $9001
 	call VxLoadRom
 
-	ldh a, [rLCDC]
-	or LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
-	ldh [rLCDC], a
+	ld a, [wLCDC]
+	or LCDCF_BGON | LCDCF_OBJON
+	ld [wLCDC], a
+	call DisplayEnable
 
 	xor a
 	ldh [rIF], a

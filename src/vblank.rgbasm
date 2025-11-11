@@ -2,8 +2,11 @@ include "hardware.inc"
 
 
 section "wVBlank", wram0
+wLCDC:: db
 wSCY:: db
 wSCX:: db
+wWY:: db
+wWX:: db
 wVBlankCount:: db
 
 
@@ -23,11 +26,12 @@ section "VBlankInterrupt", rom0[$40]
 ; `$68` allows 8 bytes for the input interrupt, the interrupt vector with the highest address.
 section "VBlankHandler", rom0[$68]
 VBlankHandler::
-	ld hl, wSCY
-	ld a, [hl+]
-	ldh [rSCY], a
-	ld a, [hl+]
-	ldh [rSCX], a
+	ld hl, wLCDC
+	ld a, [hl+] :: ldh [rLCDC], a
+	ld a, [hl+] :: ldh [rSCY], a
+	ld a, [hl+] :: ldh [rSCX], a
+	ld a, [hl+] :: ldh [rWY], a
+	ld a, [hl+] :: ldh [rWX], a
 	inc [hl]
 
 	; OAM DMA transfer
@@ -47,10 +51,18 @@ section "VBlank Impl", rom0
 VBlankInit::
 	xor a
 	ldh [hVBlankObuf], a
-	ld hl, wSCY
-	ld [hl+], a
-	ld [hl+], a
-	ld [hl+], a
+	ld hl, wLCDC
+	ldh a, [rLCDC]
+	ld [hl+], a ; LCDC
+	xor a
+	ld [hl+], a ; SCY
+	ld [hl+], a ; SCX
+	cpl a ; $FF
+	ld [hl+], a ; WY
+	ld [hl+], a ; WX
+	xor a
+	ld [hl+], a ; wVBlankCount
+
 	ld hl, rIE
 	set IEB_VBLANK, [hl]
 
@@ -81,4 +93,13 @@ hObufLoadDMA:
 
 endl
 pops
+
+
+section "DisplayEnable", rom0
+DisplayEnable::
+	ld a, [wLCDC]
+	or LCDCF_ON
+	ld [wLCDC], a
+	ldh [rLCDC], a
+	ret
 
