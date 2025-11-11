@@ -64,6 +64,7 @@ modeGamePrep_Enter::
 	call VisDiverResourceInit
 	call BudEntResourceInit
 
+	call PackInit
 	call QuestInit
 	call ScrollInit
 	call EntityInit
@@ -118,12 +119,23 @@ modeGame_Process::
 	ldh a, [hKeysPressed]
 	and PADF_START
 	jr nz, _GotoPause
+
+	ldh a, [hKeysPressed]
+	and PADF_SELECT
+	jr nz, _GotoPack
+
 	ret
 
 
 _GotoPause:
 	call ModePush
 	ld de, rModes_modePause
+	jp ModeSetActive
+
+
+_GotoPack:
+	call ModePush
+	ld de, rModes_modePack
 	jp ModeSetActive
 
 

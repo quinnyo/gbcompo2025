@@ -1,0 +1,23 @@
+if !def(Q_PACK_INC_Q6TJzK2y)
+def Q_PACK_INC_Q6TJzK2y equ 1
+
+
+def PACK_MAX_ITEMS equ 32
+def CONTENTS_INDEX_MASK equ PACK_MAX_ITEMS - 1
+
+def PACK_COLUMNS_MAX equ 10
+def PACK_ROWS_MAX    equ 10
+
+
+rsreset
+;; Set if holding an item
+def bPackCtl_HOLDING rb 1
+;; Set if cursor is over an item
+def bPackCtl_PICKED rb 1
+
+def PackCtl_HOLDING equ 1 << bPackCtl_HOLDING
+def PackCtl_PICKED  equ 1 << bPackCtl_PICKED
+
+
+endc ; Q_PACK_INC_Q6TJzK2y
+

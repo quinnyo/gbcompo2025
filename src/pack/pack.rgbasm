@@ -1,0 +1,177 @@
+include "pack.rgbinc"
+include "hardware.inc"
+include "banker.rgbinc"
+
+
+pushs "wPack", wram0
+wPackWidth: db
+wPackHeight: db
+wPackCursorX: db
+wPackCursorY: db
+wPackCtl: db
+wPackHoldingItem: db
+wPackPickedItem: db
+pops ; wPack
+
+
+pushs "wPackContents", wramx, align[8]
+wPackContents:
+	.item: ds PACK_MAX_ITEMS
+	.x: ds PACK_MAX_ITEMS
+	.y: ds PACK_MAX_ITEMS
+	.dim: ds PACK_MAX_ITEMS
+pops ; wPackContents
+
+
+section "Pack", rom0
+PackInit::
+	ld hl, wPackWidth
+	ld a, PACK_COLUMNS_MAX :: ld [hl+], a
+	ld a, PACK_ROWS_MAX :: ld [hl+], a
+	xor a
+	ld [hl+], a
+	ld [hl+], a
+	ld [hl+], a
+	ld a, $FF
+	ld [hl+], a
+	ld [hl+], a
+
+		wrambpush bank(wPackContents)
+	ld a, $FF
+	ld c, sizeof("wPackContents")
+	ld hl, startof("wPackContents")
+	call MemFillSmall
+		wrambpop
+
+	ret
+
+
+;; @param B: dir keys
+;; @mut: AF, BC, DE, HL
+PackCursorMove::
+	; TODO: if HOLDING, shrink bounds by size of held item
+
+	ld e, 0
+	ld a, [wPackWidth] :: dec a :: ld d, a
+	ld hl, wPackCursorX
+	bit PADB_LEFT, b
+	call nz, _CursorDec
+	bit PADB_RIGHT, b
+	call nz, _CursorInc
+
+	ld a, [wPackHeight] :: dec a :: ld d, a
+	ld hl, wPackCursorY
+	bit PADB_UP, b
+	call nz, _CursorDec
+	bit PADB_DOWN, b
+	call nz, _CursorInc
+
+	ld a, [wPackCursorX] :: ld e, a
+	ld a, [wPackCursorY] :: ld d, a
+	call _QueryCell
+	jr nc, .pick_none
+	ld a, l :: ld [wPackPickedItem], a
+	ld a, [wPackCtl]
+	set bPackCtl_PICKED, a
+	ld [wPackCtl], a
+
+	ret
+
+.pick_none:
+	ld a, $FF :: ld [wPackPickedItem], a
+	ld a, [wPackCtl]
+	res bPackCtl_PICKED, a
+	ld [wPackCtl], a
+	ret
+
+
+;; Check for item in cell
+;; @param D,E: cell Y,X
+;; @ret L: hit item index (if F.C)
+;; @ret F.C: hit
+;; @mut: AF, BC, HL
+_QueryCell:
+		wrambpush bank(wPackContents)
+
+	ld b, CONTENTS_INDEX_MASK
+	ld hl, wPackContents
+.loop
+	; get item dimensions
+	ld a, l :: and b
+	or low(wPackContents.dim) :: ld l, a
+	ld c, [hl]
+
+	; get item x position
+	ld a, l :: and b
+	or low(wPackContents.x) :: ld l, a
+	; if itemX <= queryX
+	ld a, e
+	cp [hl]
+	jr c, .next ; itemX > queryX
+
+	; if (itemX + itemW - 1) < queryX
+	ld a, c :: and $0F
+	add [hl]
+	cp e
+	jr c, .next
+
+	; get item y position
+	ld a, l :: and b
+	or low(wPackContents.y) :: ld l, a
+	; if itemY <= queryY
+	ld a, d
+	cp [hl]
+	jr c, .next ; itemY > queryY
+
+	; if (itemY + itemH - 1) < queryY
+	ld a, c :: swap a :: and $0F
+	add [hl]
+	cp d
+	jr c, .next
+
+	; hit!
+	ld a, l :: and b :: ld l, a
+		wrambpop
+	scf ; return F.C
+	ret
+
+.next
+	inc l
+	ld a, l :: and b :: ld l, a
+	jr nz, .loop
+		wrambpop
+	and a ; clear F.C
+	ld l, $66
+	ret
+
+
+;; @param HL: pointer to value
+;; @param E: min value (incl.)
+_CursorDec:
+	ld a, e
+	cp [hl]
+	jr c, :+
+	; value <= min: clamp to min
+	ld [hl], a
+	ret
+:
+	; value > min: dec
+	dec [hl]
+	ret
+
+
+;; @param HL: pointer to value
+;; @param D: max value (incl.)
+_CursorInc:
+	ld a, [hl]
+	cp d
+	jr c, :+
+	; value >= max: clamp to max
+	ld [hl], d
+	ret
+:
+	; value < max: inc
+	inc [hl]
+	ret
+
+

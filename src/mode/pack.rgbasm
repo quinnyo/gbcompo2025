@@ -1,0 +1,30 @@
+include "hardware.inc"
+include "banker.rgbinc"
+include "mode.rgbinc"
+
+
+	mode_def modePack, modePack_Enter, modePack_Process, modePack_Exit, -, -
+
+
+section "modePack", romx
+modePack_Enter::
+	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
+
+	ret
+
+
+modePack_Process::
+	ldh a, [hKeysPressed]
+	bit PADB_SELECT, a
+	jp nz, ModePop
+
+	ld b, a
+	and PADF_DOWN|PADF_UP|PADF_LEFT|PADF_RIGHT
+	call nz, PackCursorMove
+
+	ret
+
+
+modePack_Exit::
+	ret
+
