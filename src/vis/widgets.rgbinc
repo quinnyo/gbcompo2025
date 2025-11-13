@@ -1,0 +1,26 @@
+if !def(Q_WIDGETS_INC_NS1iqnME)
+def Q_WIDGETS_INC_NS1iqnME equ 1
+
+
+;; tagseq NAMESPACE, TAG, LENGTH
+macro tagseq
+	assert _NARG == 3
+
+	if !def(SEQ_\1_END)
+		def SEQ_\1_END equ 0
+	endc
+
+	def \1_\2_LENGTH equ (\3)
+	def \1_\2 equ SEQ_\1_END
+
+	redef SEQ_\1_END equ SEQ_\1_END + (\3)
+endm
+
+	tagseq WIDGET, POINTER, 1
+	tagseq WIDGET, GRAB, 4
+	tagseq WIDGET, DENY, 1
+	tagseq WIDGET, SPIN, 6
+
+
+endc ; Q_WIDGETS_INC_NS1iqnME
+

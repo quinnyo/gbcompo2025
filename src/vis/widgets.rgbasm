@@ -1,0 +1,61 @@
+include "widgets.rgbinc"
+include "hardware.inc"
+include "banker.rgbinc"
+include "chrimp.rgbinc"
+
+
+	import_chr "assets/widgets.chr", Widgets, pal, idx, atrb
+
+
+pushs "wWidgetsRes", wram0
+wWidgetsRes_chri: db
+wWidgetsRes_pal: db
+
+pops ; wWidgetsRes
+
+
+pushs "WidgetsInit", rom0
+WidgetsInit::
+	; Load widgets resources
+	ld b, bank(Widgets_pal)
+	ld de, Widgets_pal
+	call PalettePalLoadObRomx
+	ld a, b :: and $07 :: ld [wWidgetsRes_pal], a
+
+	ld c, Widgets_CHR_COUNT
+	call ChrmanAllocOb
+	ret c
+	ld a, b :: ld [wWidgetsRes_chri], a
+	ld b, bank(Widgets_chr)
+	ld de, Widgets_chr
+	ld c, Widgets_CHR_COUNT - 1
+	jp VxLoadRom
+
+pops ; WidgetsInit
+
+
+pushs "WidgetRender", rom0
+;; Draw a specific frame of a widget.
+;; @param E: widget frame/ID
+;; @param B,C: Y,X position
+;; @mut: AF, DE, HL
+WidgetRender::
+	ld d, 0
+		rombopen bank(Widgets_idx)
+	ld hl, Widgets_idx
+	add hl, de
+	ld a, [wWidgetsRes_chri]
+	add [hl]
+	; (without changing A) move HL to _atrb now, so we can use D & E for Ob params
+	ld hl, Widgets_atrb
+	add hl, de
+	; now we don't need DE as an offset anymore
+	ld d, a
+		rombsel bank(Widgets_atrb)
+	ld a, [wWidgetsRes_pal]
+	add [hl]
+	ld e, a
+	jp ObdoSingle
+
+pops ; WidgetRender
+
