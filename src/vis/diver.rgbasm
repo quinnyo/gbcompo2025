@@ -207,11 +207,7 @@ VisDiverResourceInit::
 
 	ld c, VIS_DIVER_CHR_COUNT
 	call ChrmanAllocOb
-	jr nc, :+
-.err_alloc_ob
-	ld b, b
-	ret
-:
+	ret c
 	ld a, b :: ld [wVisDiver_chri], a
 
 	ld b, bank(DiverIdle_0_chr)

@@ -126,7 +126,7 @@ ItemsInit::
 
 	ld c, Items_CHR_COUNT
 	call ChrmanAllocOb
-	jr c, .err_alloc_ob
+	ret c
 	ld a, b :: ld [wItemsRes_chri], a
 	ld b, bank(Items_chr)
 	ld de, Items_chr
@@ -134,9 +134,6 @@ ItemsInit::
 	call VxLoadRom
 
 	jp ItemsReset
-.err_alloc_ob
-	ld b, b
-	ret
 
 
 section "ItemsReset", rom0

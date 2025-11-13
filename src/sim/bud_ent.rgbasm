@@ -163,8 +163,8 @@ BudEntResourceInit::
 
 	ld c, Afish_CHR_COUNT
 	call ChrmanAllocOb
+	ret c
 	ld a, b :: ld [wAfishChri], a
-	jr c, .err_alloc_ob
 	ld c, Afish_CHR_COUNT - 1
 	ld b, bank(Afish_chr)
 	ld de, Afish_chr
@@ -177,16 +177,13 @@ BudEntResourceInit::
 
 	ld c, Squidge_CHR_COUNT
 	call ChrmanAllocOb
+	ret c
 	ld a, b :: ld [wSquidgeChri], a
-	jr c, .err_alloc_ob
 	ld c, Squidge_CHR_COUNT - 1
 	ld b, bank(Squidge_chr)
 	ld de, Squidge_chr
 	call VxLoadRom
 
-	ret
-.err_alloc_ob
-	ld b, b
 	ret
 
 

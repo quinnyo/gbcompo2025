@@ -91,6 +91,8 @@ ChrmanAllocOb::
 
 	ld hl, wChrAllocB1
 	call ChrAllocContiguous
+	ret nc
+	ld b, b
 	ret
 
 pops ; Chrman
@@ -168,7 +170,6 @@ ChrAllocContiguous:
 
 	xor a ; clear F.C
 	ret
-
 
 pops ; ChrAlloc
 
