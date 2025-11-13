@@ -1,4 +1,5 @@
 include "banker.rgbinc"
+include "hardware.inc"
 
 
 section "hMem", hram
@@ -158,4 +159,36 @@ MemCallRomx::
 	ldh a, [hMemParamHL + 0] :: ld l, a
 	ldh a, [hMemParamHL + 1] :: ld h, a
 	ret ; return to HL
+
+
+;; Write a single value to every cell in a subrect of a BG map in VRAM.
+;; This routine will block until the operation is complete. As this
+;; involves waiting for VBlank in order to access VRAM safely, large
+;; operations may occur over multiple frames.
+;; @param HL: origin address
+;; @param D: value
+;; @param B: subrect width (columns)
+;; @param C: subrect height (rows)
+;; @mut: AF, C, DE, HL
+FillBGRect::
+	di
+.cloop:
+	ldh a, [rLY]
+	cp 144
+	jr c, .cloop
+	cp 152
+	jr nc, .cloop
+
+	ld e, b
+	ld a, d
+:
+	ld [hl+], a
+	dec e
+	jr nz, :-
+	ld a, 32 :: sub b
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	dec c
+	jr nz, .cloop
+	reti
 
