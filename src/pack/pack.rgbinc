@@ -5,8 +5,10 @@ def Q_PACK_INC_Q6TJzK2y equ 1
 def PACK_MAX_ITEMS equ 32
 def CONTENTS_INDEX_MASK equ PACK_MAX_ITEMS - 1
 
-def PACK_COLUMNS_MAX equ 10
-def PACK_ROWS_MAX    equ 10
+;; Pack storage capacity, X axis
+def PACK_WIDTH_MAX equ 9
+;; Pack storage capacity, Y axis
+def PACK_HEIGHT_MAX equ 7
 
 
 rsreset
@@ -14,9 +16,44 @@ rsreset
 def bPackCtl_HOLDING rb 1
 ;; Set if cursor is over an item
 def bPackCtl_PICKED rb 1
+;; Set if pack window (should be) visible
+def bPackCtl_OPEN rb 1
 
 def PackCtl_HOLDING equ 1 << bPackCtl_HOLDING
 def PackCtl_PICKED  equ 1 << bPackCtl_PICKED
+def PackCtl_OPEN    equ 1 << bPackCtl_OPEN
+
+
+def PACKVIEW_PAD_LEFT equ 1
+def PACKVIEW_PAD_TOP equ 1
+def PACKVIEW_PAD_RIGHT equ 1
+def PACKVIEW_PAD_BOTTOM equ 1
+def PACKVIEW_WIDTH equ PACKVIEW_PAD_LEFT + PACKVIEW_PAD_RIGHT + PACK_WIDTH_MAX
+def PACKVIEW_HEIGHT equ PACKVIEW_PAD_TOP + PACKVIEW_PAD_BOTTOM + PACK_HEIGHT_MAX
+;; Address of BG map (in VRAM) to render Pack to.
+def PACKVIEW_BGMAP equ $9C00
+;; Relative address of pack origin in BG map.
+def PACKVIEW_PACK_BG_OFFSET equ PACKVIEW_PAD_LEFT + PACKVIEW_PAD_TOP * 32
+;; Absolute address of pack origin in BG map.
+def PACKVIEW_PACK_BG equ PACKVIEW_BGMAP + PACKVIEW_PACK_BG_OFFSET
+
+
+;; X axis position of the pack origin in screenspace (when pack is visible)
+def PACK_ORIGIN_X equ 160 - (PACK_WIDTH_MAX + PACKVIEW_PAD_RIGHT) * 8
+;; Y axis position of the pack origin in screenspace (when pack is visible)
+def PACK_ORIGIN_Y equ 144 - (PACK_HEIGHT_MAX + PACKVIEW_PAD_BOTTOM) * 8
+;; X axis window position used to display pack (when pack is visible)
+def PACK_WX equ PACK_ORIGIN_X - PACKVIEW_PAD_LEFT * 8 + 7
+;; Y axis window position used to display pack (when pack is visible)
+def PACK_WY equ PACK_ORIGIN_Y - PACKVIEW_PAD_TOP * 8
+
+def PACK_OPEN_DX equ 7
+def PACK_CLOSE_DX equ 9
+
+;; X axis offset for cursor OAM position
+def PACK_CURSOR_OFFSET_X equ 2
+;; Y axis offset for cursor OAM position
+def PACK_CURSOR_OFFSET_Y equ 8 + 2
 
 
 endc ; Q_PACK_INC_Q6TJzK2y

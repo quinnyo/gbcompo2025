@@ -1,30 +1,57 @@
 include "hardware.inc"
 include "banker.rgbinc"
 include "mode.rgbinc"
+include "pack/pack.rgbinc"
 
 
-	mode_def modePack, modePack_Enter, modePack_Process, modePack_Exit, -, -
+	mode_def modePack, modePack_Enter, modePack_Process, modePack_Exit, -, -, modePack_ExtraFuncs
 
 
 section "modePack", romx
-modePack_Enter::
-	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
+rsset MODE_STATE_EXTRA
+modePack_ExtraFuncs::
+	def EXTSTATE_OPENING rb 1
+	dw modePack_Opening
+	def EXTSTATE_CLOSING rb 1
+	dw modePack_Closing
 
+
+modePack_Enter::
+	call PackPrepare
+	ld a, EXTSTATE_OPENING :: ldh [hModeState], a
 	ret
 
 
 modePack_Process::
 	ldh a, [hKeysPressed]
 	bit PADB_SELECT, a
-	jp nz, ModePop
+	jr nz, .close
 
 	ld b, a
 	and PADF_DOWN|PADF_UP|PADF_LEFT|PADF_RIGHT
 	call nz, PackCursorMove
 
+	call PackProcess
+
+	ret
+.close:
+	ld a, EXTSTATE_CLOSING :: ldh [hModeState], a
 	ret
 
 
 modePack_Exit::
 	ret
+
+
+modePack_Opening:
+	call PackDrawerOpen
+	ret nc
+	ld a, MODE_STATE_PROCESS :: ldh [hModeState], a
+	ret
+
+
+modePack_Closing:
+	call PackDrawerClose
+	ret nc
+	jp ModePop
 

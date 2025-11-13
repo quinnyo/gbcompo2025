@@ -1,6 +1,7 @@
 include "pack.rgbinc"
 include "hardware.inc"
 include "banker.rgbinc"
+include "vis/widgets.rgbinc"
 
 
 pushs "wPack", wram0
@@ -8,9 +9,10 @@ wPackWidth: db
 wPackHeight: db
 wPackCursorX: db
 wPackCursorY: db
-wPackCtl: db
+wPackCtl:: db
 wPackHoldingItem: db
 wPackPickedItem: db
+
 pops ; wPack
 
 
@@ -26,15 +28,15 @@ pops ; wPackContents
 section "Pack", rom0
 PackInit::
 	ld hl, wPackWidth
-	ld a, PACK_COLUMNS_MAX :: ld [hl+], a
-	ld a, PACK_ROWS_MAX :: ld [hl+], a
+	ld a, PACK_WIDTH_MAX :: ld [hl+], a
+	ld a, PACK_HEIGHT_MAX :: ld [hl+], a
 	xor a
-	ld [hl+], a
-	ld [hl+], a
-	ld [hl+], a
+	ld [hl+], a ; CursorX
+	ld [hl+], a ; CursorY
+	ld [hl+], a ; Ctl
 	ld a, $FF
-	ld [hl+], a
-	ld [hl+], a
+	ld [hl+], a ; HoldingItem
+	ld [hl+], a ; PickedItem
 
 		wrambpush bank(wPackContents)
 	ld a, $FF
@@ -42,6 +44,96 @@ PackInit::
 	ld hl, startof("wPackContents")
 	call MemFillSmall
 		wrambpop
+
+	call WidgetsInit
+
+	ret
+
+
+;; Call before making Pack visible.
+PackPrepare::
+	; DEBUG: Show *something* in Pack grid BG map
+	ld hl, PACKVIEW_PACK_BG
+	ld bc, (PACK_WIDTH_MAX << 8) | PACK_HEIGHT_MAX
+	ld d, $03
+	call FillBGRect
+
+	ld hl, PACKVIEW_BGMAP
+	ld bc, (PACKVIEW_WIDTH << 8) | PACKVIEW_HEIGHT
+	ld d, $08 | 2
+		ld a, 1 :: ldh [rVBK], a
+	call FillBGRect
+		xor a :: ldh [rVBK], a
+
+	; begin open transition with window off screen
+	ld a, 170 :: ld [wWX], a
+	ld a, PACK_WY :: ld [wWY], a
+	; show the window
+	ld a, [wLCDC]
+	or LCDCF_WINON | LCDCF_WIN9C00
+	ld [wLCDC], a
+	ret
+
+
+;; @ret F.C: transition complete
+;; @mut: AF
+PackDrawerOpen::
+	ld a, PACK_WY :: ld [wWY], a
+	ld a, [wPackCtl]
+	and PackCtl_OPEN
+	jr nz, .finish
+	ld a, [wWX]
+	sub PACK_OPEN_DX
+	cp PACK_WX + 1
+	jr c, .finish
+	ld [wWX], a
+	and a ; ret F.NC
+	ret
+.finish
+	ld a, [wPackCtl] :: or PackCtl_OPEN :: ld [wPackCtl], a
+	ld a, PACK_WX :: ld [wWX], a
+	scf ; ret F.C
+	ret
+
+
+;; @ret F.C: transition complete
+;; @mut: AF
+PackDrawerClose::
+	ld a, [wPackCtl]
+	and PackCtl_OPEN
+	jr z, .finish
+	ld a, [wWX]
+	add PACK_CLOSE_DX
+	cp 166
+	jr nc, .finish
+	ld [wWX], a
+	and a ; ret F.NC
+	ret
+.finish
+	ld a, 170
+	ld [wWX], a
+	ld [wWY], a
+	; hide the window
+	ld a, [wLCDC]
+	and ~LCDCF_WINON
+	ld [wLCDC], a
+	ld a, [wPackCtl] :: and ~PackCtl_OPEN :: ld [wPackCtl], a
+	scf ; ret F.C
+	ret
+
+
+PackProcess::
+	; Draw cursor
+	ld a, [wPackCursorX]
+	add a :: add a :: add a ; mul 8
+	add PACK_ORIGIN_X + PACK_CURSOR_OFFSET_X
+	ld c, a
+	ld a, [wPackCursorY]
+	add a :: add a :: add a ; mul 8
+	add PACK_ORIGIN_Y + PACK_CURSOR_OFFSET_Y
+	ld b, a
+	ld e, WIDGET_POINTER
+	call WidgetRender
 
 	ret
 
