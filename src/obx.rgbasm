@@ -18,6 +18,15 @@ hObdoHead: db
 ;; High byte address of target OAM buffer.
 hObdoTarget: db
 
+;; Y mod value
+hObModY:: db
+;; X mod value
+hObModX:: db
+;; CHR index mod value
+hObModChri:: db
+;; ATRB mod value
+hObModAtrb:: db
+
 
 section "ObdoSingle", rom0
 ;; Write a single OBJ entry to the OAM buffer.
@@ -43,20 +52,64 @@ ObdoSingle::
 
 
 section "ObdoCustom", rom0
-;; @mut: AF, HL
-ObdoCustomStart::
+
+;; _impl_custom_start R16
+macro _impl_custom_start
+	assert _NARG == 1
 	ldh a, [hObdoHead]
 	cp OBUF_SIZE
 	ret nc
-	ld l, a
-	ldh a, [hObdoTarget] :: ld h, a
+	ld low(\1), a
+	ldh a, [hObdoTarget]
+	ld high(\1), a
+	scf
 	ret
+endm
 
 
+;; _impl_custom_end R16
+macro _impl_custom_end
+	assert _NARG == 1
+	ld a, low(\1)
+	; ensure head position is at start of an entry
+	and $FC
+	ldh [hObdoHead], a
+	ret
+endm
+
+
+;; Get a pointer that can be used to write OAM entries directly to the OAM buffer.
+;; Write as many entries as needed, and then call `ObdoCustomEndHL` with the updated pointer.
+;; @ret HL: direct entry pointer (if F.C)
+;; @ret F.C: success
 ;; @mut: AF, HL
-ObdoCustomEnd::
-	ld a, l :: ldh [hObdoHead], a
-	ret
+ObdoCustomStartHL::
+	_impl_custom_start hl
+
+
+;; Synchronise Obdo internal state to an updated direct entry pointer.
+;; The updated pointer should be the address provided by `ObdoCustomStartHL` plus a multiple of 4.
+;; @param HL: updated pointer
+;; @mut: AF, HL
+ObdoCustomEndHL::
+	_impl_custom_end hl
+
+
+;; Get a pointer that can be used to write OAM entries directly to the OAM buffer.
+;; Write as many entries as needed, and then call `ObdoCustomEndDE` with the updated pointer.
+;; @ret DE: direct entry pointer (if F.C)
+;; @ret F.C: success
+;; @mut: AF, DE
+ObdoCustomStartDE::
+	_impl_custom_start de
+
+
+;; Synchronise Obdo internal state to an updated direct entry pointer.
+;; The updated pointer should be the address provided by `ObdoCustomStartDE` plus a multiple of 4.
+;; @param DE: updated pointer
+;; @mut: AF, DE
+ObdoCustomEndDE::
+	_impl_custom_end de
 
 
 section "ObdoFinaliseFrame", rom0

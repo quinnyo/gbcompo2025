@@ -5,25 +5,20 @@ def bFlipX equ 5
 def bFlipY equ 6
 
 
-section "hSprx", hram
-hSprxOriginY:: db
-hSprxOriginX:: db
-
-
 section "Sprx", rom0
 ;; @param HL: Sprx to render
 ;; @param B,C: Y,X render position
 ;; @mut: AF, BC, DE, HL
 SprxRender::
-	ld a, b :: sub SprobOriginY :: ldh [hSprxOriginY], a
-	ld a, c :: sub SprobOriginX :: ldh [hSprxOriginX], a
+	ld a, b :: sub SprobOriginY :: ldh [hObModY], a
+	ld a, c :: sub SprobOriginX :: ldh [hObModX], a
 
 :
 	; peek the first sprob byte
 	bit bSprite_ESC, [hl]
 	jr nz, .proc_esc
-	ldh a, [hSprxOriginY] :: ld b, a
-	ldh a, [hSprxOriginX] :: ld c, a
+	ldh a, [hObModY] :: ld b, a
+	ldh a, [hObModX] :: ld c, a
 	call SprobRender
 	jr :-
 
@@ -33,62 +28,75 @@ SprxRender::
 	ret
 
 
+;; Render a sprite with modifier parameters.
 ;; @param HL: Sprx to render
 ;; @param B,C: Y,X render position
 ;; @param D: I mod
 ;; @param E: A mod (ADD the palette, XOR the rest)
-;; @mut: AF, HL
+;; @mut: AF, BC, DE, HL
 SprxRenderMod::
+	ld a, b :: ldh [hObModY], a
+	ld a, c :: ldh [hObModX], a
+	ld a, d :: ldh [hObModChri], a
+	ld a, e :: ldh [hObModAtrb], a
+
+;; SprxRenderMod but gets params straight from the `hObMod{Y,X,Chri,Atrb}` variables.
+;; @param HL: Sprx to render
+;; @mut: AF, BC, DE, HL
+SprxRenderMod_ObMod::
+	call ObdoCustomStartDE
 .loop
 	; peek the first sprob byte
 	bit bSprite_ESC, [hl]
 	jr nz, .proc_esc
-	push bc
-	push de
+
+	ldh a, [hObModAtrb] :: ld c, a
 
 	; Y position, flip
+	ldh a, [hObModY] :: ld b, a
 	ld a, [hl+] :: sub SprobOriginY
-	bit bFlipY, e
+	bit bFlipY, c
 	jr z, :+
 	cpl :: inc a
 :
-	add b :: ld b, a
+	add b
+	ld [de], a :: inc de
 
 	; X position, flip
+	ldh a, [hObModX] :: ld b, a
 	ld a, [hl+] :: sub SprobOriginX
-	bit bFlipX, e
+	bit bFlipX, c
 	jr z, :+
 	cpl :: inc a
 :
-	add c :: ld c, a
+	add b
+	ld [de], a :: inc de
 
-	ld a, [hl+] :: add d :: ld d, a
-	; Palette mod gets added, rest of bits get xored.
-	; Yes, this is confusioning.
-	; xor atrbmod, keep palmod unchanged
-	ld a, [hl]
-	and $F8
-	xor e
-	ld e, a
-	; add palmod
+	; CHRI
+	ldh a, [hObModChri] :: ld b, a
 	ld a, [hl+]
-	add e
-	; combine adjusted palette with adjusted atrbs
-	xor e
-	and $07
-	xor e
-	ld e, a
+	add b
+	ld [de], a :: inc de
 
-	push hl
-	call ObdoSingle
-	pop hl
-	pop de
-	pop bc
+	; ATRB
+	; Palette mod gets added, rest of bits get xored.
+	ld a, [hl+]
+	ld b, a
+	and $F8
+	xor c
+	ld c, a ; adjusted flags with palmod
+	; add palmod
+	add b
+	; combine adjusted palette with adjusted flags
+	xor c
+	and $07
+	xor c
+	ld [de], a :: inc de
+
 	jr .loop
 
-	ret
 .proc_esc:
-	ret
+	jp ObdoCustomEndDE
 
 
 ;; Performs the 'potential visibility' test at a screen-relative 16 bit position.
