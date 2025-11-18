@@ -126,6 +126,18 @@ macro wrambpop
 endm
 
 
+;; vrambsel BANK
+;; Select the active VRAM bank.
+;; @mut: AF
+macro vrambsel
+	assert _NARG == 1
+	if strcmp("a", strlwr("\1")) != 0
+		ld a, (\1)
+	endc
+	ldh [rVBK], a
+endm
+
+
 ;; banker_rombpush [$BANK]
 ;; @mut: AF, HL
 macro banker_rombpush
