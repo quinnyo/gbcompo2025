@@ -1,0 +1,333 @@
+include "hardware.inc"
+include "banker.rgbinc"
+
+
+rsreset
+;; A single tile.
+;; PatternData { chr: u8, atrb: u8 }
+export def PatternType_SINGLE rb 1
+;; A contiguous rectangle of tiles on the grid.
+;; PatternData { height: u8, width: u8, tiles: Tile[H*W] }
+;;   Tiles are in row-major order. Each tile is: Tile { chr: u8, atrb: u8 }
+export def PatternType_RECT rb 1
+;; A set of tiles placed arbitrarily on the grid.
+;; PatternData { tiles: SparseTile[], $FF }
+;;   SparseTile { Y, X, I, A }
+export def PatternType_SPARSE rb 1
+;; Arbitrary OAM elements. Cannot be rendered to BG map.
+;; PatternData { obs: Ob[], $FF }
+;;   obs are OAM entries (`Ob { Y, X, I, A }`) followed by a $FF to mark the end of the list.
+export def PatternType_OAM rb 1
+
+;; Number of PatternType variants
+export def PatternType__LEN rb 0
+
+
+pushs "PatternDrawBgv", rom0
+;; Render a pattern to a BG map in VRAM.
+;; Waits for safe VRAM access before writing to the map.
+;; Blocks until complete.
+;; @param HL: dest
+;; @param DE: pattern
+;; @mut: AF, BC, DE, HL
+PatternDrawBgv::
+		rombpush bank(PatternDrawBgv_TypeMani)
+	call PatternDrawBgv_TypeMani
+		rombpop
+	ret
+
+pops ; PatternDrawBgv
+
+
+pushs "PatternDrawOb", rom0
+;; Render a pattern using OAM objects.
+;; @param HL: dest (OAM buffer)
+;; @param DE: pattern
+;; @mut: AF, BC, DE, HL
+PatternDrawOb::
+		rombpush bank(PatternDrawOb_TypeMani)
+	call PatternDrawOb_TypeMani
+		rombpop
+	ret
+
+pops ; PatternDrawOb
+
+
+pushs "PatternDrawBgv_TypeImpl", romx
+;; Executes the draw function implemented for the pattern's type.
+;; @param DE: pattern
+;; @param HL: dest
+;; @mut: AF, BC, DE, HL
+PatternDrawBgv_TypeMani:
+		push hl ; pass dest via stack because HL is used by RST_SwitchJump.
+
+	ld a, [de] :: inc de ; type
+	; check type in range
+	cp PatternType__LEN
+	jr nc, .err_invalid_pattern_type
+
+	rst RST_SwitchJump
+.functable:
+	dw _PatternDrawBgv_single
+	dw _PatternDrawBgv_rect
+	dw _PatternDrawBgv_sparse
+	dw _PatternDrawBgv_oam
+assert (@ - .functable) / 2 == PatternType__LEN
+
+.err_invalid_pattern_type:
+	ld b, b
+	ret
+
+
+;; @param [SP+0]: dest
+;; @param DE: pattern + 1
+_PatternDrawBgv_single:
+		pop hl
+	ld bc, $0101 ; height, width: 1, 1
+	di
+	jr _PatternDrawBgv_rect.do_row
+
+
+;; Draw a RECT pattern to a BG map in VRAM.
+;; @param [SP+0]: dest
+;; @param DE: pattern + 1
+;; @mut: AF, BC, DE, HL
+_PatternDrawBgv_rect:
+		pop hl
+	ld a, [de] :: inc de :: ld b, a ; height
+	and a :: ret z
+	ld a, [de] :: inc de :: ld c, a ; width
+	and a :: ret z
+	di
+	jr .do_row
+.next_row:
+	; advance dest to next row
+	ld a, 32 :: sub c
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+.do_row:
+		push bc
+.cloop:
+	; chr
+		vrambsel 0
+:
+	ldh a, [rSTAT]
+	and STATF_BUSY
+	jr nz, :-
+	ld a, [de] :: ld [hl], a :: inc de
+	; atrb
+		vrambsel 1
+:
+	ldh a, [rSTAT]
+	and STATF_BUSY
+	jr nz, :-
+	ld a, [de] :: ld [hl+], a :: inc de
+
+	dec c
+	jr nz, .cloop
+
+		pop bc
+	dec b
+	jr nz, .next_row
+
+		vrambsel 0
+	reti
+
+
+;; @param [SP+0]: dest
+_PatternDrawBgv_sparse:
+	di
+.loop
+		pop hl ; restore dest
+
+	ld a, [de] :: inc de :: ld b, a ; Y
+	cp 32
+	jr nc, .terminated
+	ld a, [de] :: inc de :: ld c, a ; X
+		push hl ; preserve dest
+	ld a, b :: ld b, 0
+	; dest + x
+	add hl, bc
+	; hold dest + x in BC
+	ld c, l :: ld b, h
+
+	; Y * 32
+	add a :: add a :: add a ; mul 2, 4, 8 ~~~ [0..32) * 8 = [0..256)
+	ld l, a :: ld h, 0
+	add hl, hl :: add hl, hl ; mul 16, 32
+	; + dest + x
+	add hl, bc
+
+	; chr
+		vrambsel 0
+	ld a, [de] :: inc de :: ld c, a
+:
+	ldh a, [rSTAT]
+	and STATF_BUSY
+	jr nz, :-
+	ld [hl], c
+
+	; atrb
+		vrambsel 1
+	ld a, [de] :: inc de :: ld c, a
+:
+	ldh a, [rSTAT]
+	and STATF_BUSY
+	jr nz, :-
+	ld [hl], c
+
+	jr .loop
+
+.terminated:
+		vrambsel 0
+	reti
+
+
+_PatternDrawBgv_oam:
+		pop hl
+	;; TODO: ERROR. OAM patterns can be rendered to OAM only.
+	ld b, b
+	ret
+
+pops ; PatternDrawBgv_TypeImpl
+
+
+pushs "PatternDrawOb_TypeImpl", romx
+;; Executes the draw function implemented for the pattern's type.
+;; @param DE: pattern
+;; @param HL: dest
+;; @mut: AF, BC, DE, HL
+PatternDrawOb_TypeMani:
+		push hl ; pass dest via stack because HL is used by RST_SwitchJump.
+
+	ld a, [de] :: inc de ; type
+	; check type in range
+	cp PatternType__LEN
+	jr nc, .err_invalid_pattern_type
+
+	rst RST_SwitchJump
+.functable:
+	dw _PatternDrawOb_single
+	dw _PatternDrawOb_rect
+	dw _PatternDrawOb_sparse
+	dw _PatternDrawOb_oam
+assert (@ - .functable) / 2 == PatternType__LEN
+
+.err_invalid_pattern_type:
+	ld b, b
+	ret
+
+
+_PatternDrawOb_single:
+		pop hl
+	ld bc, $0101
+	di
+	jr _PatternDrawOb_rect.do_row
+
+
+;; @param [SP+0]: dest (OAM buffer)
+;; @param DE: pattern + 1
+_PatternDrawOb_rect:
+		pop hl
+	ld a, [de] :: inc de :: ld b, a ; height
+	and a :: ret z
+	ld a, [de] :: inc de :: ld c, a ; width
+	and a :: ret z
+	di
+.do_row:
+		push bc
+	ldh a, [hObModX] :: ld b, a
+.cloop:
+	; Y
+	ldh a, [hObModY] :: ld [hl+], a
+	; X
+	ld a, b :: ld [hl+], a
+	; CHR
+	ld a, [de] :: inc de :: ld [hl+], a
+	; ATRB
+	ld a, [de] :: inc de :: ld [hl+], a
+
+	; x += 8
+	ld a, b :: add 8 :: ld b, a
+	; if overflow, break cloop
+	jr c, .cloop_break
+
+	dec c
+	jr nz, .cloop
+.cloop_break
+	; y += 8
+	ldh a, [hObModY] :: add 8 :: ldh [hObModY], a
+		pop bc
+	dec b
+	jr nz, .do_row
+
+	reti
+
+
+_PatternDrawOb_sparse:
+		pop hl
+	di
+.loop
+	; Y
+	ldh a, [hObModY] :: ld b, a
+	ld a, [de] :: inc de
+	cp 32
+	jr nc, .terminated
+	add a :: add a :: add a ; mul 8
+	add b
+	ld [hl+], a
+	; X
+	ldh a, [hObModX] :: ld c, a
+	ld a, [de] :: inc de
+	add a :: add a :: add a ; mul 8
+	add c
+	ld [hl+], a
+	; CHR
+	ld a, [de] :: inc de :: ld [hl+], a
+	; ATRB
+	ld a, [de] :: inc de :: ld [hl+], a
+
+	jr .loop
+.terminated:
+	reti
+
+
+_PatternDrawOb_oam:
+		pop hl
+	di
+.loop
+	; Y
+	ldh a, [hObModY] :: ld b, a
+	ld a, [de] :: inc de
+	inc a
+	jr z, .terminated
+	dec a
+	add b
+	jr c, .next1
+	ld b, a
+	; X
+	ldh a, [hObModX] :: ld c, a
+	ld a, [de] :: inc de
+	add c
+	jr c, .next2
+	ld c, a
+	ld a, b :: ld [hl+], a ; Y
+	ld a, c :: ld [hl+], a ; X
+	; CHR
+	ld a, [de] :: inc de :: ld [hl+], a
+	; ATRB
+	ld a, [de] :: inc de :: ld [hl+], a
+
+	jr .loop
+.next1
+	; skip X
+	inc de
+.next2
+	; skip CHR, ATRB
+	inc de :: inc de
+	jr .loop
+.terminated:
+	reti
+
+pops ; PatternDrawOb_TypeImpl
+
