@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SRC="src/${2#*/}.png"
-redo-ifchange "$SRC"
+## Generate CHR, using RGBGFX to convert from PNG.
+
+. ./config.sh
+
+SRC="src/${2#${BUILDPREFIX%/}}.png"
+redo-ifchange config.sh "$SRC" "${1}.pal"
 
 PARAMS="${SRC}.params"
 ATFILE=""
@@ -12,6 +16,7 @@ if [[ -e "$PARAMS" ]]; then
 fi
 
 mkdir -p "${2%/*}"
-rgbgfx -p "${1}.pal" -a "${1}.atrb" -t "${1}.idx" -o "$3" $ATFILE -- "$SRC"
+rgbgfx -c "gbc:${1}.pal" -a "${1}.atrb" -t "${1}.idx" -o "$3" $ATFILE -- "$SRC"
 
 # vim: ft=bash
+
