@@ -31,34 +31,6 @@ pushs "PatternDrawBgv", rom0
 ;; @param DE: pattern
 ;; @mut: AF, BC, DE, HL
 PatternDrawBgv::
-		rombpush bank(PatternDrawBgv_TypeMani)
-	call PatternDrawBgv_TypeMani
-		rombpop
-	ret
-
-pops ; PatternDrawBgv
-
-
-pushs "PatternDrawOb", rom0
-;; Render a pattern using OAM objects.
-;; @param HL: dest (OAM buffer)
-;; @param DE: pattern
-;; @mut: AF, BC, DE, HL
-PatternDrawOb::
-		rombpush bank(PatternDrawOb_TypeMani)
-	call PatternDrawOb_TypeMani
-		rombpop
-	ret
-
-pops ; PatternDrawOb
-
-
-pushs "PatternDrawBgv_TypeImpl", romx
-;; Executes the draw function implemented for the pattern's type.
-;; @param DE: pattern
-;; @param HL: dest
-;; @mut: AF, BC, DE, HL
-PatternDrawBgv_TypeMani:
 		push hl ; pass dest via stack because HL is used by RST_SwitchJump.
 
 	ld a, [de] :: inc de ; type
@@ -189,15 +161,15 @@ _PatternDrawBgv_oam:
 	ld b, b
 	ret
 
-pops ; PatternDrawBgv_TypeImpl
+pops ; PatternDrawBgv
 
 
-pushs "PatternDrawOb_TypeImpl", romx
-;; Executes the draw function implemented for the pattern's type.
+pushs "PatternDrawOb", rom0
+;; Render a pattern using OAM objects.
+;; @param HL: dest (OAM buffer)
 ;; @param DE: pattern
-;; @param HL: dest
 ;; @mut: AF, BC, DE, HL
-PatternDrawOb_TypeMani:
+PatternDrawOb::
 		push hl ; pass dest via stack because HL is used by RST_SwitchJump.
 
 	ld a, [de] :: inc de ; type
@@ -329,5 +301,5 @@ _PatternDrawOb_oam:
 .terminated:
 	reti
 
-pops ; PatternDrawOb_TypeImpl
+pops ; PatternDrawOb
 
