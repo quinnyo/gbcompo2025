@@ -56,7 +56,7 @@ def szItem rb 0
 assert szItem == szItem & -szItem, "Expected power-of-two szItem"
 
 
-import_chr "assets/ent/items.chr", Items, pal
+import_chr "assets/ent/markers.chr", Markers, pal
 
 
 section "ItemSprites", romx
@@ -111,26 +111,26 @@ wItemsManager:
 
 
 section "wItemsResources", wram0
-wItemsRes_chri: db
-wItemsRes_pal: db
+wItemsRes_markers_chri: db
+wItemsRes_markers_pal: db
 
 
 section "ItemsInit", rom0
 ItemsInit::
-	ld b, bank(Items_pal)
-	ld de, Items_pal
+	ld b, bank(Markers_pal)
+	ld de, Markers_pal
 	call PalettePalLoadObRomx
-	ld a, b :: and $07 :: ld [wItemsRes_pal], a
+	ld a, b :: and $07 :: ld [wItemsRes_markers_pal], a
 
 	; TODO: only load item graphics that are being used
 
-	ld c, Items_CHR_COUNT
+	ld c, Markers_CHR_COUNT
 	call ChrmanAllocOb
 	ret c
-	ld a, b :: ld [wItemsRes_chri], a
-	ld b, bank(Items_chr)
-	ld de, Items_chr
-	ld c, Items_CHR_COUNT - 1
+	ld a, b :: ld [wItemsRes_markers_chri], a
+	ld b, bank(Markers_chr)
+	ld de, Markers_chr
+	ld c, Markers_CHR_COUNT - 1
 	call VxLoadRom
 
 	jp ItemsReset
@@ -381,8 +381,8 @@ _update_item:
 
 .draw_item
 	; Default CHR index & palette offset
-	ld a, [wItemsRes_chri] :: ld d, a
-	ld a, [wItemsRes_pal] :: ld e, a
+	ld a, [wItemsRes_markers_chri] :: ld d, a
+	ld a, [wItemsRes_markers_pal] :: ld e, a
 
 	ld a, [hl+] ; ctl
 	bit bItemCtl_TOUCHED, a

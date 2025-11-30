@@ -1,4 +1,11 @@
-use std::{cmp, fmt, io, ops};
+use std::io;
+
+use crate::coord::C2i32;
+use crate::object::Object;
+
+pub mod coord;
+pub mod object;
+pub mod tiled_ext;
 
 const PROP_EDITOR_ONLY: &str = "editor_only";
 
@@ -34,90 +41,6 @@ impl BgAttributes {
             a |= Self::PRIORITY;
         }
         a
-    }
-}
-
-#[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Copy)]
-pub struct C2<T> {
-    pub x: T,
-    pub y: T,
-}
-
-impl<T: Copy + Ord> C2<T> {
-    pub fn new(x: T, y: T) -> Self {
-        Self { x, y }
-    }
-
-    pub fn min_each(self, other: Self) -> Self {
-        Self::new(self.x.min(other.x), self.y.min(other.y))
-    }
-
-    pub fn max_each(self, other: Self) -> Self {
-        Self::new(self.x.max(other.x), self.y.max(other.y))
-    }
-}
-
-impl<T> From<(T, T)> for C2<T> {
-    fn from(src: (T, T)) -> Self {
-        Self { x: src.0, y: src.1 }
-    }
-}
-
-impl<T: ops::Add<Output = T>> ops::Add for C2<T> {
-    type Output = Self;
-    fn add(self, other: Self) -> Self {
-        Self {
-            x: self.x + other.x,
-            y: self.y + other.y,
-        }
-    }
-}
-
-impl<T: ops::Sub<Output = T>> ops::Sub for C2<T> {
-    type Output = Self;
-    fn sub(self, other: Self) -> Self {
-        Self {
-            x: self.x - other.x,
-            y: self.y - other.y,
-        }
-    }
-}
-
-impl<T: ops::Mul<Output = T>> ops::Mul for C2<T> {
-    type Output = Self;
-    fn mul(self, other: Self) -> Self {
-        Self {
-            x: self.x * other.x,
-            y: self.y * other.y,
-        }
-    }
-}
-
-impl<T: Copy + ops::Mul<Output = T>> ops::Mul<T> for C2<T> {
-    type Output = Self;
-    fn mul(self, other: T) -> Self {
-        Self {
-            x: self.x * other,
-            y: self.y * other,
-        }
-    }
-}
-
-impl<T: Ord> Ord for C2<T> {
-    fn cmp(&self, other: &Self) -> cmp::Ordering {
-        self.y.cmp(&other.y).then(self.x.cmp(&other.x))
-    }
-}
-
-impl<T: Ord> PartialOrd for C2<T> {
-    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl<T: Ord + fmt::Display> fmt::Display for C2<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "<{}, {}>", self.x, self.y)
     }
 }
 
@@ -236,7 +159,6 @@ impl<T> From<ChunkBrushes<T>> for Vec<Brush<T>> {
     }
 }
 
-pub type C2i32 = C2<i32>;
 pub type ChunkCoord = u8;
 pub type ChunkIndex = u8;
 pub type TileChr = u8;
@@ -251,7 +173,11 @@ pub struct Chunks {
 
 impl Chunks {
     pub fn tile_origin(&self) -> C2i32 {
-        self.min_pos * C2i32::new(tiled::ChunkData::WIDTH as i32, tiled::ChunkData::HEIGHT as i32)
+        self.min_pos
+            * C2i32::new(
+                tiled::ChunkData::WIDTH as i32,
+                tiled::ChunkData::HEIGHT as i32,
+            )
     }
 
     /// Bounding size of the map in chunk coordinates.
@@ -329,98 +255,6 @@ impl Chunks {
     }
 }
 
-#[derive(Debug)]
-pub enum ObjectType {
-    PlayerStart,
-    Item(u8),
-}
-
-impl ObjectType {
-    pub const ITEM_ID_MAX: u8 = 64;
-
-    pub fn item(id: u8) -> Self {
-        assert!(id < Self::ITEM_ID_MAX);
-        Self::Item(id)
-    }
-
-    pub fn encode(&self) -> u8 {
-        match self {
-            ObjectType::PlayerStart => {
-                Self::ITEM_ID_MAX
-            },
-            ObjectType::Item(id) => {
-                assert!(*id < Self::ITEM_ID_MAX);
-                *id
-            },
-        }
-    }
-}
-
-impl TryFrom<&tiled::Object<'_>> for ObjectType {
-    type Error = &'static str;
-
-    fn try_from(value: &tiled::Object) -> Result<Self, Self::Error> {
-        match value.user_type.as_str() {
-            "Item" => {
-                if let Some(id) = tiled_properties_get_int(&value.properties, "item_id") {
-                    assert!(id >= 0 && id <= 255);
-                    Ok(Self::item(id as u8))
-                } else if let Some(obj_tile) = value.get_tile() {
-                    let id = obj_tile.id();
-                    assert!(id <= 255);
-                    Ok(Self::item(id as u8))
-                } else {
-                    panic!()
-                }
-            },
-            "PlayerStart" => {
-                Ok(Self::PlayerStart)
-            }
-            _ => Err("Unrecognised object type")
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Object {
-    pub converted: ObjectType,
-    pub user_type: String,
-    pub x: i32,
-    pub y: i32,
-    pub shape: tiled::ObjectShape,
-    pub properties: tiled::Properties,
-}
-
-impl TryFrom<tiled::Object<'_>> for Object {
-    type Error = &'static str;
-
-    fn try_from(value: tiled::Object) -> Result<Self, Self::Error> {
-        let converted = ObjectType::try_from(&value)?;
-        Ok(Self {
-            converted,
-            user_type: value.user_type.clone(),
-            x: value.x as i32,
-            y: value.y as i32,
-            shape: value.shape.clone(),
-            properties: value.properties.clone(),
-        })
-    }
-}
-
-fn tiled_properties_get_int(properties: &tiled::Properties, key: &str) -> Option<i32> {
-    properties.get(key).map(|propval| match propval {
-        tiled::PropertyValue::IntValue(value) => Some(*value),
-        _ => None,
-    }).flatten()
-}
-
-fn tiled_properties_get_bool(properties: &tiled::Properties, key: &str) -> Option<bool> {
-    properties.get(key).map(|propval| match propval {
-        tiled::PropertyValue::BoolValue(value) => Some(*value),
-        _ => None,
-    }).flatten()
-}
-
 const MAP_SOURCE_PREFIX: &str = "src/assets/maps";
 
 #[derive(Debug, Default)]
@@ -446,7 +280,8 @@ impl MapConverter {
             self.map_name = Box::new(name.to_str().unwrap().to_owned());
         }
         for layer in tmx.layers() {
-            if tiled_properties_get_bool(&layer.properties, PROP_EDITOR_ONLY).unwrap_or(false) {
+            if tiled_ext::properties_get_bool(&layer.properties, PROP_EDITOR_ONLY).unwrap_or(false)
+            {
                 continue;
             } else {
                 self.process_layer(layer);
@@ -460,12 +295,12 @@ impl MapConverter {
         match layer.layer_type() {
             tiled::LayerType::Tiles(tile_layer) => {
                 self.chunks.process_layer(tile_layer);
-            },
+            }
             tiled::LayerType::Objects(object_layer) => {
                 for object in object_layer.objects() {
                     let mut obj = Object::try_from(object).unwrap();
-                    obj.x += layer.offset_x as i32;
-                    obj.y += layer.offset_y as i32;
+                    obj.position.x += layer.offset_x as i32;
+                    obj.position.y += layer.offset_y as i32;
                     self.objects.push(obj);
                 }
             }
@@ -498,10 +333,11 @@ impl Rgbasm for MapConverter {
         writeln!(&mut w, ".objects::")?;
         writeln!(&mut w, "\tdb {} ; len", objects_len)?;
         for obj in &self.objects {
-            let id = obj.converted.encode();
-            let x = (obj.x - dot_origin.x) as u16;
-            let y = (obj.y - dot_origin.y) as u16;
-            writeln!(&mut w, "\tdw {}, {}, {}", id, y, x)?;
+            if let Some(id) = obj.data.encode() {
+                let x = (obj.position.x - dot_origin.x) as u16;
+                let y = (obj.position.y - dot_origin.y) as u16;
+                writeln!(&mut w, "\tdw {}, {}, {}", id, y, x)?;
+            }
         }
 
         // tiles/chunks
