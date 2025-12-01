@@ -14,9 +14,16 @@ def ChainDef_linkspan rb 1
 ;; Bank of associated ChainState struct
 def ChainDef_state_bank rb 1
 ;; Address of associated ChainState struct
-def ChainDef_state_addr rb 1
+def ChainDef_state_addr rb 2
 ;; Size in bytes of ChainDef struct
 def szChainDef rb 0
+
+
+rsreset
+def ChainCtl_origin_y rb 2
+def ChainCtl_origin_x rb 2
+def ChainCtl_length rb 1
+def szChainCtl rb 0
 
 
 ;; chain_alloc NAME, LENGTH, LINKSPAN
@@ -32,10 +39,14 @@ macro chain_alloc
 		.linkspan:: db (\3)
 		.state_bank:: db bank(w\1)
 		.state_addr:: dw w\1
+	assert (@ - \1) == szChainDef
 	pops
 
 	w\1::
+		.origin_y:: dw
+		.origin_x:: dw
 		.length:: db
+	assert (@ - w\1) == szChainCtl
 		.link_y:: ds NLINKS
 		.link_x:: ds NLINKS
 

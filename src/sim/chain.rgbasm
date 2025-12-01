@@ -15,6 +15,10 @@ ChainInit::
 	ld l, a
 
 	; ChainState
+	ld a, 222 :: ld [hl+], a ; origin_y.0
+	xor a :: ld [hl+], a ; origin_y.1
+	ld a, 111 :: ld [hl+], a ; origin_x.0
+	xor a :: ld [hl+], a ; origin_x.1
 	ld a, c :: ld [hl+], a ; length
 		push hl
 	; DE = link_x
@@ -49,6 +53,9 @@ ChainUpdate::
 	ld l, a
 
 	; ChainState
+	rept ChainCtl_length
+		inc hl
+	endr
 		push hl ; length
 	ld a, [hl+] :: ld c, a ; length
 
@@ -153,6 +160,17 @@ ChainRender::
 	ld l, a
 
 	; ChainState
+	rept ChainCtl_origin_y
+		inc hl
+	endr
+	; Check visibility & get screen position for rendering.
+	call ChainOriginOnScreen
+	ret nc ; not visible
+	; Origin screen position will be applied from hObMod{Y,X}.
+	ldh a, [hObModY] :: add b :: ldh [hObModY], a
+	ldh a, [hObModX] :: add c :: ldh [hObModX], a
+
+	; Get chain length & calculate link_x address
 	ld a, [hl+] :: ld c, a ; length
 	ld b, 0 ; BC = length
 		push hl
@@ -190,6 +208,29 @@ ChainRender::
 
 	jp ObdoCustomEndHL
 
+
+;; Get position of chain origin in screen dots & do Sprx potentially visible test.
+;; @param HL: pointer to Chain origin position (16 bit Dots) `{origin_y: dw, origin_x: dw}`
+;; @ret HL: pointer at end of origin position (value provided in HL + 4)
+;; @ret B,C: Y,X
+;; @ret F.C: set if (potentially) visible
+;; @mut: AF, BC, DE, HL
+ChainOriginOnScreen:
+	ld a, [wScroll.y + 0] :: ld e, a
+	ld a, [wScroll.y + 1] :: ld d, a
+	; load item position and subtract scroll position
+	ld a, [hl+] :: sub e :: ld c, a
+	ld a, [hl+] :: sbc d :: ld b, a
+
+		push bc
+	ld a, [wScroll.x + 0] :: ld c, a
+	ld a, [wScroll.x + 1] :: ld b, a
+	ld a, [hl+] :: sub c :: ld e, a
+	ld a, [hl+] :: sbc b :: ld d, a
+		pop bc
+
+	jp SprxTestVisibility
+
 pops ; ChainRender
 
 
@@ -207,6 +248,9 @@ ChainSetEnd::
 	ld l, a
 
 	; ChainState
+	rept ChainCtl_length
+		inc hl
+	endr
 	ld a, [hl+] :: dec a ; length - 1
 	ld c, a :: ld b, 0 ; BC = length - 1
 	add hl, bc ; HL = link_y + length - 1
@@ -217,4 +261,33 @@ ChainSetEnd::
 	ret
 
 pops ; ChainSetEnd
+
+
+pushs "ChainSetOrigin", rom0
+;; Set the chain's origin position. Link positions are relative to this.
+;; @param HL: this ChainDef
+;; @param DE: X position in dots
+;; @param BC: Y position in dots
+ChainSetOrigin::
+	; ChainDef
+	rept ChainDef_state_bank
+		inc hl
+	endr
+		wrambopen [hl+]    ; state_bank
+	ld a, [hl+]            ; state_addr.0
+	ld h, [hl]             ; state_addr.1
+	ld l, a
+
+	; ChainState
+	rept ChainCtl_origin_y
+		inc hl
+	endr
+	ld a, c :: ld [hl+], a
+	ld a, b :: ld [hl+], a
+	ld a, e :: ld [hl+], a
+	ld a, d :: ld [hl+], a
+
+	ret
+
+pops ; ChainSetOrigin
 

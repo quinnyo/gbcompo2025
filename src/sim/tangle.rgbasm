@@ -49,6 +49,14 @@ TangleHello::
 
 
 TangleUpdate::
+	; Set Chain origin to BudEnt spawn/home item
+	; TODO: use the correct Item index somehow.
+	xor a ; HACK: hard-coded Item index for testing
+	call ItemsGetPosition
+	ret nc ; GetPosition failed ...
+	ld hl, TangleChain
+	call ChainSetOrigin
+
 	; DEBUG END POSITION
 	ldh a, [hKeys] :: ld b, a
 	ld de, (2 << 8) | 3
@@ -69,8 +77,9 @@ TangleUpdate::
 	ld hl, TangleChain
 	call ChainUpdate
 
-	ld a, 60 :: ldh [hObModY], a
-	ld a, 60 :: ldh [hObModX], a
+	; DOSOMETHING: HACK: Adding this offset here to move anchor link right on top of the item.
+	ld a, 12 :: ldh [hObModY], a
+	ld a, 4 :: ldh [hObModX], a
 	ld a, [wTangleRes_chri] :: ldh [hObModChri], a
 	xor a :: ldh [hObModAtrb], a
 	ld hl, TangleChain
