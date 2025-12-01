@@ -82,6 +82,8 @@ modeGamePrep_Enter::
 
 	call ItemsSetupSpecial
 
+					call TangleHello
+
 	ld a, MODE_STATE_EXTRA :: ldh [hModeState], a
 	ret
 
@@ -108,6 +110,8 @@ modeGame_Process::
 
 	call _ItemsUpdateCollision
 	call ItemsUpdate
+
+					call TangleUpdate
 
 	call ScrollUpdate
 	ld a, [wScroll.y + 0] :: ld [wSCY], a
