@@ -1,0 +1,47 @@
+if !def(Q_CHAIN_INC_e9yt3VLu)
+def Q_CHAIN_INC_e9yt3VLu equ 1
+
+
+/*
+	ChainDef
+	Chain instance definition & parameters, intended to be located in ROM.
+*/
+rsreset
+;; Length allocated (max. number of links)
+def ChainDef_capacity rb 1
+;; Size of a link -- max. distance between connected links (distance between centres)
+def ChainDef_linkspan rb 1
+;; Bank of associated ChainState struct
+def ChainDef_state_bank rb 1
+;; Address of associated ChainState struct
+def ChainDef_state_addr rb 1
+;; Size in bytes of ChainDef struct
+def szChainDef rb 0
+
+
+;; chain_alloc NAME, LENGTH, LINKSPAN
+;; Create a ChainDef in a new ROM0 section and allocate a Chain instance in the current (WRAM) section.
+macro chain_alloc
+	assert _NARG == 3
+	assert (\2) > 2
+	def NLINKS equ (\2)
+
+	pushs "\1", rom0
+	\1::
+		.capacity:: db NLINKS
+		.linkspan:: db (\3)
+		.state_bank:: db bank(w\1)
+		.state_addr:: dw w\1
+	pops
+
+	w\1::
+		.length:: db
+		.link_y:: ds NLINKS
+		.link_x:: ds NLINKS
+
+	purge NLINKS
+endm
+
+
+endc ; Q_CHAIN_INC_e9yt3VLu
+

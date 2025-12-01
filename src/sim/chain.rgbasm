@@ -1,0 +1,220 @@
+include "hardware.inc"
+include "banker.rgbinc"
+include "chain.rgbinc"
+
+
+pushs "ChainInit", rom0
+;; @param HL: ChainDef
+ChainInit::
+	; ChainDef
+	ld a, [hl+] :: ld c, a ; capacity
+	ld a, [hl+] :: ld b, a ; linkspan
+		wrambopen [hl+]    ; state_bank
+	ld a, [hl+]            ; state_addr.0
+	ld h, [hl]             ; state_addr.1
+	ld l, a
+
+	; ChainState
+	ld a, c :: ld [hl+], a ; length
+		push hl
+	; DE = link_x
+	ld e, c :: ld d, 0
+	add hl, de
+	ld e, l :: ld d, h
+		pop hl
+	xor a
+:
+	ld [hl+], a ; y
+	ld [de], a :: inc de ; x
+	add b
+	dec c
+	jr nz, :-
+
+	ret
+
+pops ; ChainInit
+
+
+pushs "ChainUpdate", rom0
+;; @param HL: ChainDef
+ChainUpdate::
+	; ChainDef
+	rept ChainDef_linkspan
+		inc hl
+	endr
+	ld a, [hl+] :: ld e, a ; linkspan
+		wrambopen [hl+]    ; state_bank
+	ld a, [hl+]            ; state_addr.0
+	ld h, [hl]             ; state_addr.1
+	ld l, a
+
+	; ChainState
+		push hl ; length
+	ld a, [hl+] :: ld c, a ; length
+
+	ld b, 0 ; BC = length
+	add hl, bc ; HL = link_y[N]
+	add hl, bc ; HL = link_x[N]
+
+	/*
+		Drag chain from endpoint:
+		- iterate neighbouring pairs from back to front
+		- move each link[i] to stay within linkspan of link[i + 1]
+		- each axis handled independently
+
+			d = p[i+1] - p[i]
+			over = max(0, abs(d) - link_distance_max) * sign(d)
+			p[i] += over
+	*/
+	ld b, 2 ; outer loop ({x, y})
+	dec c :: dec c ; iters = N - 2 in order to stop before anchor point.
+.drag_bloop:
+		push bc
+	dec hl ; from end of array (N) to last element (N-1).
+.drag_cloop:
+	ld a, [hl-] ; p[i+1]
+	sub [hl] :: ld d, a ; d = p1 - p0
+	; over = abs(d) - linkspan
+	call AbsS8
+	sub e
+	; if F.C: over <= 0 ~~ no drag
+	jr c, .in_range
+	bit 7, d
+	jr z, :+
+	cpl :: inc a ; -over
+:
+	; p0' = p0 + over * sign(d)
+	add [hl] :: ld [hl], a
+.in_range:
+	dec c
+	jr nz, .drag_cloop
+		pop bc
+	; HL will be pointing at i=1 ~~~ dec to get to i=0 (link_y[N])
+	dec hl
+	dec b
+	jr nz, .drag_bloop
+
+		pop hl ; length
+	ld a, [hl+] :: ld c, a ; length
+
+	/*
+		Apply constraints
+
+		Limit link spacing to linkspan
+		- iterate neighbouring pairs forwards
+		- limit p[i] to p[i-1] + linkspan
+
+			d = p[i] - p[i-1]
+			p[i] += p[i-1] + min(|d|, linkspan) * sign(d)
+	*/
+	ld b, 2 ; outer loop ({x, y})
+	; Operating on connected pairs (i, i+1) so do N-1 iters
+	dec c
+.constrain_bloop:
+		push bc
+.constrain_cloop:
+	ld a, [hl+] :: ld b, a ; B = p[i-1]
+	ld a, [hl] :: sub b :: ld d, a ; d = p[i] - p[i-1]
+	call AbsS8
+	cp e
+	jr c, .constrain_in_range
+	; |d| >= linkspan
+	ld a, e ; clamped = linkspan
+	bit 7, d
+	jr z, :+
+	cpl :: inc a ; -clamped
+:
+	add b ; p[i-1] + clamped
+	ld [hl], a
+.constrain_in_range:
+	dec c
+	jr nz, .constrain_cloop
+		pop bc
+	inc hl ; from link_y[N-1] to link_x[0]
+	dec b
+	jr nz, .constrain_bloop
+
+	ret
+
+pops ; ChainUpdate
+
+
+pushs "ChainRender", rom0
+;; @param HL: ChainDef
+;; @param hObMod*: Obx params
+ChainRender::
+	; ChainDef
+	rept ChainDef_state_bank
+		inc hl
+	endr
+		wrambopen [hl+]    ; state_bank
+	ld a, [hl+]            ; state_addr.0
+	ld h, [hl]             ; state_addr.1
+	ld l, a
+
+	; ChainState
+	ld a, [hl+] :: ld c, a ; length
+	ld b, 0 ; BC = length
+		push hl
+	add hl, bc :: add hl, bc :: dec hl
+	ld e, l :: ld d, h ; DE = link_x[-1]
+		pop hl
+
+	ld b, c
+.stack_x_loop:
+	ld a, [de] :: dec de
+		push af ; X
+	dec c
+	jr nz, .stack_x_loop
+
+	ld c, b
+	ld e, l :: ld d, h
+	call ObdoCustomStartHL
+.cloop:
+	; Y
+	ldh a, [hObModY] :: ld b, a
+	ld a, [de] :: inc de
+	add b :: ld [hl+], a
+	; X
+	ldh a, [hObModX] :: ld b, a
+		pop af
+	add b :: ld [hl+], a
+	; CHRI
+	ldh a, [hObModChri]
+	ld [hl+], a
+	; ATRB
+	ldh a, [hObModAtrb]
+	ld [hl+], a
+	dec c
+	jr nz, .cloop
+
+	jp ObdoCustomEndHL
+
+pops ; ChainRender
+
+
+pushs "ChainSetEnd", rom0
+;; @param HL: ChainDef
+;; @param D,E: Y,X position
+ChainSetEnd::
+	; ChainDef
+	rept ChainDef_state_bank
+		inc hl
+	endr
+		wrambopen [hl+]    ; state_bank
+	ld a, [hl+]            ; state_addr.0
+	ld h, [hl]             ; state_addr.1
+	ld l, a
+
+	; ChainState
+	ld a, [hl+] :: dec a ; length - 1
+	ld c, a :: ld b, 0 ; BC = length - 1
+	add hl, bc ; HL = link_y + length - 1
+	ld a, d :: ld [hl+], a ; Y
+	add hl, bc ; HL = link_y + length * 2 - 1 = link_x + length - 1
+	ld a, e :: ld [hl+], a ; X
+	
+	ret
+
+pops ; ChainSetEnd
+
