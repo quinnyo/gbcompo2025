@@ -422,7 +422,7 @@ _update_item:
 
 ;; @param HL: pointer to item Y position
 ;; @ret B,C: Y,X
-;; @ret F.Z: set if successful (both axes in 0..256)
+;; @ret F.C: set if (potentially) visible
 ;; @mut: AF, BC, DE, HL
 _get_screen_position:
 	ld a, [wScroll.y + 0] :: ld e, a
