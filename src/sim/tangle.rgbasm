@@ -1,0 +1,82 @@
+include "hardware.inc"
+include "chrimp.rgbinc"
+include "banker.rgbinc"
+include "chain.rgbinc"
+
+
+import_chr "assets/tangle.chr", Tangle
+
+
+pushs "wTangleRes", wram0
+wTangleRes_chri: db
+
+pops ; wTangleRes
+
+
+pushs "wTangle", wramx
+	chain_alloc TangleChain, 5, 9
+
+pops ; wTangle
+
+
+pushs "wTangleDebug", wram0
+wTangleDebugEnd:
+	.y: db
+	.x: db
+
+pops ; wTangleDebug
+
+
+pushs "TangleHello", rom0
+TangleHello::
+	ld hl, TangleChain
+	call ChainInit
+
+	ld c, Tangle_CHR_COUNT
+	call ChrmanAllocOb
+	ret c
+	ld a, b :: ld [wTangleRes_chri], a
+	ld b, bank(Tangle_chr)
+	ld de, Tangle_chr
+	ld c, Tangle_CHR_COUNT - 1
+	call VxLoadRom
+
+	xor a
+	ld [wTangleDebugEnd.y], a
+	ld [wTangleDebugEnd.x], a
+
+	ret
+
+
+TangleUpdate::
+	; DEBUG END POSITION
+	ldh a, [hKeys] :: ld b, a
+	ld de, (2 << 8) | 3
+	call Vecdir8FromKeys
+	ld hl, wTangleDebugEnd
+	; Y
+	ld b, [hl] :: ld c, d
+	call AddS8_sat
+	ld a, c :: ld [hl+], a :: ld d, a
+	; X
+	ld b, [hl] :: ld c, e
+	call AddS8_sat
+	ld a, c :: ld [hl+], a :: ld e, a
+
+	ld hl, TangleChain
+	call ChainSetEnd
+
+	ld hl, TangleChain
+	call ChainUpdate
+
+	ld a, 60 :: ldh [hObModY], a
+	ld a, 60 :: ldh [hObModX], a
+	ld a, [wTangleRes_chri] :: ldh [hObModChri], a
+	xor a :: ldh [hObModAtrb], a
+	ld hl, TangleChain
+	call ChainRender
+
+	ret
+
+pops ; TangleHello
+

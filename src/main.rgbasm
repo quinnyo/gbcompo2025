@@ -124,6 +124,8 @@ Main::
 	;ld de, rModes_modeSoundTest
 	call ModeSetActive
 
+					call TangleHello
+
 	ld b, bank("assets/fonty8.chr")
 	ld de, startof("assets/fonty8.chr")
 	ld c, sizeof("assets/fonty8.chr") / 16
@@ -147,6 +149,7 @@ Main::
 	call VramxSync
 	call QmenuUpdate
 	call ModeUpdate
+					call TangleUpdate
 	call ObdoFinaliseFrame
 
 .vsync
