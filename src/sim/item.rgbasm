@@ -5,55 +5,11 @@ include "sprite.rgbinc"
 include "banker.rgbinc"
 include "quest/quest.rgbinc"
 include "map.rgbinc"
+include "item.rgbinc"
 
 /*
 Items are pickupable (pickable up) *things*.
 */
-
-
-;; Maximum number of item instances
-def ITEMS_MAX equ 8
-;; Item touch (pickup) collision radius
-def ITEM_TOUCH_RANGE equ 7
-
-/*
-Items global/manager control flags
-*/
-rsreset
-def bItems_COLLIDE_ENABLE rb 1
-def Items_COLLIDE_ENABLE equ 1 << bItems_COLLIDE_ENABLE
-
-/*
-Item instance status & control flags
-*/
-rsreset
-;; Item exists & should be processed. Marks slot as occupied.
-def bItemCtl_ENABLE rb 1
-;; Is visible / is inside view rect
-def bItemCtl_VISIBLE rb 1
-;; Being touched
-def bItemCtl_TOUCHED rb 1
-
-def ItemCtl_NULL equ 0
-def ItemCtl_ENABLE  equ 1 << bItemCtl_ENABLE
-def ItemCtl_VISIBLE equ 1 << bItemCtl_VISIBLE
-def ItemCtl_TOUCHED equ 1 << bItemCtl_TOUCHED
-
-/*
-Item (in-world item instance)
-*/
-rsreset
-;; Status & control flags
-def Item_ctl rb 1
-;; Find/Item typeid
-def Item_typeid rb 2
-;; Y position of the item in dots.
-def Item_y rb 2
-;; X position of the item in dots.
-def Item_x rb 2
-def Item_padding rb 1
-def szItem rb 0
-assert szItem == szItem & -szItem, "Expected power-of-two szItem"
 
 
 import_chr "assets/ent/markers.chr", Markers, pal
@@ -151,41 +107,44 @@ ItemsReset::
 
 
 section "ItemsGetEmptySlot", rom0
+;; Search wItems for an unused slot (where ItemCtl_ENABLE is not set).
 ;; @ret HL: pointer to empty item slot (if found)
-;; @ret F.Z: set on success (empty slot found)
+;; @ret C: index of item slot (if found)
+;; @ret F.C: set on success (empty slot found)
 ;; @mut: AF, C, HL
 ItemsGetEmptySlot::
 		wrambopen bank("wItems")
+;; Alternative `ItemsGetEmptySlot` entry point that skips default banking.
+;; Calling context is to ensure WRAMX bank containing "wItems" is active.
 .skip_banking:
 	ld hl, wItems
 	ld c, ITEMS_MAX
 :
 	bit bItemCtl_ENABLE, [hl]
-	ret z
+	jr z, .success
 	ld a, szItem
 	add l :: ld l, a
 	adc h :: sub l :: ld h, a
 	dec c
 	jr nz, :-
-	inc a ; clear F.Z
+	xor a ; F.NC
+	ret
+.success:
+	ld a, ITEMS_MAX :: sub c :: ld c, a
+	scf ; F.C
 	ret
 
 
-section "ItemsSpawnMapObject", rom0
-;; @param DE: pointer to source MapObject
-;; @mut: AF, C, DE, HL
-ItemsSpawnMapObject::
-		wrambopen bank("wItems")
-	call ItemsGetEmptySlot.skip_banking
-	jr nz, .failed
-
-	; Main part of Item & MapObject are the same, so just copy it.
-	ld a, ItemCtl_ENABLE :: ld [hl+], a ; ctl
-	ld c, szMapObject
-	jp MemCopySmall
-.failed:
-	ld b, b
-	ret
+;; Search wItems for an unused slot (where ItemCtl_ENABLE is not set).
+;; Same as `ItemsGetEmptySlot` except the WRAM bank containing the Item will be selected.
+;; NOTE: The active WRAM bank will not be preserved by this function.
+;; @ret HL: pointer to empty item slot (if found)
+;; @ret C: index of item slot (if found)
+;; @ret F.C: set on success (empty slot found)
+;; @mut: AF, C, HL
+ItemsGetEmptySlotAndBank::
+		wrambsel bank("wItems")
+	jr ItemsGetEmptySlot.skip_banking
 
 
 section "ItemsIndex", rom0
@@ -209,55 +168,6 @@ ItemsIndex::
 
 	scf
 	ret
-
-
-section "ItemsSetupSpecial", rom0
-;; @mut: AF, C, DE, HL
-ItemsSetupSpecial::
-		wrambopen bank("wItems")
-	ld b, 0
-:
-		push bc
-	ld a, b
-	call ItemsIndex
-	ld a, [hl+]
-	and ItemCtl_ENABLE
-	jr z, .next
-
-	; Check if item is a Bud spawnpoint/home.
-	ld a, [hl+] :: ld c, a ; .typeid.lo
-	inc hl ; skip .typeid.hi
-	ld e, c
-	call TypGetClass
-	; check Typ lookup success
-	jr nc, .next
-	ld a, d
-	cp typclBud
-	call z, .spawn_bud ; spawn Bud entity if class is Bud
-
-.next
-		pop bc
-	inc b
-	ld a, b
-	cp ITEMS_MAX
-	jr c, :-
-	ret
-
-.spawn_bud
-		push bc :: push hl ; preserve item typeid (C), index (B), pointer (HL)
-	call EntityActiveSelectEmpty
-		pop hl :: pop bc
-	ret nc
-
-	ld a, [hl+] :: ld e, a
-	ld a, [hl+] :: ld d, a
-	coord_from_dots16 de
-		push de ; y
-	ld a, [hl+] :: ld e, a
-	ld a, [hl+] :: ld d, a
-	coord_from_dots16 de
-		push de ; x
-	jp BudEntSpawn
 
 
 section "ItemsGetPosition", rom0

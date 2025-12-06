@@ -5,6 +5,7 @@ include "chain.rgbinc"
 
 pushs "ChainInit", rom0
 ;; @param HL: ChainDef
+;; @mut: AF, BC, DE, HL
 ChainInit::
 	; ChainDef
 	ld a, [hl+] :: ld c, a ; capacity
@@ -14,6 +15,11 @@ ChainInit::
 	ld h, [hl]             ; state_addr.1
 	ld l, a
 
+;; @param HL: this ChainState
+;; @param C: length
+;; @param B: linkspan
+;; @mut: AF, C, DE, HL
+ChainInit_direct::
 	; ChainState
 	ld a, 222 :: ld [hl+], a ; origin_y.0
 	xor a :: ld [hl+], a ; origin_y.1
@@ -52,6 +58,9 @@ ChainUpdate::
 	ld h, [hl]             ; state_addr.1
 	ld l, a
 
+;; @param HL: this ChainState
+;; @param E: linkspan
+ChainUpdate_direct::
 	; ChainState
 	rept ChainCtl_length
 		inc hl
@@ -159,6 +168,9 @@ ChainRender::
 	ld h, [hl]             ; state_addr.1
 	ld l, a
 
+;; @param HL: this ChainState
+;; @param hObMod*: Obx params
+ChainRender_direct::
 	; ChainState
 	rept ChainCtl_origin_y
 		inc hl
@@ -247,6 +259,9 @@ ChainSetEnd::
 	ld h, [hl]             ; state_addr.1
 	ld l, a
 
+;; @param HL: this ChainState
+;; @param D,E: Y,X position
+ChainSetEnd_direct::
 	; ChainState
 	rept ChainCtl_length
 		inc hl
@@ -257,7 +272,7 @@ ChainSetEnd::
 	ld a, d :: ld [hl+], a ; Y
 	add hl, bc ; HL = link_y + length * 2 - 1 = link_x + length - 1
 	ld a, e :: ld [hl+], a ; X
-	
+
 	ret
 
 pops ; ChainSetEnd
@@ -278,6 +293,10 @@ ChainSetOrigin::
 	ld h, [hl]             ; state_addr.1
 	ld l, a
 
+;; @param HL: this ChainState
+;; @param DE: X position in dots
+;; @param BC: Y position in dots
+ChainSetOrigin_direct::
 	; ChainState
 	rept ChainCtl_origin_y
 		inc hl

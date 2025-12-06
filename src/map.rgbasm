@@ -250,15 +250,11 @@ _SetupObjects:
 
 .do_object:
 	ld a, [de] ; typeid
-	cp MapObject_ITEM_ID_MAX
-	jp c, ItemsSpawnMapObject
+	; Types handled by Map
 	cp MapObject_PLAYER_START
 	jr z, .do_player_start
-
-.err_unexpected_object_type
-	ld b, b
-	jr .err_unexpected_object_type
-
+	; Everything else
+	jp SpawnMapObject
 
 .do_player_start:
 	ld hl, wMapObjectCache.y

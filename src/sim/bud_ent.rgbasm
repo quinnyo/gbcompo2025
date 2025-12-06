@@ -194,7 +194,7 @@ section "BudEntSpawn", rom0
 ;; @param SP+0: PosX
 ;; @param SP+2: PosY
 ;; @mut: AF, BC, DE, HL
-BudEntSpawn::
+BudEntSpawn$csp::
 	ldh a, [hEntityActive.state + 0] :: ld l, a
 	ldh a, [hEntityActive.state + 1] :: ld h, a
 	ld a, ENTINFOF_OCCUPIED | ENTINFOF_ALIVE | $02

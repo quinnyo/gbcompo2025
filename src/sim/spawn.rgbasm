@@ -1,0 +1,102 @@
+include "hardware.inc"
+include "banker.rgbinc"
+include "coord.rgbinc"
+include "map.rgbinc"
+include "sim/item.rgbinc"
+
+
+pushs "SpawnMapObject", rom0
+;; @param DE: pointer to source MapObject
+;; @mut: AF, C, DE, HL
+SpawnMapObject::
+	ld l, e :: ld h, d ; move source MapObject pointer to HL
+
+	; look up Typ. Don't advance HL: subroutines need the MapObject pointer.
+	ld e, [hl]
+	call TypGetClass
+	jr c, SpawnTyp
+
+	ret
+
+
+;; @param HL: source MapObject (`{typeid: dw, y: dw, x: dw}`)
+;; @param D: class that TypId belongs to.
+;; @param E: TypId ordinal position in class
+;; @mut: AF, BC, DE, HL
+SpawnTyp::
+		push bc :: push de :: push hl
+	; transfer MapObject pointer to DE.
+	ld e, l :: ld d, h
+	call CreateItemFromMapObject
+	ld a, b ; rescue spawned Item index
+		pop hl :: pop de :: pop bc
+	ld b, a ; spawned Item index
+
+	ld a, d ; TypClass
+	cp typclBud
+	jp z, CreateBudEnt
+
+.err_unexpected_typcl
+	ld b, b
+	ret
+
+pops ; SpawnTyp
+
+
+pushs "CreateBudEnt", rom0
+;; @param B: home Item index
+;; @param HL: source MapObject (`{typeid: dw, y: dw, x: dw}`)
+;; @mut: AF, BC, DE, HL
+CreateBudEnt:
+		push bc :: push hl
+	call EntityActiveSelectEmpty
+		pop hl :: pop bc
+	ret nc
+
+	; Tangle params
+	ldh a, [hEntityActive.index] :: ldh [hTangleEntity], a
+	ld a, b :: ldh [hTangleItem], a
+
+	ld de, :+
+		push de ; return address
+	; spawn entity with MapObject properties
+	ld a, [hl+] :: ld c, a ; typeid.0
+	inc hl ; skip typeid.1
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+	coord_from_dots16 de
+		push de ; y
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+	coord_from_dots16 de
+		push de ; x
+	jp BudEntSpawn$csp
+:
+	; apply Bud/Item Quest state
+	; TESTING: just applying Tangle to all BudEnts
+	jp TangleSetupNext
+
+pops ; CreateBudEnt
+
+
+pushs "CreateItemFromMapObject", rom0
+;; @param DE: MapObject
+;; @ret B: Item index
+;; @ret F.C: success
+;; @mut: AF, BC, DE, HL
+CreateItemFromMapObject:
+	call ItemsGetEmptySlotAndBank
+	ret nc
+
+	ld b, c ; return Item index
+
+	; Set ENABLE flag -- marks slot as occupied.
+	ld a, ItemCtl_ENABLE :: ld [hl+], a ; ctl
+	; Main part of Item & MapObject are the same, so just copy it.
+	ld c, szMapObject
+	call MemCopySmall
+	scf
+	ret
+
+pops ; CreateItemFromMapObject
+

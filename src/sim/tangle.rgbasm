@@ -2,6 +2,33 @@ include "hardware.inc"
 include "chrimp.rgbinc"
 include "banker.rgbinc"
 include "chain.rgbinc"
+include "entity.rgbinc"
+include "coord.rgbinc"
+
+
+def TANGLES_MAX equ 4
+
+def TANGLE_CHAIN_LENGTH equ 4
+def TANGLE_CHAIN_LINKSPAN equ 8
+
+
+rsreset
+def bTangleState_ENTITY rb 4
+def bTangleState_ENTITY_END rb 0
+def bTangleState_RESERVED rb 3
+;; Clear (0) if tangle should be processed, set (1) to skip.
+def bTangleState_STATUS rb 1
+
+def TangleState_ENTITY equ $0F
+def TangleState_STATUS equ $80
+
+
+rsreset
+;; status & entity
+def Tangle_entity rb 1
+;; origin item index
+def Tangle_item rb 1
+def szTangle rb 0
 
 
 import_chr "assets/tangle.chr", Tangle
@@ -13,25 +40,37 @@ wTangleRes_chri: db
 pops ; wTangleRes
 
 
-pushs "wTangle", wramx
-	chain_alloc TangleChain, 5, 9
+pushs "wTangles", wramx
+for I, TANGLES_MAX
+wTangle_{d:I}:
+	ds szTangle
+	.chain:
+	chain_state_alloc TANGLE_CHAIN_LENGTH
+endr
 
-pops ; wTangle
-
-
-pushs "wTangleDebug", wram0
-wTangleDebugEnd:
-	.y: db
-	.x: db
-
-pops ; wTangleDebug
+pops ; wTangles
 
 
-pushs "TangleHello", rom0
-TangleHello::
-	ld hl, TangleChain
-	call ChainInit
+pushs "hTangle", hram
+hTangleEntity:: db
+hTangleItem:: db
+hTangleChain: dw
+hTangleEndY: db
+hTangleEndX: db
+pops
 
+
+pushs "Tangles", rom0
+Tangles:
+for I, TANGLES_MAX
+	dw wTangle_{d:I}
+endr
+
+pops ; Tangles
+
+
+pushs "TangleInit", rom0
+TangleInit::
 	ld c, Tangle_CHR_COUNT
 	call ChrmanAllocOb
 	ret c
@@ -41,51 +80,202 @@ TangleHello::
 	ld c, Tangle_CHR_COUNT - 1
 	call VxLoadRom
 
-	xor a
-	ld [wTangleDebugEnd.y], a
-	ld [wTangleDebugEnd.x], a
+		wrambopen bank("wTangles")
+	ld bc, sizeof("wTangles")
+	ld hl, startof("wTangles")
+	ld a, TangleState_STATUS
+	jp MemFillLarge
 
+pops ; TangleInit
+
+
+pushs "TangleSetup", rom0
+;; @param A: index
+;; @param [hTangleEntity]: target entity
+;; @param [hTangleItem]: home item
+;; @mut: AF, BC, DE, HL
+TangleSetup::
+	add a ; mul 2
+	ld hl, Tangles
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a
+		wrambopen bank("wTangles")
+
+;; @param HL: this Tangle
+;; @param [hTangleEntity]: target entity
+;; @param [hTangleItem]: home item
+;; @mut: AF, BC, DE, HL
+TangleSetup_direct::
+	ldh a, [hTangleEntity] :: ld [hl+], a ; .entity
+	ldh a, [hTangleItem] :: ld [hl+], a ; .item
+	ld bc, (TANGLE_CHAIN_LINKSPAN << 8) | TANGLE_CHAIN_LENGTH
+	jp ChainInit_direct
+
+pops ; TangleSetup
+
+
+pushs "TangleSetupNext", rom0
+;; @param [hTangleEntity]: target entity
+;; @param [hTangleItem]: home item
+;; @ret F.C: success
+;; @ret D: Tangle index
+;; @mut: AF, BC, DE, HL
+TangleSetupNext::
+		wrambpush bank("wTangles")
+	call _TangleGetUnused
+	jr c, :+
+		wrambpop
+	xor a ; clear F.C
+	ret
+:
+		push af ; preserve Tangle index to return
+	call TangleSetup_direct
+		pop de
+		wrambpop
+	scf
 	ret
 
+pops ; TangleSetupNext
 
-TangleUpdate::
-	; Set Chain origin to BudEnt spawn/home item
-	; TODO: use the correct Item index somehow.
-	xor a ; HACK: hard-coded Item index for testing
+
+pushs "_TangleGetUnused", rom0
+;; @ret F.C: success
+;; @ret HL: Tangle pointer
+;; @ret A: index
+;; @mut: AF, C, DE, HL
+_TangleGetUnused:
+	ld de, Tangles
+	ld c, TANGLES_MAX
+:
+	ld a, [de] :: ld l, a :: inc de
+	ld a, [de] :: ld h, a :: inc de
+	bit bTangleState_STATUS, [hl]
+	jr z, .next
+	ld a, TANGLES_MAX
+	sub c
+	scf
+	ret
+.next:
+	dec c
+	jr nz, :-
+
+	xor a ; clear F.C
+	ret
+
+pops ; _TangleGetUnused
+
+
+pushs "TangleUpdateAll", rom0
+TangleUpdateAll::
+		rombopen bank(TangleUpdate)
+		wrambopen bank("wTangles")
+	ld de, Tangles
+	ld c, TANGLES_MAX
+:
+	ld a, [de] :: ld l, a :: inc de
+	ld a, [de] :: ld h, a :: inc de
+		push de :: push bc
+	call TangleUpdate
+		pop bc :: pop de
+	dec c
+	jr nz, :-
+	ret
+
+pops ; TangleUpdateAll
+
+
+pushs "TangleUpdate", romx
+;; @param HL: Tangle
+TangleUpdate:
+	bit bTangleState_STATUS, [hl]
+	ret nz
+	ld a, [hl+] :: ldh [hTangleEntity], a
+	ld a, [hl+] :: ldh [hTangleItem], a
+	ld a, l :: ldh [hTangleChain + 0], a
+	ld a, h :: ldh [hTangleChain + 1], a
+
+	; get entity position
+	ldh a, [hTangleEntity]
+	call EntityAt
+	jr c, :+
+	ld b, b
+	ret
+:
+	entity_index Entity_PosX
+	ld a, [hl+] :: ld c, a
+	ld a, [hl+] :: ld b, a
+	coord_int16 bc
+	entity_index Entity_PosY
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+	coord_int16 de
+
+		push bc :: push de
+
+	; get item position
+	ldh a, [hTangleItem]
 	call ItemsGetPosition
-	ret nc ; GetPosition failed ...
-	ld hl, TangleChain
-	call ChainSetOrigin
+	jr c, :+
+		pop de :: pop bc
+	ld b, b
+	ret
+:
+	; write chain origin
+	ldh a, [hTangleChain + 0] :: ld l, a
+	ldh a, [hTangleChain + 1] :: ld h, a
+	ld a, c :: ld [hl+], a ; origin_y.0
+	ld a, b :: ld [hl+], a ; origin_y.1
+	ld a, e :: ld [hl+], a ; origin_x.0
+	ld a, d :: ld [hl-], a ; origin_x.1
+	; NOTE: HL @ origin_x.0
 
-	; DEBUG END POSITION
-	ldh a, [hKeys] :: ld b, a
-	ld de, (2 << 8) | 3
-	call Vecdir8FromKeys
-	ld hl, wTangleDebugEnd
-	; Y
-	ld b, [hl] :: ld c, d
-	call AddS8_sat
-	ld a, c :: ld [hl+], a :: ld d, a
-	; X
-	ld b, [hl] :: ld c, e
-	call AddS8_sat
-	ld a, c :: ld [hl+], a :: ld e, a
+		pop de ; entity Y position
+	; entity Y - chain Y
+	ld a, e :: sub c :: ld c, a
+	ld a, d :: sbc b :: ld b, a
+		pop de ; entity X position
+	ld a, c :: ldh [hTangleEndY], a
+	; check result range (high bits == bit 7)
+	rla :: sbc a
+	cp b
+	ret nz
 
-	ld hl, TangleChain
-	call ChainSetEnd
+	ld a, [hl+] :: ld c, a ; origin_x.0
+	ld a, [hl+] :: ld b, a ; origin_x.1
+	; entity X - chain X
+	ld a, e :: sub c :: ld c, a
+	ld a, d :: sbc b :: ld b, a
+	ld a, c :: ldh [hTangleEndX], a
+	; check result range (high bits == bit 7)
+	rla :: sbc a
+	cp b
+	ret nz
 
-	ld hl, TangleChain
-	call ChainUpdate
+	; get chain length and set end position
+	ld a, [hl+] :: dec a ; length - 1
+	ld c, a :: ld b, 0 ; BC = length - 1
+	add hl, bc ; HL = link_y + length - 1
+	ldh a, [hTangleEndY] :: ld [hl+], a ; Y
+	add hl, bc ; HL = link_y + length * 2 - 1 = link_x + length - 1
+	ldh a, [hTangleEndX] :: ld [hl+], a ; X
 
-	; DOSOMETHING: HACK: Adding this offset here to move anchor link right on top of the item.
+	; update chain
+	ldh a, [hTangleChain + 0] :: ld l, a
+	ldh a, [hTangleChain + 1] :: ld h, a
+	ld e, TANGLE_CHAIN_LINKSPAN
+	call ChainUpdate_direct
+
+	; render chain
+	ldh a, [hTangleChain + 0] :: ld l, a
+	ldh a, [hTangleChain + 1] :: ld h, a
 	ld a, 12 :: ldh [hObModY], a
 	ld a, 4 :: ldh [hObModX], a
 	ld a, [wTangleRes_chri] :: ldh [hObModChri], a
 	xor a :: ldh [hObModAtrb], a
-	ld hl, TangleChain
-	call ChainRender
+	jp ChainRender_direct
 
-	ret
-
-pops ; TangleHello
+pops ; TangleUpdate
 

@@ -71,6 +71,7 @@ modeGamePrep_Enter::
 	call PlayerInit
 	call CollideInit
 	call ItemsInit
+	call TangleInit
 	call MapOpen
 
 	call MapGetPlayerStart
@@ -79,10 +80,6 @@ modeGamePrep_Enter::
 
 	xor a ; player entity index
 	call PlayerSpawn
-
-	call ItemsSetupSpecial
-
-					call TangleHello
 
 	ld a, MODE_STATE_EXTRA :: ldh [hModeState], a
 	ret
@@ -110,8 +107,7 @@ modeGame_Process::
 
 	call _ItemsUpdateCollision
 	call ItemsUpdate
-
-					call TangleUpdate
+	call TangleUpdateAll
 
 	call ScrollUpdate
 	ld a, [wScroll.y + 0] :: ld [wSCY], a

@@ -1,0 +1,51 @@
+if !def(Q_ITEM_INC_2R9zhAdC)
+def Q_ITEM_INC_2R9zhAdC equ 1
+
+
+;; Maximum number of item instances
+def ITEMS_MAX equ 8
+;; Item touch (pickup) collision radius
+def ITEM_TOUCH_RANGE equ 7
+
+/*
+Items global/manager control flags
+*/
+rsreset
+def bItems_COLLIDE_ENABLE rb 1
+def Items_COLLIDE_ENABLE equ 1 << bItems_COLLIDE_ENABLE
+
+/*
+Item instance status & control flags
+*/
+rsreset
+;; Item exists & should be processed. Marks slot as occupied.
+def bItemCtl_ENABLE rb 1
+;; Is visible / is inside view rect
+def bItemCtl_VISIBLE rb 1
+;; Being touched
+def bItemCtl_TOUCHED rb 1
+
+def ItemCtl_NULL equ 0
+def ItemCtl_ENABLE  equ 1 << bItemCtl_ENABLE
+def ItemCtl_VISIBLE equ 1 << bItemCtl_VISIBLE
+def ItemCtl_TOUCHED equ 1 << bItemCtl_TOUCHED
+
+/*
+Item (in-world item instance)
+*/
+rsreset
+;; Status & control flags
+def Item_ctl rb 1
+;; Find/Item typeid
+def Item_typeid rb 2
+;; Y position of the item in dots.
+def Item_y rb 2
+;; X position of the item in dots.
+def Item_x rb 2
+def Item_padding rb 1
+def szItem rb 0
+assert szItem == szItem & -szItem, "Expected power-of-two szItem"
+
+
+endc ; Q_ITEM_INC_2R9zhAdC
+

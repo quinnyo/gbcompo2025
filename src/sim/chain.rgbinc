@@ -25,6 +25,9 @@ def ChainCtl_origin_x rb 2
 def ChainCtl_length rb 1
 def szChainCtl rb 0
 
+;; Number of bytes required per-link.
+def szChainLink equ 2
+
 
 ;; chain_alloc NAME, LENGTH, LINKSPAN
 ;; Create a ChainDef in a new ROM0 section and allocate a Chain instance in the current (WRAM) section.
@@ -53,6 +56,48 @@ macro chain_alloc
 	purge NLINKS
 endm
 
+
+;; chain_state_alloc LENGTH, [LABELSPEC='']
+;; Allocate a bare ChainState struct in the current section.
+;; LENGTH: The (maximum) length of the chain. Memory will be allocated for a
+;;   maximum of LENGTH links in the chain.
+;; LABELSPEC: A template string with '%' getting replaced with the field name.
+macro chain_state_alloc
+	assert fatal, _NARG == 1 || _NARG == 2
+	def _LENGTH equ (\1)
+	shift
+	assert _LENGTH >= 2, "Chain must have at least 2 links."
+
+	if _NARG == 0
+		ds szChainCtl + szChainLink * _LENGTH
+	else
+		_fieldthing 2, origin_y, \#
+		_fieldthing 2, origin_x, \#
+		_fieldthing 1, length, \#
+		_fieldthing _LENGTH, link_y, \#
+		_fieldthing _LENGTH, link_x, \#
+	endc
+
+	purge _LENGTH
+endm
+
+
+;; _fieldthing SIZE, NAME, LABELSPEC
+macro _fieldthing
+	assert fatal, _NARG >= 1 && _NARG <= 3
+
+	if _NARG == 3 && strlen("\3") > 0
+		assert fatal, strfind("\3", "%") >= 0, "LABELSPEC must include '%'"
+		if strrfind("\3", "\"") == strlen("\3") - 1 || strrfind("\3", "'") == strlen("\3") - 1
+			def _LABEL equs strrpl(\3, "%", "\2")
+		else
+			def _LABEL equs strrpl("\3", "%", "\2")
+		endc
+		{_LABEL}
+		purge _LABEL
+	endc
+		ds (\1)
+endm
 
 endc ; Q_CHAIN_INC_e9yt3VLu
 
