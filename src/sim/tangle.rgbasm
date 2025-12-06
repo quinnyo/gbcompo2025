@@ -31,11 +31,12 @@ def Tangle_item rb 1
 def szTangle rb 0
 
 
-import_chr "assets/tangle.chr", Tangle
+import_chr "assets/tangle.chr", Tangle, pal
 
 
 pushs "wTangleRes", wram0
 wTangleRes_chri: db
+wTangleRes_pal: db
 
 pops ; wTangleRes
 
@@ -71,6 +72,11 @@ pops ; Tangles
 
 pushs "TangleInit", rom0
 TangleInit::
+	ld b, bank(Tangle_pal)
+	ld de, Tangle_pal
+	call PalettePalLoadObRomx
+	ld a, b :: and $07 :: ld [wTangleRes_pal], a
+
 	ld c, Tangle_CHR_COUNT
 	call ChrmanAllocOb
 	ret c
@@ -274,7 +280,7 @@ TangleUpdate:
 	ld a, 12 :: ldh [hObModY], a
 	ld a, 4 :: ldh [hObModX], a
 	ld a, [wTangleRes_chri] :: ldh [hObModChri], a
-	xor a :: ldh [hObModAtrb], a
+	ld a, [wTangleRes_pal] :: ldh [hObModAtrb], a
 	jp ChainRender_direct
 
 pops ; TangleUpdate
