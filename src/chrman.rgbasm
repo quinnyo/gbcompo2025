@@ -75,24 +75,32 @@ ChrmanResetAll::
 ;; @ret HL: address of allocated block
 ;; @mut: AF, B, HL
 ChrmanAllocOb::
-		wrambopen bank("wChrAlloc")
+		wrambpush bank("wChrAlloc")
 	; use first Ob region (of A0, B0, A1, B1) that has the available space
 	ld hl, wChrAllocA0
 	call ChrAllocContiguous
-	ret nc
+	jr nc, .success
 
 	ld hl, wChrAllocB0
 	call ChrAllocContiguous
-	ret nc
+	jr nc, .success
 
 	ld hl, wChrAllocA1
 	call ChrAllocContiguous
-	ret nc
+	jr nc, .success
 
 	ld hl, wChrAllocB1
 	call ChrAllocContiguous
-	ret nc
+	jr nc, .success
+
+.failed:
+		wrambpop
 	ld b, b
+	scf
+	ret
+.success:
+		wrambpop
+	xor a ; clear F.C
 	ret
 
 pops ; Chrman
