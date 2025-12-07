@@ -15,12 +15,14 @@ def TANGLE_CHAIN_LINKSPAN equ 8
 rsreset
 def bTangleState_ENTITY rb 4
 def bTangleState_ENTITY_END rb 0
-def bTangleState_RESERVED rb 3
+def bTangleState_RESERVED rb 2
+def bTangleState_DETACHED rb 1
 ;; Clear (0) if tangle should be processed, set (1) to skip.
 def bTangleState_STATUS rb 1
 
 def TangleState_ENTITY equ $0F
-def TangleState_STATUS equ $80
+def TangleState_DETACHED equ 1 << bTangleState_DETACHED
+def TangleState_STATUS equ 1 << bTangleState_STATUS
 
 
 rsreset
@@ -198,10 +200,32 @@ pushs "TangleUpdate", romx
 TangleUpdate:
 	bit bTangleState_STATUS, [hl]
 	ret nz
+	bit bTangleState_DETACHED, [hl]
+	jr z, .attached
+
+	; TODO: something in this state, ...
+	res bTangleState_STATUS, [hl] ; HACK: Mark this Tangle slot as unused.
+
+	ret
+
+.attached:
+		push hl
 	ld a, [hl+] :: ldh [hTangleEntity], a
 	ld a, [hl+] :: ldh [hTangleItem], a
 	ld a, l :: ldh [hTangleChain + 0], a
 	ld a, h :: ldh [hTangleChain + 1], a
+
+	; Check if Bud has been detached / unlocked / freed.
+	ldh a, [hTangleItem]
+	call ItemsGetTypeid
+	ld a, l
+	call FindsQuery
+		pop hl
+	jr z, :+
+	; collected!
+	set bTangleState_DETACHED, [hl]
+	ret
+:
 
 	; get entity position
 	ldh a, [hTangleEntity]

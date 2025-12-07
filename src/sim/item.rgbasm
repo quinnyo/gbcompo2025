@@ -151,6 +151,7 @@ section "ItemsIndex", rom0
 ;; @param A: index
 ;; @ret HL: items[index]
 ;; @ret F.C: set if index in range
+;; @mut: AF, HL
 ItemsIndex::
 	cp ITEMS_MAX
 	ret nc
@@ -166,6 +167,25 @@ ItemsIndex::
 	add hl, bc
 		pop bc
 
+	scf
+	ret
+
+
+section "ItemsGetTypeid", rom0
+;; @param A: index
+;; @ret HL: typeid
+;; @ret F.C: success
+;; @mut: AF, HL
+ItemsGetTypeid::
+	call ItemsIndex
+	ret nc
+		wrambopen bank("wItems")
+	rept Item_typeid
+		inc hl
+	endr
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a
 	scf
 	ret
 
@@ -236,8 +256,8 @@ ItemsSetCollidePoint::
 
 section "ItemsUpdate", rom0
 ItemsUpdate::
-	rombopen bank(ItemSprites)
-	wrambopen bank("wItems")
+		rombopen bank(ItemSprites)
+		wrambopen bank("wItems")
 	ld hl, wItems
 	ld c, ITEMS_MAX
 .loop
@@ -255,31 +275,37 @@ ItemsUpdate::
 	ret
 
 
+;; @param B,C: Y,X item position
+_collide:
+	xor a ; clear F.C
+	ld a, [wItemsManager.flags]
+	and Items_COLLIDE_ENABLE
+	ret z
+
+	ld a, [wItemsManager.collideY]
+	sub b
+	call AbsS8
+	cp ITEM_TOUCH_RANGE
+	ret nc
+
+	ld a, [wItemsManager.collideX]
+	sub c
+	call AbsS8
+	cp ITEM_TOUCH_RANGE
+	ret
+
+
+;; @param HL: this Item
 _update_item:
-	res bItemCtl_TOUCHED, [hl]
 		push hl
 	inc hl :: inc hl :: inc hl ; skip .ctl, .typeid
 	call _get_screen_position ; B,C: Y,X
 		pop hl
 	ret nc
 
-	; collide
-	ld a, [wItemsManager.flags]
-	and Items_COLLIDE_ENABLE
-	jr z, .draw_item
-
-	ld a, [wItemsManager.collideY]
-	sub b
-	call AbsS8
-	cp ITEM_TOUCH_RANGE
+	res bItemCtl_TOUCHED, [hl]
+	call _collide
 	jr nc, .draw_item
-
-	ld a, [wItemsManager.collideX]
-	sub c
-	call AbsS8
-	cp ITEM_TOUCH_RANGE
-	jr nc, .draw_item
-
 	set bItemCtl_TOUCHED, [hl]
 
 	; collect item
