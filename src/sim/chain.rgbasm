@@ -231,6 +231,22 @@ ChainRender_direct::
 	call ObdoCustomStartHL
 	ld c, b
 .cloop:
+if !def(NO_CHAIN_FLICKER)
+	ld a, c
+	dec a
+	jr z, :+
+	ld a, [wVBlankCount]
+	xor c
+	rra
+	jr c, :+
+	inc de
+		pop af
+	ld a, [wChainRender.count]
+	inc a
+	ld [wChainRender.count], a
+	jr .next
+:
+endc
 	; Y
 	ldh a, [hObModY] :: ld b, a
 	ld a, [de] :: inc de
@@ -262,6 +278,7 @@ ChainRender_direct::
 	; ATRB
 	ldh a, [hObModAtrb]
 	ld [hl+], a
+.next:
 	dec c
 	jr nz, .cloop
 

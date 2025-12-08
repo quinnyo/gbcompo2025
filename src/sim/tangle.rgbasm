@@ -8,8 +8,8 @@ include "coord.rgbinc"
 
 def TANGLES_MAX equ 4
 
-def TANGLE_CHAIN_LENGTH equ 4
-def TANGLE_CHAIN_LINKSPAN equ 8
+def TANGLE_CHAIN_LENGTH equ 6
+def TANGLE_CHAIN_LINKSPAN equ 6
 
 
 rsreset
