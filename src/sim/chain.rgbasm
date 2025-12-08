@@ -111,6 +111,23 @@ ChainUpdate_direct::
 	jr nz, .drag_bloop
 
 		pop hl ; length
+		push hl
+	ld a, [hl+] :: ld c, a ; length
+
+	/*
+		Sink / "gravity"
+
+		Increment Y position of links between the anchor and end.
+	*/
+	dec c :: dec c
+	inc hl
+.sink_cloop:
+	inc [hl]
+	inc hl
+	dec c
+	jr nz, .sink_cloop
+
+		pop hl ; length
 	ld a, [hl+] :: ld c, a ; length
 
 	/*
