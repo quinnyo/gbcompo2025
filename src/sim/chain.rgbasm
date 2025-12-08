@@ -205,38 +205,39 @@ ChainRender_direct::
 	; Origin screen position will be applied from hObMod{Y,X}.
 	ldh a, [hObModY] :: add b :: ldh [hObModY], a
 	ldh a, [hObModX] :: add c :: ldh [hObModX], a
+	ld e, a
 
 	; Get chain length & calculate link_x address
 	ld a, [hl+] :: ld c, a ; length
 	ld b, 0 ; BC = length
-		push hl
-	add hl, bc :: add hl, bc :: dec hl
-	ld e, l :: ld d, h ; DE = link_x[-1]
-		pop hl
+	add hl, bc :: add hl, bc :: dec hl ; HL = link_x[-1]
 
-	dec c ; skip link 0
+	; Iterate backwards over link_x, pushing each to the stack.
+	dec c ; do N-1 iters to stop before link 0
 	ld b, c
 .stack_x_loop:
-	ld a, [de] :: dec de
-		push af ; X
+	ld a, [hl-]
+	add e
+		push af
 	dec c
 	jr nz, .stack_x_loop
 
 	ld a, $FF :: ld [wChainRender.count], a
 
-	ld c, b
-	ld e, l :: ld d, h
-	inc de ; skip link 0
+	; Iter link_y from second element.
+	; DE = HL - (.length - 1): link_y[1]
+	ld a, l :: sub b :: ld e, a
+	sbc a :: add h :: ld d, a
 	call ObdoCustomStartHL
+	ld c, b
 .cloop:
 	; Y
 	ldh a, [hObModY] :: ld b, a
 	ld a, [de] :: inc de
 	add b :: ld [hl+], a
 	; X
-	ldh a, [hObModX] :: ld b, a
 		pop af
-	add b :: ld [hl+], a
+	ld [hl+], a
 	; CHRI
 	ld b, 3 ; endpoint chri
 	ld a, c
