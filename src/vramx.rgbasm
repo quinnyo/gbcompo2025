@@ -380,30 +380,37 @@ _TaskLoadMemTail:
 
 
 _TaskSyncBgChr:
+	assert low(wMapBgChr) == $00, "Expected wMapBgChr aligned to 8 bits."
+	assert bank(wMapBgChr) == 0, "Expected wMapBgChr in WRAM0."
 	ld a, 0 :: ldh [rVBK], a
-	ld c, high(wMapBgChr)
+	ld bc, $9800 | high(wMapBgChr)
 	jr _TaskSyncBgTail
 
 
 _TaskSyncBgAtrb:
+	assert low(wMapBgAtrb) == $00, "Expected wMapBgAtrb aligned to 8 bits."
+	assert bank(wMapBgAtrb) != 0, "Expected wMapBgAtrb in WRAMX."
 	ld a, bank(wMapBgAtrb) :: ldh [rSVBK], a
 	ld a, 1 :: ldh [rVBK], a
-	ld c, high(wMapBgAtrb)
+	ld bc, $9800 | high(wMapBgAtrb)
 
 	; FALLTHROUGH
 
+;; @param B: destination bg map address high byte
 ;; @param C: source buffer address high byte
 _TaskSyncBgTail:
 	ld a, [de] :: inc de
-	rlca :: rlca :: ld l, a ; * 4
-	xor a :: ld h, a
-	add hl, hl ; * 8
-	add hl, hl ; * 16
+	; Use swap to multiply by 16.
+	swap a
+	; source & dest low byte -- no need to mask because low nybble is ignored
+	ldh [rHDMA2], a :: ldh [rHDMA4], a
+	; source high byte
+	and $0F :: add c :: ldh [rHDMA1], a
+	sub c
+	; destination high byte
+	add b :: ldh [rHDMA3], a
 
-	ld a, h :: add c :: ldh [rHDMA1], a
-	ld a, l :: ldh [rHDMA2], a :: ldh [rHDMA4], a
-	ld a, h :: add high($9800) :: ldh [rHDMA3], a
-
+	; length
 	ld a, [de] :: inc de
 	ld c, a
 
