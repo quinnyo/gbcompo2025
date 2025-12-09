@@ -1,6 +1,64 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+function logecho {
+	printf "[%s] $@\n" "$(date --iso-8601=seconds)"
+}
+
+function errorecho {
+	logecho "ERROR: $@" >&2
+}
+
+function errorexit {
+	retval=1
+	if [ $# -gt 0 ]; then
+		if [[ $1 =~ [0-9]+ ]]; then
+			retval=$1
+			shift
+		fi
+	fi
+	if [ $# -gt 0 ]; then
+		errorecho "$@"
+	else
+		errorecho "?"
+	fi
+	exit $retval
+}
+
+function requirecmd {
+	status=0
+	while [ $# -gt 0 ]; do
+		type "${1}" || (
+			errorecho "command '${1}' not found."
+			status=1
+		)
+		shift
+	done
+	[ $status -eq 0 ] || exit $status
+}
+
+function projectdir_fingerprint_data {
+	echo "watch-build projectdir fingerprint"
+	(type git >/dev/null 2>&1) &&
+		(git rev-parse --show-toplevel --absolute-git-dir --symbolic-full-name HEAD 2>/dev/null) ||
+		echo "nogit ${PWD}"
+}
+
+function projectdir_fingerprint {
+	projectdir_fingerprint_data | grep -o '^\S*' <(sha1sum -)
+}
+
+function build {
+	logecho "Build starting..."
+	if (redo -j 8) ; then
+		logecho "Build complete."
+	else
+		logecho "Build failed."
+	fi
+}
+
+requirecmd inotifywait redo
+
 ## File events to monitor in order to trigger rebuild
 EVENTS=(modify create delete delete_self move move_self)
 ## Files and directories to watch
@@ -8,22 +66,25 @@ MONITOR=(inc src tool '*.do' '*.sh')
 ## Pattern to match filenames to exclude from monitoring
 MONITOR_EXCLUDE='.*([.](tiled-project|tiled-session|tmx|tsx)[.][^.]*|~$)'
 
-type inotifywait || exit 1
-
-function build() {
-	printf "[%s] Building...\n" "$(date --iso-8601=seconds)"
-	sleep 1
-	redo -j 8
-	printf "[%s] Done.\n" "$(date --iso-8601=seconds)"
-}
-
-build
-
 # make comma separated list
 printf -v events_list '%s,' ${EVENTS[@]}
 events_list=${events_list%,}
 
-while inotifywait --recursive --event ${events_list} --exclude "${MONITOR_EXCLUDE}" ${MONITOR[@]} ; do
+PROJECT_ID="$(projectdir_fingerprint)"
+PROJECT_STATE="${XDG_STATE_HOME:-$HOME/.local/state}/watch-build/${PROJECT_ID}"
+mkdir -p "${PROJECT_STATE}"
+EVENT_FILE="$(mktemp -p "${PROJECT_STATE}/" eventsXXXX)"
+
+inotifywait --monitor --outfile "${EVENT_FILE}" --recursive --event ${events_list} --exclude "${MONITOR_EXCLUDE}" ${MONITOR[@]} &
+MONITOR_PID=$!
+
+trap "logecho 'Stop signal received.' && exit" SIGINT SIGTERM
+trap "logecho 'Cleaning up...' && rm '${EVENT_FILE}' && kill '${MONITOR_PID}'" EXIT
+
+build
+
+while inotifywait --event create,modify "${EVENT_FILE}" ; do
+	sleep 0.5
 	build
 done
 
