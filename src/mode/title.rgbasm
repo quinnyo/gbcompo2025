@@ -77,6 +77,13 @@ modeTitle_Enter::
 	call MemCallRomx
 	wrambpop
 
+	; Queue map sync
+	; NOTE: Just doing the whole thing, ...
+	ld e, 0
+	ld c, 63
+	call VxSyncBgChr
+	call VxSyncBgAtrb
+
 	ld a, MODE_STATE_EXTRA :: ldh [hModeState], a
 	ret
 

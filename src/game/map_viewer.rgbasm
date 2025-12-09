@@ -70,7 +70,14 @@ _Clear:
 	ld hl, wMapBgAtrb
 	ld bc, 1024
 	ld a, $08
-	jp MemFillLarge
+	call MemFillLarge
+
+	; Queue map sync
+	; NOTE: Just doing the whole thing, ...
+	ld e, 0
+	ld c, 63
+	call VxSyncBgChr
+	jp VxSyncBgAtrb
 
 
 _motionSmoothSpeeds:

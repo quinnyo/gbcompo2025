@@ -64,7 +64,7 @@ VramxInit::
 
 ;; Transfer strips (half-rows) from BG CHR map buffer to VRAM BG map.
 ;; @param E: start strip in [0..64)
-;; @param C: Length
+;; @param C: Length in strips minus 1 ~~ (bytes / 16 - 1)
 ;; @mut: AF, HL
 VxSyncBgChr::
 	ld h, TASK_SYNC_BG_SIZE
@@ -78,7 +78,7 @@ VxSyncBgChr::
 
 ;; Transfer strips (half-rows) from BG ATRB map buffer to VRAM BG ATRB map.
 ;; @param E: start strip in [0..64)
-;; @param C: Length
+;; @param C: Length in strips minus 1 ~~ (bytes / 16 - 1)
 ;; @mut: AF, HL
 VxSyncBgAtrb::
 	ld h, TASK_SYNC_BG_SIZE
@@ -216,11 +216,6 @@ VramxBeginUpdate::
 	cp 148
 	ret nc
 
-	; process queue if not empty
-	ldh a, [hVx.task_count]
-	and a
-	jr z, .do_map_sync
-
 .do_queue:
 	call _QueueProcess
 	ret nc
@@ -228,30 +223,9 @@ VramxBeginUpdate::
 	ldh a, [rLY]
 	cp 148
 	jr c, .do_queue
+
 	ret
 
-.do_map_sync:
-	ldh a, [rLY] :: sub 144
-	cp 5
-	ret nc
-	; BG map attributes (VBlank immediate HDMA)
-	ld a, bank(wMapBgAtrb) :: ldh [rSVBK], a
-	ld a, 1 :: ldh [rVBK], a
-	ld a, high(wMapBgAtrb) :: ldh [rHDMA1], a
-	ld a, $98 :: ldh [rHDMA3], a
-	xor a :: ldh [rHDMA2], a :: ldh [rHDMA4], a
-	ld a, $3F :: ldh [rHDMA5], a
-
-	; BG map CHR codes (HBlank HDMA)
-	xor a
-	ldh [rVBK], a
-	ldh [rHDMA2], a :: ldh [rHDMA4], a
-	ld a, high(wMapBgChr) :: ldh [rHDMA1], a
-	ld a, $98 :: ldh [rHDMA3], a
-	ld a, $80 | $3F :: ldh [rHDMA5], a
-
-	ld a, VX_HBLANK_ACTIVE :: ldh [hVx.status], a
-	ret
 .err_nonzero_status:
 	ld b, b
 	ret

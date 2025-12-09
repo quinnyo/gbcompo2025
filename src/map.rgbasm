@@ -696,7 +696,14 @@ _ProcessSynXfer:
 	ld a, d :: add high(wMapBgAtrb) :: ld d, a
 
 	bit bSynXfer_ORIENTATION, c
-	jr _xfer_loop
+	call _xfer_loop
+
+	; Queue map sync
+	; NOTE: Just doing the whole map, ...
+	ld e, 0
+	ld c, 63
+	call VxSyncBgChr
+	jp VxSyncBgAtrb
 
 
 ;; @param B: length

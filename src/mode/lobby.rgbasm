@@ -72,6 +72,13 @@ modeLobby_Enter::
 	call MemCallRomx
 	wrambpop
 
+	; Queue map sync
+	; NOTE: Just doing the whole thing, ...
+	ld e, 0
+	ld c, 63
+	call VxSyncBgChr
+	call VxSyncBgAtrb
+
 	ld b, bank(musMarchOfTides)
 	ld hl, musMarchOfTides
 	call MusStart
