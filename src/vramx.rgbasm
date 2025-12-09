@@ -18,6 +18,8 @@ def TASK_LOAD_ROM rb 1
 def TASK_SYNC_BG_CHR rb 1
 ;; { strip start, length }
 def TASK_SYNC_BG_ATRB rb 1
+;; Number of task variants
+def TASK_MAX rb 0
 
 def TASK_LOAD_WRAM_SIZE equ 1 + 5
 def TASK_LOAD_ROM_SIZE equ 1 + 6
@@ -334,18 +336,28 @@ _QueueProcess:
 	jr .err
 
 
+;; @param A: Task type
 ;; @param DE: queue .front, *this+1
 ;; @ret E: new queue .front
 ;; @ret C: HDMA length
 ;; @ret F.C: if successful -- HDMA configured
 _TaskSwitch:
-	dec a :: jr z, _TaskLoadWram ; TASK_LOAD_WRAM
-	dec a :: jr z, _TaskLoadRom ; TASK_LOAD_ROM
-	dec a :: jr z, _TaskSyncBgChr ; TASK_SYNC_BG_CHR
-	dec a :: jr z, _TaskSyncBgAtrb ; TASK_SYNC_BG_ATRB
+	cp TASK_MAX
+	jr nc, .err_unknown
+	rst RST_SwitchJump
+	dw _TaskNil ; TASK_NIL
+	dw _TaskLoadWram ; TASK_LOAD_WRAM
+	dw _TaskLoadRom ; TASK_LOAD_ROM
+	dw _TaskSyncBgChr ; TASK_SYNC_BG_CHR
+	dw _TaskSyncBgAtrb ; TASK_SYNC_BG_ATRB
 .err_unknown:
 	ld b, b
 	jr .err_unknown
+
+
+_TaskNil:
+	ld b, b
+	ret
 
 
 _TaskLoadWram:
