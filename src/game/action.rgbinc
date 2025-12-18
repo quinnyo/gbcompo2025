@@ -1,0 +1,105 @@
+if !def(Q_ACTION_INC_bm34wuAk)
+def Q_ACTION_INC_bm34wuAk equ 1
+
+
+rsreset
+;; Newly created action
+def bActionState_NEW rb 1
+;; Action in progress
+def bActionState_ACTIVE rb 1
+;; If the action is blocking others from starting.
+def bActionState_BLOCKING rb 1
+;; Indicates that target parameter is an Entity ID
+def bActionState_TARGET_ENTITY rb 1
+;; Indicates that target parameter is an Item ID
+def bActionState_TARGET_ITEM rb 1
+
+
+def ActionState_NEW           equ 1 << bActionState_NEW
+def ActionState_ACTIVE        equ 1 << bActionState_ACTIVE
+def ActionState_BLOCKING      equ 1 << bActionState_BLOCKING
+def ActionState_TARGET_ENTITY equ 1 << bActionState_TARGET_ENTITY
+def ActionState_TARGET_ITEM   equ 1 << bActionState_TARGET_ITEM
+
+def ActionState_LIVE          equ ActionState_NEW | ActionState_ACTIVE
+
+
+/****************************** enum ActionType ********************************
+
+	Provides a unique identifier / type code for each distinct ability/action
+	available to be performed by the player.
+
+*******************************************************************************/
+
+rsreset
+;; Base action types / groups -- must be resolved to a concrete action to be performed.
+def ActionType_BASE rb 0
+def ActionType_BASE_JET rb 1
+def ActionType_BASE_CLAW rb 1
+def ActionType_BASE_GRIP rb 1
+
+;; Marks the start of concrete action types.
+def ActionType_CONCRETE rb 0
+def ActionType_DASH rb 1
+def ActionType_SWEEP rb 1
+def ActionType_CRUSH rb 1
+def ActionType_COMPACT rb 1
+def ActionType_ANCHOR rb 1
+def ActionType_CARRY rb 1
+
+;; Size of the ActionType enum
+def szActionType rb 0
+
+def ActionType_NULL equ $FF
+
+
+
+/***************************** enum ActionTrigger ******************************
+
+	ActionTrigger is a set of Player controller request codes with each variant
+	representing a particular behaviour. An ActionTrigger request must be
+	resolved/converted into a concrete Action before it can be executed.
+
+	The exact way that each ActionTrigger variant is converted into a concrete
+	Action (or not) is defined by the Player controller implementation.
+
+	Note that ActionTrigger variants do not necessarily correspond with
+	(concrete or otherwise) ActionType variants.
+
+*******************************************************************************/
+
+rsreset
+;; The DASH action
+def ActionTrigger_DASH rb 1
+;; The SWEEP action
+def ActionTrigger_SWEEP rb 1
+;; Activate context appropriate CLAW power
+def ActionTrigger_CLAW rb 1
+;; Activate context appropriate GRIP power
+def ActionTrigger_GRIP rb 1
+
+;; The number of ActionTrigger variants
+def szActionTrigger rb 0
+
+;; NULL variant
+def ActionTrigger_NULL equ $FF
+
+
+/******************************* struct Action *********************************
+
+	An instance of an action, including configuration and execution state.
+
+*******************************************************************************/
+
+rsreset
+def Action_type rb 1
+def Action_state rb 1
+def Action_target rb 1
+def Action__RESERVED rb 1
+def Action_x rb 2
+def Action_y rb 2
+def szAction rb 0
+
+
+endc ; Q_ACTION_INC_bm34wuAk
+

@@ -3,16 +3,71 @@ include "sim/entity.rgbinc"
 include "coord.rgbinc"
 include "vis/diver.rgbinc"
 include "banker.rgbinc"
+include "game/action.rgbinc"
+
+
+def KEY_JET equ PADF_B
+def KEY_CLAW equ PADF_A | PADF_B
+def KEY_GRIP equ PADF_A
+
+
+rsreset
+def bInput_DASH rb 1
+def bInput_SWEEP rb 1
+def bInput_CLAW rb 1
+; def bInput_CRUSH rb 1
+; def bInput_COMPACT rb 1
+; def bInput_ANCHOR rb 1
+; def bInput_CARRY rb 1
+
+
+def Input_DASH    equ 1 << bInput_DASH
+def Input_SWEEP   equ 1 << bInput_SWEEP
+def Input_CLAW    equ 1 << bInput_CLAW
+; def Input_CRUSH   equ 1 << bInput_CRUSH
+; def Input_COMPACT equ 1 << bInput_COMPACT
+; def Input_ANCHOR  equ 1 << bInput_ANCHOR
+; def Input_CARRY   equ 1 << bInput_CARRY
+
+def Input_JET equ Input_DASH | Input_SWEEP
+
+
+;; Taps sampling interval.
+def TAPS_WINDOW equ 30
+;; Required number of taps to be considered "rapid", within a window.
+def TAPS_THRESHOLD equ 3
+;; Number of excess taps to be stored in reserve.
+def TAPS_RESERVE_MAX equ 5
 
 
 ;; Ticks between applying drive/accel.
-def DRIVE_INTERVAL equ 2
+def DRIVE_INTERVAL equ 26
+;; The default, minimum drive rate
+def DRIVE_RATE_MIN equ 9
+;; The target drive rate when dashing
+def DRIVE_RATE_DASH equ 14
+
+
+;; The default drive vecdir magnitude.
+def VECDIR_MAG_DEFAULT equ (5 << 8) | 7
+;; The drive vecdir magnitude during dashing.
+def VECDIR_MAG_DASH equ (12 << 8) | 17
+
+
+;; Max. number of ActionTrigger requests that can be buffered at once.
+def ACTION_REQS_MAX equ 4
 
 
 rsreset
 def Player_vis rb szVisDiver
 def szPlayer rb 0
 assert szPlayer <= szEntityUsr0, "Player struct exceeds Entity Usr0 allocation. ({d:szPlayer} > {d:szEntityUsr0})"
+
+
+pushs "wPlayerAction", wram0
+wPlayerAction: ds szAction
+
+pops
 
 
 section "wPlayer", wram0
@@ -24,7 +79,17 @@ wPlayer::
 	;; Entity index
 	.ent:: db
 	.inputDir: db
+	.input: db
+	.driveRate: db
 	.driveTimer: db
+
+	.vecdir_mag: dw
+
+	.taps_jet: db
+	.taps_window: db
+
+	.action_reqs_len: db
+	.action_reqs: ds ACTION_REQS_MAX
 
 
 section "Player", rom0
@@ -41,12 +106,26 @@ PlayerInit::
 PlayerSpawn::
 	ld [wPlayer.ent], a
 
+	ld a, ActionType_NULL
+	ld hl, wPlayerAction
+	ld c, szAction
+	call MemFillSmall
+
+	call _PlayerClearActReqs
+
 	xor a
 	ld [wPlayer.driveY], a
 	ld [wPlayer.driveX], a
 	ld [wPlayer.inputDir], a
+	ld [wPlayer.input], a
+	ld a, DRIVE_RATE_MIN :: ld [wPlayer.driveRate], a
 	ld a, DRIVE_INTERVAL
 	ld [wPlayer.driveTimer], a
+	ld a, low(VECDIR_MAG_DEFAULT) :: ld [wPlayer.vecdir_mag + 0], a
+	ld a, high(VECDIR_MAG_DEFAULT) :: ld [wPlayer.vecdir_mag + 1], a
+
+	xor a :: ld [wPlayer.taps_jet], a
+	ld a, TAPS_WINDOW :: ld [wPlayer.taps_window], a
 
 	ld a, [wPlayer.ent]
 	call EntityAt
@@ -99,18 +178,81 @@ PlayerSpawn::
 ;; Entity impl FnThink for player entity controller.
 ;; @mut: AF, BC, D, HL
 PlayerThink:
+	; Clear requests
+	xor a :: ld [wPlayer.action_reqs_len], a
+
+	; Do each InputAction update routine & if a valid ActionTrigger request
+	; was returned, add it to the pool of candidates.
+
+	call _PlayerInput_claw
+	ld a, b
+	cp szActionTrigger
+	call c, _PlayerAddActReq
+
+	; Do JET last ~~> should not override others.
+	call _PlayerInput_jet
+	ld a, b
+	cp szActionTrigger
+	call c, _PlayerAddActReq
+
+	; Process ActionTrigger requests
+	call _PlayerProcessActReqs
+	call _PlayerActionUpdate
+
 	ldh a, [hKeys]
 	and $F0
 	ld [wPlayer.inputDir], a
 
-	ld hl, wPlayer.driveTimer
+	; Compute driveTimer delta from driveRate. Increment B to ensure delta > 0
+	ld hl, wPlayer.driveRate
+	ld a, [hl]
+	; Clamp to DRIVE_INTERVAL - 1
+	cp DRIVE_INTERVAL
+	jr c, :+
+	ld a, DRIVE_INTERVAL - 1
+:
+	ld b, a; :: inc b
+	inc hl
+	ld a, [hl] ; driveTimer
+	sub b
+	ld [hl], a
+	ret nc
+
+	; Reset timer
+	ld a, DRIVE_INTERVAL
+	ld [hl-], a ; driveTimer
+
+	; Drain boost
+	ld a, [hl]
+	cp DRIVE_RATE_MIN
+	jr z, .drain_boost_done
+	jr c, :+
+	; boost > min
 	dec [hl]
-	ret nz
-	ld a, DRIVE_INTERVAL :: ld [hl], a
+	jr .drain_boost_done
+:
+	ld a, DRIVE_RATE_MIN
+	ld [hl], a
+.drain_boost_done:
+
+	; Drain vecdir magnitude & load it to DE
+	ld hl, wPlayer.vecdir_mag
+	ld e, [hl]
+	ld a, low(VECDIR_MAG_DEFAULT)
+	cp e
+	jr nc, :+
+	dec [hl]
+:
+	inc hl
+	ld d, [hl]
+	ld a, high(VECDIR_MAG_DEFAULT)
+	cp d
+	jr nc, :+
+	dec [hl]
+:
 
 	; update drive vector
 	ld a, [wPlayer.inputDir] :: ld b, a
-	ld de, (5 << 8) | 7
 	call Vecdir8FromKeys
 	ld a, d :: ld [wPlayer.driveY], a
 	ld a, e :: ld [wPlayer.driveX], a
@@ -261,5 +403,352 @@ _ScrollFenceThing:
 	sub -SCROLL_FENCE
 	ret c
 	xor a
+	ret
+
+
+;; Clear and erase the contents of the action requests buffer.
+;; @mut: AF, C, HL
+_PlayerClearActReqs:
+	ld hl, wPlayer.action_reqs_len
+	xor a :: ld [hl+], a
+	ld c, ACTION_REQS_MAX
+	ld a, ActionTrigger_NULL
+	jp MemFillSmall
+
+
+;; Add an ActionTrigger request to the requests buffer.
+;; @param B: request (ActionTrigger)
+;; @mut: AF, HL
+_PlayerAddActReq:
+	ld hl, wPlayer.action_reqs_len
+	; Bounds check
+	ld a, [hl]
+	cp ACTION_REQS_MAX
+	ret nc
+	inc a
+	; Pre-incremented len, so use &len (&buffer - 1) as the base address.
+	ld [hl], a ; (don't advance HL)
+	; Index into buffer
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	; Write new request value
+	ld [hl], b
+	ret
+
+
+;; Process the buffered ActionTrigger requests
+;; @mut: AF, C, DE, HL
+_PlayerProcessActReqs:
+	ld hl, wPlayerAction + Action_state
+	ld a, [hl-] :: ld e, a ; state
+	ld a, [hl] :: ld d, a ; type
+	cp szActionType
+	jr nc, .proc_reqs ; action type is NULL, do reqs
+	ld a, e
+	and ActionState_LIVE
+	jr z, .proc_reqs ; action is dead, do reqs
+	bit bActionState_BLOCKING, e
+	jr nz, .flush ; live action is blocking (no cancels)
+
+.proc_cancel:
+	; Check if it's appropriate to cancel the active action, and:
+	;   if active should be cancelled, process the requests; or
+	;   ignore the requests and clear the buffer.
+
+	; TODO: something about cancelling ... ?
+
+.proc_reqs:
+	; Process requests
+	ld hl, wPlayer.action_reqs_len
+	ld a, [hl+]
+	and a
+	ret z ; list is empty
+
+	ld c, a ; len
+.loop:
+	ld a, [hl+] ; ActionTrigger
+		push hl :: push bc
+	call _PlayerResolveActionTrigger
+		pop bc :: pop hl
+
+	; check resolved type
+	ld a, d
+	cp szActionType
+	jr c, .flush ; resolved to a valid type, break
+
+	dec c
+	jr nz, .loop
+
+.flush:
+	; Clear requests
+	xor a :: ld [wPlayer.action_reqs_len], a
+	ret
+
+
+;; @param A: request (ActionTrigger)
+;; @param D: current action type
+;; @param E: current action state
+;; @ret D: resolved type (ActionType)
+;; @mut: AF, BC, DE, HL
+_PlayerResolveActionTrigger:
+	cp szActionTrigger
+	jr nc, .err_unexpected
+	rst RST_SwitchJump
+.jumptab
+	dw .proc_dash
+	dw .proc_sweep
+	dw .proc_claw
+	dw .proc_grip
+assert (@ - .jumptab) >> 1 == szActionTrigger
+
+.err_unexpected:
+	ld b, b
+	ret
+
+.proc_dash:
+	; Resolve into DASH action.
+	ld b, ActionType_DASH
+	jp _PlayerResolveSimple
+
+.proc_sweep:
+	; Resolve into SWEEP action.
+	ld b, ActionType_SWEEP
+	jp _PlayerResolveSimple
+
+.proc_claw:
+	; Try to resolve into CRUSH or COMPACT if a valid target is in range.
+
+	; Could not resolve
+	ld d, ActionType_NULL
+	ld hl, wPlayerAction + Action_type
+	ld a, d :: ld [hl+], a ; type
+	xor a :: ld [hl+], a ; state
+	ret
+
+.proc_grip:
+
+	; Could not resolve
+	ld d, ActionType_NULL
+	ld hl, wPlayerAction + Action_type
+	ld a, d :: ld [hl+], a ; type
+	xor a :: ld [hl+], a ; state
+	ret
+
+
+;; Initialise a new (simple) action with the given type.
+;; If the current action is of the same type and is active, do nothing.
+;; @param B: resolve into ActionType
+;; @param D: current action type
+;; @param E: current action state
+;; @ret D: resolved action type
+;; @mut: AF, D, HL
+_PlayerResolveSimple:
+	ld a, e
+	and ActionState_LIVE
+	jr z, :+
+	ld a, d
+	cp b
+	ret z ; current action is active & same type: do nothing.
+:
+	; initialise new action
+	ld d, b
+	ld hl, wPlayerAction + Action_type
+	ld a, d :: ld [hl+], a ; type
+	ld a, ActionState_NEW :: ld [hl+], a ; state
+
+	ret
+
+
+;; Cancel the current action
+;; @mut: AF
+_PlayerCancelAction:
+	ld a, [wPlayerAction + Action_state]
+	and ~ActionState_LIVE
+	ld [wPlayerAction + Action_state], a
+	ret
+
+
+_PlayerActionUpdate:
+	ld de, wPlayerAction + Action_type
+	ld a, [de] :: inc de ; type
+	cp szActionType
+	ret nc
+	rst RST_SwitchJump
+.jump_table:
+	dw .resolve_jet
+	dw .resolve_claw
+	dw .resolve_grip
+	dw .proc_dash
+	dw .proc_sweep
+	dw .proc_crush
+	dw .proc_compact
+	dw .proc_anchor
+	dw .proc_carry
+assert (@ - .jump_table) >> 1 == szActionType
+
+.resolve_jet:
+	ld b, b
+	ret
+
+.resolve_claw:
+	ld b, b
+	ret
+
+.resolve_grip:
+	ld b, b
+	ret
+
+.proc_dash:
+	; Cancel dash if input flag not set.
+	ld a, [wPlayer.input]
+	bit bInput_DASH, a
+	jp z, _PlayerCancelAction
+
+	; Do first-time setup if NEW
+	ld a, [de]
+	bit bActionState_NEW, a
+	jr z, :+
+	; clear NEW flag, enter ACTIVE state
+	res bActionState_NEW, a
+	set bActionState_ACTIVE, a
+	ld [de], a
+:
+
+	; Drive vecdir magnitude gain
+	ld hl, wPlayer.vecdir_mag
+	ld a, [hl]
+	cp low(VECDIR_MAG_DASH)
+	jr nc, :+
+	inc a :: ld [hl+], a
+:
+	ld a, [hl]
+	cp high(VECDIR_MAG_DASH)
+	jr nc, :+
+	inc a :: ld [hl+], a
+:
+
+	; Drive rate gain
+	ld a, [wPlayer.driveRate]
+	inc a
+	cp DRIVE_RATE_DASH + 1
+	jr c, :+
+	ld a, DRIVE_RATE_DASH
+:
+	ld [wPlayer.driveRate], a
+
+	ret
+
+.proc_sweep:
+	; Cancel if input flag not set.
+	ld a, [wPlayer.input]
+	bit bInput_SWEEP, a
+	jp z, _PlayerCancelAction
+
+	ld a, [de]
+	res bActionState_NEW, a
+	ld [de], a
+	ret
+
+.proc_crush:
+	ld a, [de]
+	res bActionState_NEW, a
+	ld [de], a
+	ret
+
+.proc_compact:
+	ld a, [de]
+	res bActionState_NEW, a
+	ld [de], a
+	ret
+
+.proc_anchor:
+	ld a, [de]
+	res bActionState_NEW, a
+	ld [de], a
+	ret
+
+.proc_carry:
+	ld a, [de]
+	res bActionState_NEW, a
+	ld [de], a
+	ret
+
+
+;; Update input state for JET abilities
+;; @ret B: requested action (ActionTrigger)
+;; @mut: AF, BC, HL
+_PlayerInput_jet:
+	; Load input SWEEP state into C
+	ld a, [wPlayer.input]
+	and Input_SWEEP :: ld c, a
+
+	; Increment tap counter on JET key press.
+	ld hl, wPlayer.taps_jet
+	ldh a, [hKeysPressed]
+	and KEY_JET
+	jr z, :+
+	inc [hl]
+:
+	ld a, [hl+] ; taps_jet
+	dec [hl] ; taps_window--
+	jr nz, .finalise
+
+	; Window closing -- check tap counter
+	ld b, TAPS_WINDOW :: ld [hl], b :: dec hl
+	sub TAPS_THRESHOLD
+	jr nc, .rapid ; if count >= threshold
+
+	; Reset -- count < threshold
+	xor a :: ld [hl+], a ; taps_jet
+	ld a, TAPS_WINDOW :: ld [hl], a ; taps_window
+	res bInput_SWEEP, c
+	jr .finalise
+
+.rapid:
+	set bInput_SWEEP, c
+
+	; Keep excess (up to TAPS_RESERVE_MAX) for next window
+	cp TAPS_RESERVE_MAX + 1
+	jr c, :+
+	ld a, TAPS_RESERVE_MAX
+:
+	ld [hl], a ; taps_jet
+
+.finalise:
+	ld b, ActionTrigger_SWEEP
+	; DASH & SWEEP are mutually exclusive, SWEEP takes priority.
+	; If not SWEEP then set Input_DASH if JET key is down.
+	bit bInput_SWEEP, c
+	jr nz, :+
+	ld b, ActionTrigger_NULL
+	ldh a, [hKeys]
+	and KEY_JET
+	jr z, :+
+	ld b, ActionTrigger_DASH
+	set bInput_DASH, c
+:
+
+	; Store the new JET input state (in C)
+	ld hl, wPlayer.input
+	ld a, ~Input_JET :: and [hl]
+	or c :: ld [hl], a
+
+	ret
+
+
+;; Update input state for CLAW abilities
+;; @ret B: requested action (ActionTrigger)
+;; @mut: AF, BC, HL
+_PlayerInput_claw:
+	ld b, ActionTrigger_NULL
+
+	ld hl, wPlayer.input
+	res bInput_CLAW, [hl]
+
+	ld a, [wChord]
+	cp KEY_CLAW
+	ret nz
+	set bInput_CLAW, [hl]
+	ld b, ActionTrigger_CLAW
 	ret
 
