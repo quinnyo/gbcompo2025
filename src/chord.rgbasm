@@ -21,6 +21,8 @@ wChordKeys: db
 wChordTimer: db
 wChordConfig:: db
 
+wChord:: db
+
 
 section "Chord", rom0
 ChordInit::
@@ -30,8 +32,19 @@ ChordInit::
 	ret
 
 
+;; Check input and update chord state.
+;; The current chord (if any) will be transferred to `wChord`.
 ;; @ret D: chord
-ChordProcess::
+;; @mut: AF, DE
+ChordUpdate::
+	call ChordProcess
+	ld a, d :: ld [wChord], a
+	ret
+
+
+;; @ret D: chord
+;; @mut: AF, DE
+ChordProcess:
 	ld d, 0 ; default return value
 	ld a, [wChordTimer] :: ld e, a
 

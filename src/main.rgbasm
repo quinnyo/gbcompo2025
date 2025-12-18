@@ -140,7 +140,7 @@ Main::
 	ei
 .loop:
 	call InputUpdate
-	call ChordProcess
+	call ChordUpdate
 	ld a, d
 	cp RESET_CHORD
 	jp z, Main
