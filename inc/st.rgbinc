@@ -1,0 +1,166 @@
+if !def(Q_ST_INC_ynGeGeSA)
+def Q_ST_INC_ynGeGeSA equ 1
+
+
+/*************************** st is for struct thing ***************************
+
+	st is for struct thing is a class of macros for declaring and defining
+	struct-like structures in RGBDS assembly.
+
+	The primary problem solved by st is for struct thing is (hopefully!) that
+	of definition-declaration desynchronisation (or *defdecldesync*) which is
+	a very 3D problem.
+
+	Use st is for struct thing to specify and allocate your struct things
+	and st will keep your struct spec in sync with the in-section structures.
+	In other words, st derives delimited data as directed by definition.
+
+	All of this (and more!) is achieved through the time-honoured, sacred,
+	and even short-sighted practice of *hiding things with macros*.
+
+	st is for struct thing is **reasonable enough**.
+
+******************************************************************************/
+
+
+;; st NAME
+;;     Start a new st spec. Equivalent to stspec.
+;; st
+;;     Close the current st spec. Equivalent to stend.
+macro st
+	assert _NARG == 0 || _NARG == 1
+	if _NARG == 1
+		stspec \1
+	else
+		stend
+	endc
+endm
+
+
+;; stspec NAME
+;; Create and open a new stspec called NAME.
+macro stspec
+	assert _NARG == 1
+	if def(_ST)
+		fail "_ST is already defined ({_ST}). Nested st not supported."
+	endc
+
+	def _ST equs "\1"
+	def _STSIZE equ 0
+	def _STFIELDS equs ""
+	def _STFIELDCNT equ 0
+endm
+
+
+;; stend
+;; Close and finalise the open stspec.
+macro stend
+	assert _NARG == 0
+	assert def(_ST), "stend without stspec."
+
+	def {_ST} equs "{_STSIZE},{_STFIELDCNT},{_STFIELDS}"
+	def _STFIELDS_{_ST} equs "{_STFIELDS}"
+	def _STFIELDCNT_{_ST} equ _STFIELDCNT
+	def sz{_ST} equ _STSIZE
+
+	purge _ST, _STSIZE, _STFIELDCNT, _STFIELDS
+endm
+
+
+;; stf NAME, SIZE
+;; Add a field called NAME of SIZE bytes to the open st.
+macro stf
+	assert _NARG == 2
+	assert def(_ST)
+	assert strfind("\1", "#") == -1, "Hash character not allowed in st field name."
+
+	def _label_lhs equs "."
+	def _label_rhs equs "::"
+
+	def _fieldspec equs "f {_label_lhs}#\1#{_label_rhs}#\2"
+	if _STFIELDCNT == 0
+		redef _STFIELDS equs "{_fieldspec}"
+	else
+		assert fatal, strfind("{_STFIELDS}", "f \1#") == -1, "st {_ST} already contains a field named '\1'."
+		redef _STFIELDS equs "{_STFIELDS},{_fieldspec}"
+	endc
+
+	def {_ST}_\1 equ {_STSIZE}
+
+	__st_size _size, \2
+	redef _STSIZE equ _STSIZE + _size
+	redef _STFIELDCNT equ _STFIELDCNT + 1
+
+	purge _label_lhs, _label_rhs, _size, _fieldspec
+endm
+
+
+;; stalloc NAME
+;; Allocate memory to hold an instance of st NAME.
+macro stalloc
+	assert _NARG == 1
+	assert def(_STFIELDS_\1)
+	__st_expand_and_each stalloc_fieldspec, _STFIELDS_\1
+endm
+
+
+;; stalloc_fieldspec FIELD
+;; Allocate fieldspec FIELD
+macro stalloc_fieldspec
+	assert fatal, _NARG == 1
+	assert fatal, strfind("\1", "f ") == 0
+
+	def _split equs strrpl(strslice("\1", 2), "#", ",")
+	__stalloc_field {_split}
+	purge _split
+endm
+
+
+;; __stalloc_field LABEL_LHS, NAME, LABEL_RHS, SIZE
+;; Helper macro for stalloc_fieldspec.
+macro __stalloc_field
+	\1\2\3 ds \4
+endm
+
+
+;; __st_size VAR, SIZE
+;; Convert field spec SIZE code into numeric field size in bytes.
+;; Result is assigned to VAR.
+macro __st_size
+	assert _NARG == 2
+	def _lwr equs strlwr("\2")
+	if strcmp("{_lwr}", "b") == 0 || strcmp("{_lwr}", "db") == 0
+		redef \1 equ 1
+	elif strcmp("{_lwr}", "w") == 0 || strcmp("{_lwr}", "dw") == 0
+		redef \1 equ 2
+	elif strcmp("{_lwr}", "l") == 0 || strcmp("{_lwr}", "dl") == 0
+		redef \1 equ 4
+	else
+		redef \1 equ (\2)
+	endc
+
+	purge _lwr
+endm
+
+
+;; __st_each DOER, ARG0, [..., ARGN]
+;; Invoke macro `DOER ARGi` for each argument that follows DOER.
+macro __st_each
+	assert fatal, _NARG >= 2
+	def _doer equs "\1"
+	shift
+	rept _NARG
+		{_doer} \1
+		shift
+	endr
+	purge _doer
+endm
+
+
+macro __st_expand_and_each
+	__st_each \1, {\2}
+endm
+
+
+endc ; Q_ST_INC_ynGeGeSA
+
