@@ -344,19 +344,30 @@ impl Rgbasm for MapConverter {
         for (pos, chrs, atrbs) in self.chunks.normalised() {
             assert!(atrbs.size() == chrs.size());
             let ntiles = chrs.size();
-            writeln!(&mut w, ".chunk_{chunk_idx}:: ; {pos} ({ntiles})")?;
-            writeln!(&mut w, "\tdw .chunk_{chunk_idx}_atrb")?;
+            // pre-format asm labels
+            let prefix = format!(".chunk_{chunk_idx}");
+            let brushes0 = format!("{prefix}_brushes0");
+            let brushes1 = format!("{prefix}_brushes1");
+            let zones = format!("{prefix}_zones");
+
+            writeln!(&mut w, "{prefix}:: ; {pos} ({ntiles})")?;
+            writeln!(&mut w, "\tdw {brushes0}")?;
+            writeln!(&mut w, "\tdw {brushes1}")?;
+            writeln!(&mut w, "\tdw {zones}")?;
+
+            writeln!(&mut w, "{brushes0}::")?;
             for brush in chrs.brushes() {
                 write!(&mut w, "\t")?;
                 brush.rgbasm(&mut w)?;
                 writeln!(&mut w)?;
             }
-            writeln!(&mut w, ".chunk_{chunk_idx}_atrb::")?;
+            writeln!(&mut w, "{brushes1}::")?;
             for brush in atrbs.brushes() {
                 write!(&mut w, "\t")?;
                 brush.rgbasm(&mut w)?;
                 writeln!(&mut w)?;
             }
+            writeln!(&mut w, "{zones}:: db 0")?;
 
             assert!(pos.x < 256);
             assert!(pos.y < 256);

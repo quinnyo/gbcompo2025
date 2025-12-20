@@ -11,7 +11,10 @@ map_c1::
 	dw 1, 60, 240
 	dw 2, 80, 296
 .chunk_0:: ; <0, 0> (256)
-	dw .chunk_0_atrb
+	dw .chunk_0_brushes0
+	dw .chunk_0_brushes1
+	dw .chunk_0_zones
+.chunk_0_brushes0::
 	db BR_SOLID,   3,   0
 	db BR_SOLID,   0,   5
 	db BR_SOLID,  10,  10
@@ -136,11 +139,15 @@ map_c1::
 	db BR_SOLID,   0,  19
 	db BR_SOLID,   4,   0
 	db BR_TERM
-.chunk_0_atrb::
+.chunk_0_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_0_zones:: db 0
 .chunk_1:: ; <1, 0> (256)
-	dw .chunk_1_atrb
+	dw .chunk_1_brushes0
+	dw .chunk_1_brushes1
+	dw .chunk_1_zones
+.chunk_1_brushes0::
 	db BR_SOLID,  31,  10
 	db BR_SOLID,   4,  18
 	db BR_SOLID,   0,   5
@@ -277,11 +284,15 @@ map_c1::
 	db BR_SOLID,   0,   2
 	db BR_SOLID,   0,  21
 	db BR_TERM
-.chunk_1_atrb::
+.chunk_1_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_1_zones:: db 0
 .chunk_2:: ; <2, 0> (256)
-	dw .chunk_2_atrb
+	dw .chunk_2_brushes0
+	dw .chunk_2_brushes1
+	dw .chunk_2_zones
+.chunk_2_brushes0::
 	db BR_SOLID,  31,  10
 	db BR_SOLID,   7,  18
 	db BR_SOLID,   0,   5
@@ -355,11 +366,15 @@ map_c1::
 	db BR_SOLID,   0,  19
 	db BR_SOLID,  13,   0
 	db BR_TERM
-.chunk_2_atrb::
+.chunk_2_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_2_zones:: db 0
 .chunk_3:: ; <3, 0> (256)
-	dw .chunk_3_atrb
+	dw .chunk_3_brushes0
+	dw .chunk_3_brushes1
+	dw .chunk_3_zones
+.chunk_3_brushes0::
 	db BR_SOLID,  31,  10
 	db BR_SOLID,   3,  18
 	db BR_SOLID,   0,   5
@@ -374,11 +389,15 @@ map_c1::
 	db BR_SOLID,   3,  18
 	db BR_SOLID, 175,   0
 	db BR_TERM
-.chunk_3_atrb::
+.chunk_3_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_3_zones:: db 0
 .chunk_4:: ; <4, 0> (256)
-	dw .chunk_4_atrb
+	dw .chunk_4_brushes0
+	dw .chunk_4_brushes1
+	dw .chunk_4_zones
+.chunk_4_brushes0::
 	db BR_SOLID,  45,  10
 	db BR_SOLID,   0,   4
 	db BR_SOLID,   0,  18
@@ -494,11 +513,15 @@ map_c1::
 	db BR_SOLID,   0,   9
 	db BR_SOLID,   1,  10
 	db BR_TERM
-.chunk_4_atrb::
+.chunk_4_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_4_zones:: db 0
 .chunk_5:: ; <5, 0> (256)
-	dw .chunk_5_atrb
+	dw .chunk_5_brushes0
+	dw .chunk_5_brushes1
+	dw .chunk_5_zones
+.chunk_5_brushes0::
 	db BR_SOLID,  16,  10
 	db BR_SOLID,   0,   4
 	db BR_SOLID,   1,  18
@@ -676,11 +699,15 @@ map_c1::
 	db BR_SOLID,   0,   5
 	db BR_SOLID,   2,  10
 	db BR_TERM
-.chunk_5_atrb::
+.chunk_5_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_5_zones:: db 0
 .chunk_6:: ; <0, 1> (256)
-	dw .chunk_6_atrb
+	dw .chunk_6_brushes0
+	dw .chunk_6_brushes1
+	dw .chunk_6_zones
+.chunk_6_brushes0::
 	db BR_SOLID,   0,   4
 	db BR_SOLID,   0,  19
 	db BR_SOLID,   1,   0
@@ -779,11 +806,15 @@ map_c1::
 	db BR_SOLID,   0,  19
 	db BR_SOLID,  12,   0
 	db BR_TERM
-.chunk_6_atrb::
+.chunk_6_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_6_zones:: db 0
 .chunk_7:: ; <1, 1> (256)
-	dw .chunk_7_atrb
+	dw .chunk_7_brushes0
+	dw .chunk_7_brushes1
+	dw .chunk_7_zones
+.chunk_7_brushes0::
 	db BR_SOLID,   0,   1
 	db BR_SOLID,   0,   3
 	db BR_SOLID,   0,   1
@@ -869,11 +900,15 @@ map_c1::
 	db BR_SOLID,   0,  17
 	db BR_SOLID,   2,  18
 	db BR_TERM
-.chunk_7_atrb::
+.chunk_7_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_7_zones:: db 0
 .chunk_8:: ; <2, 1> (256)
-	dw .chunk_8_atrb
+	dw .chunk_8_brushes0
+	dw .chunk_8_brushes1
+	dw .chunk_8_zones
+.chunk_8_brushes0::
 	db BR_SOLID,   0,   3
 	db BR_SOLID,  14,   0
 	db BR_SOLID,   0,  19
@@ -901,11 +936,15 @@ map_c1::
 	db BR_SOLID,   0,   3
 	db BR_SOLID,   5,   0
 	db BR_TERM
-.chunk_8_atrb::
+.chunk_8_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_8_zones:: db 0
 .chunk_9:: ; <3, 1> (256)
-	dw .chunk_9_atrb
+	dw .chunk_9_brushes0
+	dw .chunk_9_brushes1
+	dw .chunk_9_zones
+.chunk_9_brushes0::
 	db BR_SOLID,  94,   0
 	db BR_SOLID,   0,   1
 	db BR_SOLID,  14,   0
@@ -918,11 +957,15 @@ map_c1::
 	db BR_SOLID,   0,  17
 	db BR_SOLID,  95,   0
 	db BR_TERM
-.chunk_9_atrb::
+.chunk_9_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_9_zones:: db 0
 .chunk_10:: ; <4, 1> (256)
-	dw .chunk_10_atrb
+	dw .chunk_10_brushes0
+	dw .chunk_10_brushes1
+	dw .chunk_10_zones
+.chunk_10_brushes0::
 	db BR_SOLID,   1,   0
 	db BR_SOLID,   0,   1
 	db BR_SOLID,   0,  13
@@ -1062,11 +1105,15 @@ map_c1::
 	db BR_SOLID,   1,  10
 	db BR_SOLID,   0,  12
 	db BR_TERM
-.chunk_10_atrb::
+.chunk_10_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_10_zones:: db 0
 .chunk_11:: ; <5, 1> (256)
-	dw .chunk_11_atrb
+	dw .chunk_11_brushes0
+	dw .chunk_11_brushes1
+	dw .chunk_11_zones
+.chunk_11_brushes0::
 	db BR_SOLID,   1,  10
 	db BR_SOLID,   0,  12
 	db BR_SOLID,   0,   3
@@ -1278,11 +1325,15 @@ map_c1::
 	db BR_SOLID,   0,   9
 	db BR_SOLID,   0,  10
 	db BR_TERM
-.chunk_11_atrb::
+.chunk_11_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_11_zones:: db 0
 .chunk_12:: ; <0, 2> (256)
-	dw .chunk_12_atrb
+	dw .chunk_12_brushes0
+	dw .chunk_12_brushes1
+	dw .chunk_12_zones
+.chunk_12_brushes0::
 	db BR_SOLID,   0,  10
 	db BR_SOLID,   0,  12
 	db BR_SOLID,   0,   2
@@ -1368,11 +1419,15 @@ map_c1::
 	db BR_SOLID,   0,   3
 	db BR_SOLID,  11,   0
 	db BR_TERM
-.chunk_12_atrb::
+.chunk_12_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_12_zones:: db 0
 .chunk_13:: ; <1, 2> (256)
-	dw .chunk_13_atrb
+	dw .chunk_13_brushes0
+	dw .chunk_13_brushes1
+	dw .chunk_13_zones
+.chunk_13_brushes0::
 	db BR_SOLID,  22,   0
 	db BR_SOLID,   0,   1
 	db BR_SOLID,   0,   2
@@ -1508,11 +1563,15 @@ map_c1::
 	db BR_SOLID,   0,   4
 	db BR_SOLID,   0,  19
 	db BR_TERM
-.chunk_13_atrb::
+.chunk_13_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_13_zones:: db 0
 .chunk_14:: ; <2, 2> (256)
-	dw .chunk_14_atrb
+	dw .chunk_14_brushes0
+	dw .chunk_14_brushes1
+	dw .chunk_14_zones
+.chunk_14_brushes0::
 	db BR_SOLID,   0,  17
 	db BR_SOLID,   0,  18
 	db BR_SOLID,   0,   5
@@ -1666,11 +1725,15 @@ map_c1::
 	db BR_SOLID,   0,  17
 	db BR_SOLID,   0,   5
 	db BR_TERM
-.chunk_14_atrb::
+.chunk_14_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_14_zones:: db 0
 .chunk_15:: ; <3, 2> (256)
-	dw .chunk_15_atrb
+	dw .chunk_15_brushes0
+	dw .chunk_15_brushes1
+	dw .chunk_15_zones
+.chunk_15_brushes0::
 	db BR_SOLID,  47,   0
 	db BR_SOLID,   0,   3
 	db BR_SOLID,  14,   0
@@ -1747,11 +1810,15 @@ map_c1::
 	db BR_SOLID,   0,   3
 	db BR_SOLID,   5,   0
 	db BR_TERM
-.chunk_15_atrb::
+.chunk_15_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_15_zones:: db 0
 .chunk_16:: ; <4, 2> (256)
-	dw .chunk_16_atrb
+	dw .chunk_16_brushes0
+	dw .chunk_16_brushes1
+	dw .chunk_16_zones
+.chunk_16_brushes0::
 	db BR_SOLID,   5,   0
 	db BR_SOLID,   0,  17
 	db BR_SOLID,   2,  18
@@ -1851,11 +1918,15 @@ map_c1::
 	db BR_SOLID,   0,   3
 	db BR_SOLID,   0,  17
 	db BR_TERM
-.chunk_16_atrb::
+.chunk_16_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_16_zones:: db 0
 .chunk_17:: ; <5, 2> (256)
-	dw .chunk_17_atrb
+	dw .chunk_17_brushes0
+	dw .chunk_17_brushes1
+	dw .chunk_17_zones
+.chunk_17_brushes0::
 	db BR_SOLID,   0,  11
 	db BR_SOLID,   0,   9
 	db BR_SOLID,   0,  10
@@ -2024,11 +2095,15 @@ map_c1::
 	db BR_SOLID,   0,   9
 	db BR_SOLID,   1,  10
 	db BR_TERM
-.chunk_17_atrb::
+.chunk_17_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_17_zones:: db 0
 .chunk_18:: ; <0, 3> (256)
-	dw .chunk_18_atrb
+	dw .chunk_18_brushes0
+	dw .chunk_18_brushes1
+	dw .chunk_18_zones
+.chunk_18_brushes0::
 	db BR_SOLID,   0,  10
 	db BR_SOLID,   0,  12
 	db BR_SOLID,   0,  13
@@ -2097,11 +2172,15 @@ map_c1::
 	db BR_SOLID,   0,  19
 	db BR_SOLID,  10,   0
 	db BR_TERM
-.chunk_18_atrb::
+.chunk_18_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_18_zones:: db 0
 .chunk_19:: ; <1, 3> (256)
-	dw .chunk_19_atrb
+	dw .chunk_19_brushes0
+	dw .chunk_19_brushes1
+	dw .chunk_19_zones
+.chunk_19_brushes0::
 	db BR_SOLID,   2,   0
 	db BR_SOLID,   0,   1
 	db BR_SOLID,   0,  21
@@ -2242,11 +2321,15 @@ map_c1::
 	db BR_SOLID,   0,   5
 	db BR_SOLID,   0,  10
 	db BR_TERM
-.chunk_19_atrb::
+.chunk_19_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_19_zones:: db 0
 .chunk_20:: ; <2, 3> (256)
-	dw .chunk_20_atrb
+	dw .chunk_20_brushes0
+	dw .chunk_20_brushes1
+	dw .chunk_20_zones
+.chunk_20_brushes0::
 	db BR_SOLID,  13,   0
 	db BR_SOLID,   0,   1
 	db BR_SOLID,   0,  13
@@ -2373,11 +2456,15 @@ map_c1::
 	db BR_SOLID,   0,   3
 	db BR_SOLID,   6,   0
 	db BR_TERM
-.chunk_20_atrb::
+.chunk_20_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_20_zones:: db 0
 .chunk_21:: ; <3, 3> (256)
-	dw .chunk_21_atrb
+	dw .chunk_21_brushes0
+	dw .chunk_21_brushes1
+	dw .chunk_21_zones
+.chunk_21_brushes0::
 	db BR_SOLID,   0,  12
 	db BR_SOLID,   0,   3
 	db BR_SOLID,   3,   0
@@ -2511,11 +2598,15 @@ map_c1::
 	db BR_SOLID,   0,  18
 	db BR_SOLID,   0,  19
 	db BR_TERM
-.chunk_21_atrb::
+.chunk_21_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_21_zones:: db 0
 .chunk_22:: ; <4, 3> (256)
-	dw .chunk_22_atrb
+	dw .chunk_22_brushes0
+	dw .chunk_22_brushes1
+	dw .chunk_22_zones
+.chunk_22_brushes0::
 	db BR_SOLID,   6,   0
 	db BR_SOLID,   0,   9
 	db BR_SOLID,   5,  10
@@ -2558,11 +2649,15 @@ map_c1::
 	db BR_SOLID,   0,  19
 	db BR_SOLID,  46,   0
 	db BR_TERM
-.chunk_22_atrb::
+.chunk_22_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_22_zones:: db 0
 .chunk_23:: ; <5, 3> (256)
-	dw .chunk_23_atrb
+	dw .chunk_23_brushes0
+	dw .chunk_23_brushes1
+	dw .chunk_23_zones
+.chunk_23_brushes0::
 	db BR_SOLID,   0,   0
 	db BR_SOLID,   0,  17
 	db BR_SOLID,   0,  18
@@ -2668,11 +2763,15 @@ map_c1::
 	db BR_SOLID,   0,  13
 	db BR_SOLID,  10,  10
 	db BR_TERM
-.chunk_23_atrb::
+.chunk_23_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_23_zones:: db 0
 .chunk_24:: ; <0, 4> (256)
-	dw .chunk_24_atrb
+	dw .chunk_24_brushes0
+	dw .chunk_24_brushes1
+	dw .chunk_24_zones
+.chunk_24_brushes0::
 	db BR_SOLID,   0,   4
 	db BR_SOLID,   0,  18
 	db BR_SOLID,   0,  19
@@ -2756,11 +2855,15 @@ map_c1::
 	db BR_SOLID,   0,  19
 	db BR_SOLID,   9,   0
 	db BR_TERM
-.chunk_24_atrb::
+.chunk_24_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_24_zones:: db 0
 .chunk_25:: ; <1, 4> (256)
-	dw .chunk_25_atrb
+	dw .chunk_25_brushes0
+	dw .chunk_25_brushes1
+	dw .chunk_25_zones
+.chunk_25_brushes0::
 	db BR_SOLID,  13,   0
 	db BR_SOLID,   0,  17
 	db BR_SOLID,   0,   5
@@ -2768,11 +2871,15 @@ map_c1::
 	db BR_SOLID,   0,  17
 	db BR_SOLID, 223,   0
 	db BR_TERM
-.chunk_25_atrb::
+.chunk_25_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_25_zones:: db 0
 .chunk_26:: ; <2, 4> (256)
-	dw .chunk_26_atrb
+	dw .chunk_26_brushes0
+	dw .chunk_26_brushes1
+	dw .chunk_26_zones
+.chunk_26_brushes0::
 	db BR_SOLID,   0,  12
 	db BR_SOLID,   0,  13
 	db BR_SOLID,   0,  12
@@ -2837,11 +2944,15 @@ map_c1::
 	db BR_SOLID,   0,  19
 	db BR_SOLID, 159,   0
 	db BR_TERM
-.chunk_26_atrb::
+.chunk_26_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_26_zones:: db 0
 .chunk_27:: ; <3, 4> (256)
-	dw .chunk_27_atrb
+	dw .chunk_27_brushes0
+	dw .chunk_27_brushes1
+	dw .chunk_27_zones
+.chunk_27_brushes0::
 	db BR_SOLID,   0,   1
 	db BR_SOLID,   0,   3
 	db BR_SOLID,   3,   0
@@ -2922,11 +3033,15 @@ map_c1::
 	db BR_SOLID,   0,  19
 	db BR_SOLID, 140,   0
 	db BR_TERM
-.chunk_27_atrb::
+.chunk_27_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_27_zones:: db 0
 .chunk_28:: ; <4, 4> (256)
-	dw .chunk_28_atrb
+	dw .chunk_28_brushes0
+	dw .chunk_28_brushes1
+	dw .chunk_28_zones
+.chunk_28_brushes0::
 	db BR_SOLID,  62,   0
 	db BR_SOLID,   0,   1
 	db BR_SOLID,  14,   0
@@ -2962,11 +3077,15 @@ map_c1::
 	db BR_SOLID,   0,  17
 	db BR_SOLID,   0,   5
 	db BR_TERM
-.chunk_28_atrb::
+.chunk_28_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_28_zones:: db 0
 .chunk_29:: ; <5, 4> (256)
-	dw .chunk_29_atrb
+	dw .chunk_29_brushes0
+	dw .chunk_29_brushes1
+	dw .chunk_29_zones
+.chunk_29_brushes0::
 	db BR_SOLID,   0,   0
 	db BR_SOLID,   0,   9
 	db BR_SOLID,   0,  12
@@ -2980,11 +3099,15 @@ map_c1::
 	db BR_SOLID,   0,  13
 	db BR_SOLID, 206,  10
 	db BR_TERM
-.chunk_29_atrb::
+.chunk_29_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_29_zones:: db 0
 .chunk_30:: ; <0, 5> (256)
-	dw .chunk_30_atrb
+	dw .chunk_30_brushes0
+	dw .chunk_30_brushes1
+	dw .chunk_30_zones
+.chunk_30_brushes0::
 	db BR_SOLID,   3,  10
 	db BR_SOLID,   0,  11
 	db BR_SOLID,  10,   0
@@ -3049,11 +3172,15 @@ map_c1::
 	db BR_SOLID,   0,  13
 	db BR_SOLID,  15,  10
 	db BR_TERM
-.chunk_30_atrb::
+.chunk_30_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_30_zones:: db 0
 .chunk_31:: ; <1, 5> (256)
-	dw .chunk_31_atrb
+	dw .chunk_31_brushes0
+	dw .chunk_31_brushes1
+	dw .chunk_31_zones
+.chunk_31_brushes0::
 	db BR_SOLID,  16,   0
 	db BR_SOLID,   0,   1
 	db BR_SOLID,   1,   2
@@ -3175,11 +3302,15 @@ map_c1::
 	db BR_SOLID,   0,  13
 	db BR_SOLID,  19,  10
 	db BR_TERM
-.chunk_31_atrb::
+.chunk_31_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_31_zones:: db 0
 .chunk_32:: ; <2, 5> (256)
-	dw .chunk_32_atrb
+	dw .chunk_32_brushes0
+	dw .chunk_32_brushes1
+	dw .chunk_32_zones
+.chunk_32_brushes0::
 	db BR_SOLID, 159,   0
 	db BR_SOLID,   0,   2
 	db BR_SOLID,   0,   3
@@ -3209,11 +3340,15 @@ map_c1::
 	db BR_SOLID,   0,  13
 	db BR_SOLID,  48,  10
 	db BR_TERM
-.chunk_32_atrb::
+.chunk_32_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_32_zones:: db 0
 .chunk_33:: ; <3, 5> (256)
-	dw .chunk_33_atrb
+	dw .chunk_33_brushes0
+	dw .chunk_33_brushes1
+	dw .chunk_33_zones
+.chunk_33_brushes0::
 	db BR_SOLID, 175,   0
 	db BR_SOLID,   0,   3
 	db BR_SOLID,  14,   0
@@ -3247,11 +3382,15 @@ map_c1::
 	db BR_SOLID,   0,  13
 	db BR_SOLID,  15,  10
 	db BR_TERM
-.chunk_33_atrb::
+.chunk_33_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_33_zones:: db 0
 .chunk_34:: ; <4, 5> (256)
-	dw .chunk_34_atrb
+	dw .chunk_34_brushes0
+	dw .chunk_34_brushes1
+	dw .chunk_34_zones
+.chunk_34_brushes0::
 	db BR_SOLID,  14,   0
 	db BR_SOLID,   0,   9
 	db BR_SOLID,  14,   0
@@ -3301,16 +3440,21 @@ map_c1::
 	db BR_SOLID,   0,  13
 	db BR_SOLID,  38,  10
 	db BR_TERM
-.chunk_34_atrb::
+.chunk_34_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_34_zones:: db 0
 .chunk_35:: ; <5, 5> (256)
-	dw .chunk_35_atrb
+	dw .chunk_35_brushes0
+	dw .chunk_35_brushes1
+	dw .chunk_35_zones
+.chunk_35_brushes0::
 	db BR_SOLID, 255,  10
 	db BR_TERM
-.chunk_35_atrb::
+.chunk_35_brushes1::
 	db BR_SOLID, 255,   0
 	db BR_TERM
+.chunk_35_zones:: db 0
 .chunk_table:: db 6
 	db 0
 	dw .row0

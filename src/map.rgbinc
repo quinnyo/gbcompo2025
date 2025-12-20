@@ -1,6 +1,8 @@
 if !def(Q_MAP_INC_rJ398bhW)
 def Q_MAP_INC_rJ398bhW equ 1
 
+include "st.rgbinc"
+
 
 rsreset
 ;; Terminates the brushes array.
@@ -37,6 +39,15 @@ def MapObject_NULL equ $FF
 
 def PLAYER_START_DEFAULT_Y equ 8 * 6
 def PLAYER_START_DEFAULT_X equ 8 * 4
+
+
+;; Metadata at the top of each Map chunk.
+;; Provides pointers for navigating various chunk data.
+st MapChunkHeader
+	stf brushes0, 2
+	stf brushes1, 2
+	stf zones, 2
+st
 
 
 endc ; Q_MAP_INC_rJ398bhW

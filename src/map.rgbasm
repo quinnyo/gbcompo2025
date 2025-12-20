@@ -111,6 +111,10 @@ wMapObjectCache::
 assert @ - wMapObjectCache == szMapObject
 
 
+section "wMapChunkHeader", wram0
+wMapChunkHeader:: stalloc MapChunkHeader
+
+
 section "hMapRender", hram
 hMapViewChunkY: db
 hMapViewChunkX: db
@@ -785,17 +789,16 @@ MapUpdateSlot:
 	; DE = chunk buffer dest
 	ldh a, [c] :: and SLOT_BUFFER :: or $D0
 	ld d, a :: ld e, 0
-	push de
-;	push hl
-	; skip atrb brushes
-	inc hl :: inc hl
+		push de ; keep destination for ATRB
+	; CHR brushes
+	ld hl, wMapChunkHeader.brushes0
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
 	ld a, MAP_CHR_BUFFER_BANK :: ldh [rSVBK], a
 	call MapChunkRender
-
-;	pop hl
-	pop de
-	; pointer to atrb brushes
-;	ld a, [hl+] :: ld h, [hl] :: ld l, a
+		pop de
+	; ATRB brushes
+	ld hl, wMapChunkHeader.brushes1
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
 	ld a, MAP_ATRB_BUFFER_BANK :: ldh [rSVBK], a
 	call MapChunkRender
 
@@ -1058,9 +1061,10 @@ Test_map_chunk_render:
 
 
 section "MapChunkLookup", rom0
+;; Chunk table spatial lookup -- get chunk at chunk coordinates location.
+;; If successful, the chunk's header is copied to wMapChunkHeader.
 ;; @param HL: Chunk Table
 ;; @param D,E: row,column
-;; @ret HL: Chunk
 ;; @ret F.C: set if successful
 ;; @mut: AF, B, HL
 MapChunkLookup::
@@ -1094,6 +1098,16 @@ MapChunkLookup::
 	ld a, [hl+]
 	ld h, [hl]
 	ld l, a
+
+	; Copy header to cache
+	ld de, wMapChunkHeader
+	ld b, szMapChunkHeader
+:
+	ld a, [hl+]
+	ld [de], a :: inc de
+	dec b
+	jr nz, :-
+
 	scf
 	ret
 
