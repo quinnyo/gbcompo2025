@@ -1,4 +1,4 @@
-use mapconv::{MapConverter, Rgbasm};
+use mapconv::builder::Builder;
 use std::path::Path;
 use std::{env, io};
 use tiled::Loader;
@@ -7,7 +7,14 @@ use tiled::Loader;
 pub enum Error {
     ParameterMissing,
     FileNotFound,
+    Conv(mapconv::Error),
     Io(io::Error),
+}
+
+impl From<mapconv::Error> for Error {
+    fn from(e: mapconv::Error) -> Error {
+        Error::Conv(e)
+    }
 }
 
 impl From<io::Error> for Error {
@@ -27,9 +34,9 @@ fn main() -> Result<(), Error> {
     }
     let mut loader = Loader::new();
     let tmx = loader.load_tmx_map(path).unwrap();
-
-    let mut converter = MapConverter::default();
-    converter.process_tmx(tmx)?;
-    converter.rgbasm(std::io::stdout())?;
+    let mut builder = Builder::new();
+    mapconv::process_tmx(&mut builder, tmx);
+    let result = builder.build();
+    result.rgbasm_write(std::io::stdout())?;
     Ok(())
 }

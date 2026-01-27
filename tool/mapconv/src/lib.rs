@@ -1,401 +1,57 @@
 use std::io;
 
-use crate::coord::C2i32;
-use crate::object::Object;
-
-pub mod coord;
-pub mod object;
+pub mod brush;
+pub mod builder;
+pub mod chunk;
+pub mod elem;
+pub mod geometry;
+pub mod out;
+pub mod placement;
 pub mod tiled_ext;
+pub mod tilemap;
+pub mod tsr;
 
-const PROP_EDITOR_ONLY: &str = "editor_only";
-
-#[derive(Debug, Default)]
-pub struct BgAttributes {
-    pub priority: bool,
-    pub flip_y: bool,
-    pub flip_x: bool,
-    pub bank1: bool,
-    pub palette: u8,
+pub mod coord {
+    pub use glam::{DVec2, I8Vec2, IVec2, U16Vec2, U8Vec2};
 }
 
-impl BgAttributes {
-    pub const PRIORITY: u8 = 0x80;
-    pub const FLIP_Y: u8 = 0x40;
-    pub const FLIP_X: u8 = 0x20;
-    pub const BANK: u8 = 0x08;
-    pub const PALETTE: u8 = 0x07;
+pub use tiled::Map as Tmx;
+// pub use tsr::Tilesetter;
 
-    pub fn encode_bin(&self) -> u8 {
-        assert!(self.palette <= Self::PALETTE);
-        let mut a = self.palette;
-        if self.bank1 {
-            a |= Self::BANK;
-        }
-        if self.flip_x {
-            a |= Self::FLIP_X;
-        }
-        if self.flip_y {
-            a |= Self::FLIP_Y;
-        }
-        if self.priority {
-            a |= Self::PRIORITY;
-        }
-        a
+use builder::Builder;
+
+pub type Result<T> = core::result::Result<T, Error>;
+
+#[derive(Debug)]
+pub enum Error {
+    ConversionFailed,
+    Custom(&'static str),
+    Io(io::Error),
+}
+
+impl From<&'static str> for Error {
+    fn from(v: &'static str) -> Self {
+        Self::Custom(v)
     }
 }
 
-pub trait Rgbasm {
-    fn rgbasm(&self, w: impl io::Write) -> Result<(), io::Error>;
-}
-
-impl Rgbasm for u8 {
-    fn rgbasm(&self, mut w: impl io::Write) -> Result<(), io::Error> {
-        write!(&mut w, "{:3}", self)?;
-        Ok(())
+impl From<io::Error> for Error {
+    fn from(e: io::Error) -> Error {
+        Error::Io(e)
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum Brush<T> {
-    Solid { rep: usize, val: T },
-    Terminator,
-}
+pub const PROP_EDITOR_ONLY: &str = "editor_only";
 
-impl<T> Brush<T> {
-    pub const BR_SOLID: &str = "BR_SOLID";
-    pub const BR_TERM: &str = "BR_TERM";
+pub fn process_tmx(builder: &mut Builder, tmx: Tmx) {
+    let map_name = tmx.source.file_stem().unwrap().to_str().unwrap();
 
-    pub fn terminator(&self) -> bool {
-        match self {
-            Brush::Terminator => true,
-            _ => false,
+    eprintln!("Building map '{map_name}' from tmx file {:?}", tmx.source);
+    builder.name = map_name.to_string();
+
+    for layer in tmx.layers() {
+        if !tiled_ext::properties_get_bool(&layer.properties, PROP_EDITOR_ONLY).unwrap_or(false) {
+            builder.extract_layer(&layer);
         }
-    }
-
-    /// Number of tiles emitted by this brush.
-    pub fn size(&self) -> usize {
-        match self {
-            Brush::Solid { rep, val: _val } => *rep + 1,
-            Brush::Terminator => 0,
-        }
-    }
-
-    pub fn from_datum(val: T) -> Self {
-        Self::Solid { rep: 0, val }
-    }
-}
-
-impl<T: Rgbasm> Rgbasm for Brush<T> {
-    fn rgbasm(&self, mut w: impl io::Write) -> Result<(), io::Error> {
-        match self {
-            Brush::Solid { rep, val } => {
-                write!(&mut w, "db {}, {:3}, ", Self::BR_SOLID, rep)?;
-                val.rgbasm(w)?;
-            }
-            Brush::Terminator => {
-                write!(&mut w, "db {}", Self::BR_TERM)?;
-            }
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct ChunkBrushes<T> {
-    data: Vec<Brush<T>>,
-}
-
-impl<T: Eq + PartialEq> ChunkBrushes<T> {
-    pub fn last(&self) -> Option<&Brush<T>> {
-        self.data.last()
-    }
-
-    pub fn last_mut(&mut self) -> Option<&mut Brush<T>> {
-        self.data.last_mut()
-    }
-
-    pub fn push_literal(&mut self, pushee: T) {
-        if let Some(brush) = self.last_mut() {
-            match brush {
-                Brush::Solid { rep, val } => {
-                    if *val == pushee {
-                        *rep += 1;
-                        return;
-                    }
-                }
-                Brush::Terminator => panic!(),
-            }
-        }
-        self.push(Brush::from_datum(pushee));
-    }
-
-    pub fn push(&mut self, b: Brush<T>) {
-        assert!(!self.is_terminated());
-        self.data.push(b);
-    }
-
-    pub fn is_terminated(&self) -> bool {
-        self.last().is_some_and(|b| b.terminator())
-    }
-
-    /// number of brushes
-    pub fn len(&self) -> usize {
-        self.data.len()
-    }
-
-    /// number of tiles
-    pub fn size(&self) -> usize {
-        self.data.iter().map(|b| b.size()).sum()
-    }
-
-    pub fn brushes(&self) -> impl Iterator<Item = &Brush<T>> {
-        self.data.iter()
-    }
-}
-
-impl<T> From<ChunkBrushes<T>> for Vec<Brush<T>> {
-    fn from(mut brushes: ChunkBrushes<T>) -> Vec<Brush<T>> {
-        std::mem::take(&mut brushes.data)
-    }
-}
-
-pub type ChunkCoord = u8;
-pub type ChunkIndex = u8;
-pub type TileChr = u8;
-pub type TileAtrb = u8;
-
-#[derive(Debug, Default)]
-pub struct Chunks {
-    min_pos: C2i32,
-    max_pos: C2i32,
-    chunks: Vec<(C2i32, ChunkBrushes<TileChr>, ChunkBrushes<TileAtrb>)>,
-}
-
-impl Chunks {
-    pub fn tile_origin(&self) -> C2i32 {
-        self.min_pos
-            * C2i32::new(
-                tiled::ChunkData::WIDTH as i32,
-                tiled::ChunkData::HEIGHT as i32,
-            )
-    }
-
-    /// Bounding size of the map in chunk coordinates.
-    pub fn dim(&self) -> C2i32 {
-        self.max_pos - self.min_pos
-    }
-
-    /// Returns the number of chunks in the map.
-    pub fn len(&self) -> usize {
-        self.chunks.len()
-    }
-
-    pub fn sort(&mut self) {
-        self.chunks.sort_by(|a, b| a.0.cmp(&b.0));
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.chunks.is_empty()
-    }
-
-    /// Returns an iterator over the map chunks, with normalised coordinates.
-    pub fn normalised(
-        &self,
-    ) -> impl Iterator<Item = (C2i32, &ChunkBrushes<TileChr>, &ChunkBrushes<TileAtrb>)> {
-        self.chunks
-            .iter()
-            .map(|(pos, chrs, atrbs)| (*pos - self.min_pos, chrs, atrbs))
-    }
-
-    pub fn process_layer(&mut self, tile_layer: tiled::TileLayer) {
-        match tile_layer {
-            tiled::TileLayer::Infinite(inf) => {
-                for (chunk_pos, chunk) in inf.chunks() {
-                    self.process_chunk(chunk_pos.into(), chunk);
-                }
-            }
-            _ => panic!("Only TileLayer::Infinite is supported."),
-        }
-    }
-
-    fn process_chunk(&mut self, pos: C2i32, chunk: tiled::Chunk) {
-        self.min_pos = self.min_pos.min_each(pos);
-        self.max_pos = self.max_pos.max_each(pos);
-        let brushes = Self::tiled_chunk_extract_brushes(chunk);
-        self.chunks.push((pos, brushes.0, brushes.1));
-    }
-
-    fn tiled_chunk_extract_brushes(
-        src_chunk: tiled::Chunk,
-    ) -> (ChunkBrushes<TileChr>, ChunkBrushes<TileAtrb>) {
-        let mut chr_brushes: ChunkBrushes<TileChr> = Default::default();
-        let mut atrb_brushes: ChunkBrushes<TileAtrb> = Default::default();
-        for y in 0..tiled::ChunkData::HEIGHT as i32 {
-            for x in 0..tiled::ChunkData::WIDTH as i32 {
-                if let Some(layer_tile) = src_chunk.get_tile(x, y) {
-                    assert!(layer_tile.id() < 256);
-                    chr_brushes.push_literal(layer_tile.id() as TileChr);
-                    assert!(layer_tile.flip_d == false);
-                    atrb_brushes.push_literal(
-                        BgAttributes {
-                            flip_y: layer_tile.flip_v,
-                            flip_x: layer_tile.flip_h,
-                            ..Default::default()
-                        }
-                        .encode_bin(),
-                    );
-                } else {
-                    break;
-                }
-            }
-        }
-        chr_brushes.push(Brush::Terminator);
-        atrb_brushes.push(Brush::Terminator);
-        (chr_brushes, atrb_brushes)
-    }
-}
-
-const MAP_SOURCE_PREFIX: &str = "src/assets/maps";
-
-#[derive(Debug, Default)]
-pub struct MapConverter {
-    pub map_name: Box<String>,
-    chunks: Chunks,
-    objects: Vec<Object>,
-}
-
-impl MapConverter {
-    /// Extract & convert a Tiled TMX map.
-    pub fn process_tmx(&mut self, tmx: tiled::Map) -> Result<(), io::Error> {
-        assert!(tiled::ChunkData::HEIGHT == 16);
-        assert!(tiled::ChunkData::WIDTH == 16);
-        assert!(tmx.infinite());
-        assert!(self.chunks.is_empty());
-        if self.map_name.is_empty() {
-            let name = tmx
-                .source
-                .strip_prefix(MAP_SOURCE_PREFIX)
-                .unwrap_or(tmx.source.as_path())
-                .with_extension("");
-            self.map_name = Box::new(name.to_str().unwrap().to_owned());
-        }
-        for layer in tmx.layers() {
-            if tiled_ext::properties_get_bool(&layer.properties, PROP_EDITOR_ONLY).unwrap_or(false)
-            {
-                continue;
-            } else {
-                self.process_layer(layer);
-            }
-        }
-        self.chunks.sort();
-        Ok(())
-    }
-
-    fn process_layer(&mut self, layer: tiled::Layer) {
-        match layer.layer_type() {
-            tiled::LayerType::Tiles(tile_layer) => {
-                self.chunks.process_layer(tile_layer);
-            }
-            tiled::LayerType::Objects(object_layer) => {
-                for object in object_layer.objects() {
-                    let mut obj = Object::try_from(object).unwrap();
-                    obj.position.x += layer.offset_x as i32;
-                    obj.position.y += layer.offset_y as i32;
-                    self.objects.push(obj);
-                }
-            }
-            _ => panic!(),
-        }
-    }
-}
-
-impl Rgbasm for MapConverter {
-    fn rgbasm(&self, mut w: impl io::Write) -> Result<(), io::Error> {
-        assert!(!self.map_name.is_empty());
-
-        let mut chunk_idx = 0;
-        let mut chunk_table: Vec<(ChunkCoord, Vec<(ChunkCoord, ChunkIndex)>)> = vec![];
-
-        let tile_origin = self.chunks.tile_origin();
-        let dot_origin = tile_origin * 8;
-
-        writeln!(&mut w, "include \"map.rgbinc\"\n")?;
-        writeln!(&mut w, "section \"map_{}\", romx", self.map_name)?;
-        writeln!(&mut w, "map_{}::", self.map_name)?;
-
-        // header
-        writeln!(&mut w, "\tdw .chunk_table")?;
-        writeln!(&mut w, "\tdw .objects")?;
-
-        // objects
-        let objects_len = self.objects.len();
-        assert!(objects_len <= 255);
-        writeln!(&mut w, ".objects::")?;
-        writeln!(&mut w, "\tdb {} ; len", objects_len)?;
-        for obj in &self.objects {
-            if let Some(id) = obj.data.encode() {
-                let x = (obj.position.x - dot_origin.x) as u16;
-                let y = (obj.position.y - dot_origin.y) as u16;
-                writeln!(&mut w, "\tdw {}, {}, {}", id, y, x)?;
-            }
-        }
-
-        // tiles/chunks
-        for (pos, chrs, atrbs) in self.chunks.normalised() {
-            assert!(atrbs.size() == chrs.size());
-            let ntiles = chrs.size();
-            // pre-format asm labels
-            let prefix = format!(".chunk_{chunk_idx}");
-            let brushes0 = format!("{prefix}_brushes0");
-            let brushes1 = format!("{prefix}_brushes1");
-            let zones = format!("{prefix}_zones");
-
-            writeln!(&mut w, "{prefix}:: ; {pos} ({ntiles})")?;
-            writeln!(&mut w, "\tdw {brushes0}")?;
-            writeln!(&mut w, "\tdw {brushes1}")?;
-            writeln!(&mut w, "\tdw {zones}")?;
-
-            writeln!(&mut w, "{brushes0}::")?;
-            for brush in chrs.brushes() {
-                write!(&mut w, "\t")?;
-                brush.rgbasm(&mut w)?;
-                writeln!(&mut w)?;
-            }
-            writeln!(&mut w, "{brushes1}::")?;
-            for brush in atrbs.brushes() {
-                write!(&mut w, "\t")?;
-                brush.rgbasm(&mut w)?;
-                writeln!(&mut w)?;
-            }
-            writeln!(&mut w, "{zones}:: db 0")?;
-
-            assert!(pos.x < 256);
-            assert!(pos.y < 256);
-            let (x, y) = (pos.x as ChunkCoord, pos.y as ChunkCoord);
-
-            let entry = (x, chunk_idx);
-            if chunk_table.last().is_some_and(|row| row.0 == y) {
-                let (_last_y, last_data) = chunk_table.last_mut().unwrap();
-                last_data.push(entry);
-            } else {
-                chunk_table.push((y, vec![entry]));
-            }
-            chunk_idx += 1;
-        }
-
-        // print chunk table
-        writeln!(&mut w, ".chunk_table:: db {}", chunk_table.len())?;
-        for i in 0..chunk_table.len() {
-            let y = chunk_table[i].0;
-            writeln!(&mut w, "\tdb {y}\n\tdw .row{y}")?;
-        }
-        for (y, data) in chunk_table.iter() {
-            writeln!(&mut w, "\t.row{y}: db {}", data.len())?;
-            for (x, idx) in data.iter() {
-                writeln!(&mut w, "\t\tdb {x}\n\t\tdw .chunk_{idx}")?;
-            }
-        }
-
-        Ok(())
     }
 }

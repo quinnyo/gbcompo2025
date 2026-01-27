@@ -69,6 +69,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "glam"
+version = "0.30.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd47b05dddf0005d850e5644cae7f2b14ac3df487979dbfff3b56f20b1a6ae46"
+
+[[package]]
 name = "jobserver"
 version = "0.1.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -88,6 +94,7 @@ checksum = "1171693293099992e19cddea4e8b849964e9846f4acee11b3948bcc337be8776"
 name = "mapconv"
 version = "0.1.0"
 dependencies = [
+ "glam",
  "tiled",
 ]
 

@@ -53,6 +53,50 @@
                 "object",
                 "project"
             ]
+        },
+        {
+            "color": "#ff4f89a4",
+            "drawFill": true,
+            "id": 13,
+            "members": [
+                {
+                    "name": "modulate",
+                    "type": "float",
+                    "value": 1
+                },
+                {
+                    "name": "rules",
+                    "type": "object",
+                    "value": 0
+                }
+            ],
+            "name": "ZArea",
+            "type": "class",
+            "useAs": [
+                "object"
+            ]
+        },
+        {
+            "color": "#ff11cb84",
+            "drawFill": true,
+            "id": 15,
+            "members": [
+                {
+                    "name": "magnitude",
+                    "type": "float",
+                    "value": 0
+                },
+                {
+                    "name": "to",
+                    "type": "object",
+                    "value": 0
+                }
+            ],
+            "name": "ZFlow",
+            "type": "class",
+            "useAs": [
+                "object"
+            ]
         }
     ]
 }
