@@ -222,6 +222,11 @@ MapOpen::
 
 
 _SetupObjects:
+	; NOTE: The naming of things here (MapObject, & Items in particular) does
+	;     : not match up with mapconv (Elements, Resources, & Markers) and is
+	;     : generally a bit confusing.
+	;     : - Item is more like "(Item)Spawner"
+	;     : - SpawnMapObject is more like "SpawnItem"
 	ld hl, wMapHeader.objects
 	ld a, [hl+]
 	ld h, [hl]
@@ -231,7 +236,28 @@ _SetupObjects:
 	ret z
 	ld c, a
 .loop
-	; copy object to cache
+		push bc
+	call _DoObject
+		pop bc
+	dec c
+	jr nz, .loop
+
+	ret
+
+
+_DoObject:
+	ld a, [hl]
+	cp MapObject_ITEM_ID_MAX
+	jr c, .do_item
+	cp MapObject_PLAYER_START
+	jr z, .do_player_start
+	cp MapObject_FLOW_RULES
+	jr z, .do_flow_rules
+.unknown_typeid
+	ld b, b
+	jr .unknown_typeid
+.do_item:
+	; Item Spawner
 	ld b, szMapObject
 	ld de, wMapObjectCache
 :
@@ -240,32 +266,27 @@ _SetupObjects:
 	dec b
 	jr nz, :-
 
-	; process object
-		push bc :: push hl
+		push hl
 	ld de, wMapObjectCache
-	call .do_object
-		pop hl :: pop bc
-
-	dec c
-	jr nz, .loop
-
+	call SpawnMapObject
+		pop hl
 	ret
-
-
-.do_object:
-	ld a, [de] ; typeid
-	; Types handled by Map
-	cp MapObject_PLAYER_START
-	jr z, .do_player_start
-	; Everything else
-	jp SpawnMapObject
-
 .do_player_start:
-	ld hl, wMapObjectCache.y
+	; Player spawn location:
+	; This is just a position that gets copied for later use.
+	rept MapObject_y
+		inc hl
+	endr
 	ld a, [hl+] :: ld [wMapPlayerStartY + 0], a
 	ld a, [hl+] :: ld [wMapPlayerStartY + 1], a
 	ld a, [hl+] :: ld [wMapPlayerStartX + 0], a
 	ld a, [hl+] :: ld [wMapPlayerStartX + 1], a
+	ret
+.do_flow_rules:
+	; TODO: actually handle FlowRules
+	rept szFlowRules + 2 ; (+2) for typeid
+		inc hl
+	endr
 	ret
 
 

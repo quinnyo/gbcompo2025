@@ -107,6 +107,26 @@ pub enum ElementType {
     },
 }
 
+impl ElementType {
+    pub const TYPEID_MARKER_MAX: u16 = 64;
+    pub const TYPEID_PLAYER_START: u16 = 64;
+    pub const TYPEID_FLOW: u16 = 65;
+    pub const TYPEID_ZONE: u16 = 66;
+
+    /// Get the element's ("MapObject") typeid, use to identify the object in the map loader.
+    pub fn typeid(&self) -> u16 {
+        match self {
+            ElementType::PlayerStart(_) => Self::TYPEID_PLAYER_START,
+            ElementType::Marker { tag, .. } => {
+                assert!(tag < &Self::TYPEID_MARKER_MAX);
+                *tag
+            }
+            ElementType::Flow(_) => Self::TYPEID_FLOW,
+            ElementType::Zone { .. } => Self::TYPEID_ZONE,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Element {
     pub id: ElemId,
@@ -114,22 +134,20 @@ pub struct Element {
 }
 
 impl Element {
-    const PLAYER_START: u16 = 64;
-
     pub fn rgbasm(&self, code: &mut Vec<String>) {
         let label = format!(".{}", self.id);
-        code.push(format!("{}:", label));
+        code.append(&mut vec![
+            format!("{}:", label),
+            format!("dw ${:02X}", self.data.typeid()),
+        ]);
         match self.data {
-            ElementType::PlayerStart(position) => code.push(format!(
-                "dw {}, {}, {}",
-                Self::PLAYER_START,
-                position.y,
-                position.x
-            )),
-            ElementType::Marker { tag, position } => {
-                code.push(format!("dw {}, {}, {}", tag, position.y, position.x))
+            ElementType::PlayerStart(position) => {
+                code.push(format!("dw {}, {}", position.y, position.x))
             }
-            ElementType::Flow(_) => (), //code.push(format!("db {}, {}", v.x, v.y)),
+            ElementType::Marker { tag: _, position } => {
+                code.push(format!("dw {}, {}", position.y, position.x))
+            }
+            ElementType::Flow(v) => code.push(format!("db {}, {}", v.x, v.y)),
             ElementType::Zone { .. } => (),
         }
     }
