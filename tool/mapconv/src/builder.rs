@@ -166,11 +166,11 @@ impl Builder {
             }
         }
 
-        Map {
-            name: self.name.clone(),
+        Map::new(
+            self.name.clone(),
             resources,
-            chunks: chunks.drain().map(|(_, chunk)| chunk).collect(),
-        }
+            chunks.drain().map(|(_, chunk)| chunk).collect(),
+        )
     }
 
     /// Create a new, empty, Builder.

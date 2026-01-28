@@ -73,6 +73,17 @@ impl Map {
             }
         }
     }
+
+    pub fn sort(&mut self) {
+        self.resources.sort_by(|a, b| a.data.typeid().cmp(&b.data.typeid()).then(a.id.cmp(&b.id)));
+        self.chunks.sort_by(|a, b| a.coord.y.cmp(&b.coord.y).then(a.coord.x.cmp(&b.coord.x)));
+    }
+
+    pub fn new(name: String, resources: Vec<Element>, chunks: Vec<Chunk>) -> Self {
+        let mut map = Self { name, resources, chunks };
+        map.sort();
+        map
+    }
 }
 
 struct ChunkTableRow {
@@ -82,7 +93,8 @@ struct ChunkTableRow {
 }
 
 impl ChunkTableRow {
-    pub fn from_y_columns(y: u8, columns: Vec<u8>) -> Self {
+    pub fn from_y_columns(y: u8, mut columns: Vec<u8>) -> Self {
+        columns.sort();
         Self {
             y,
             label: format!(".row{}", y),
