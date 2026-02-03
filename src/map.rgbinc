@@ -54,7 +54,7 @@ def PLAYER_START_DEFAULT_X equ 8 * 4
 st MapChunkHeader
 	stf brushes0, 2
 	stf brushes1, 2
-	stf zones, 2
+	stf elements, 2
 st
 
 
