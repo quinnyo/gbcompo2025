@@ -90,7 +90,7 @@ hMapSelectBank: db
 hMapSelectAddr: dw
 
 
-section "wMapContext", wramx
+section "wMapContext", wram0
 ;; PlayerStart Y position, in dots.
 wMapPlayerStartY:: dw
 ;; PlayerStart X position, in dots.
@@ -200,7 +200,6 @@ MapOpen::
 	; Initial map setup
 	ldh a, [hMapSelectBank] :: ld b, a
 		rombopen b
-		wrambpush bank("wMapContext")
 
 	; Reset player start to default
 	ld a, low(PLAYER_START_DEFAULT_Y) :: ld [wMapPlayerStartY + 0], a
@@ -215,8 +214,6 @@ MapOpen::
 
 	; Process map objects
 	call _SetupObjects
-
-		wrambpop ; wMapContext
 
 	; Enable processing
 	ldh a, [hMapCtl]
@@ -356,14 +353,13 @@ MapUpdate::
 section "MapGetPlayerStart", rom0
 ;; @ret BC: Y position
 ;; @ret DE: X position
+;; @mut: AF, BC, DE, HL
 MapGetPlayerStart::
-		wrambpush bank("wMapContext")
 	ld hl, wMapPlayerStartY
 	ld a, [hl+] :: ld c, a ; y.lo
 	ld a, [hl+] :: ld b, a ; y.hi
 	ld a, [hl+] :: ld e, a ; x.lo
 	ld a, [hl+] :: ld d, a ; x.hi
-		wrambpop ; wMapContext
 	ret
 
 
