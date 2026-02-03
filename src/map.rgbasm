@@ -102,6 +102,10 @@ wMapHeader::
 	.objects:: dw
 
 
+section union "wMapState", wramx[MAP_RUNTIME_STATE_ADDRESS]
+wMapState:: ds MAP_RUNTIME_STATE_SIZE
+
+
 section "wMapObjectCache", wram0
 ;; Copy of MapObject that's being worked on.
 wMapObjectCache::
@@ -246,6 +250,7 @@ _SetupObjects:
 
 
 _DoObject:
+	; Read typeid low byte and call appropriate handler function.
 	ld a, [hl]
 	cp MapObject_ITEM_ID_MAX
 	jr c, .do_item
@@ -283,10 +288,17 @@ _DoObject:
 	ld a, [hl+] :: ld [wMapPlayerStartX + 1], a
 	ret
 .do_flow_rules:
-	; TODO: actually handle FlowRules
-	rept szFlowRules + 2 ; (+2) for typeid
-		inc hl
-	endr
+	; FlowRules:
+	; Defines a flow Zone effect.
+	; { typeid: dw, runtime_addr: dw, vx: db, vy: db }
+		wrambpush bank(wMapState)
+	inc hl :: inc hl ; skip typeid
+	; runtime state destination address
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+	ld a, [hl+] :: ld [de], a :: inc de ; .vx
+	ld a, [hl+] :: ld [de], a ; .vx
+		wrambpop ; wMapState
 	ret
 
 

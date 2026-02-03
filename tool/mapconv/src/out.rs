@@ -3,12 +3,19 @@ use std::collections::HashMap;
 
 #[derive(Debug, Default)]
 pub struct Map {
-    pub name: String,
-    pub resources: Vec<Element>,
-    pub chunks: Vec<Chunk>,
+    name: String,
+    resources: Vec<Element>,
+    chunks: Vec<Chunk>,
+    /// Runtime map state allocation table.
+    runtime_allocs: HashMap<ElemId, u16>,
 }
 
 impl Map {
+    /// Start of `wMapState` runtime state section.
+    pub const RUNTIME_STATE_ADDRESS: u16 = 0xD000;
+    /// Size in bytes of `wMapState` section.
+    pub const RUNTIME_STATE_SIZE: u16 = 0x400;
+
     pub fn rgbasm_write(&self, mut w: impl std::io::Write) -> crate::Result<()> {
         let mut code = vec![];
         self.rgbasm(&mut code);
@@ -33,12 +40,12 @@ impl Map {
             format!("\tdb {}", self.resources.len()),
         ]);
         for res in self.resources.iter() {
-            res.rgbasm(code);
+            res.rgbasm(&self, code);
         }
         code.push(String::default());
         let mut chunk_table: HashMap<u8, Vec<u8>> = HashMap::new();
         for chunk in self.chunks.iter() {
-            chunk.rgbasm(code);
+            chunk.rgbasm(&self, code);
             chunk_table
                 .entry(chunk.coord.y)
                 .or_default()
@@ -74,15 +81,72 @@ impl Map {
         }
     }
 
-    pub fn sort(&mut self) {
-        self.resources.sort_by(|a, b| a.data.typeid().cmp(&b.data.typeid()).then(a.id.cmp(&b.id)));
-        self.chunks.sort_by(|a, b| a.coord.y.cmp(&b.coord.y).then(a.coord.x.cmp(&b.coord.x)));
+    /// Lookup the `wMapState` runtime address allocated for the element with the given id.
+    pub fn runtime_address(&self, id: ElemId) -> Option<u16> {
+        self.runtime_allocs.get(&id).copied()
     }
 
     pub fn new(name: String, resources: Vec<Element>, chunks: Vec<Chunk>) -> Self {
-        let mut map = Self { name, resources, chunks };
+        let mut map = Self {
+            name,
+            resources,
+            chunks,
+            runtime_allocs: HashMap::new(),
+        };
         map.sort();
+        map.resolve();
         map
+    }
+
+    fn resolve(&mut self) {
+        // allocate runtime memory
+        let mut allocator = Allocator::new(Self::RUNTIME_STATE_ADDRESS);
+        for el in self.resources.iter() {
+            if let Some(size) = el.runtime_size() {
+                allocator.alloc(el.id, size);
+            }
+        }
+        self.runtime_allocs = allocator.drain().map(|it| (it.id, it.addr)).collect();
+    }
+
+    fn sort(&mut self) {
+        self.resources
+            .sort_by(|a, b| a.data.typeid().cmp(&b.data.typeid()).then(a.id.cmp(&b.id)));
+        self.chunks
+            .sort_by(|a, b| a.coord.y.cmp(&b.coord.y).then(a.coord.x.cmp(&b.coord.x)));
+    }
+}
+
+struct AllocItem {
+    id: ElemId,
+    addr: u16,
+}
+
+#[derive(Default)]
+struct Allocator {
+    next: u16,
+    items: Vec<AllocItem>,
+}
+
+impl Allocator {
+    pub fn alloc(&mut self, id: ElemId, size: u16) -> u16 {
+        let addr = self.next;
+        self.next += size;
+        let item = AllocItem { id, addr };
+        self.items.push(item);
+        addr
+    }
+
+    pub fn drain(&mut self) -> impl Iterator<Item = AllocItem> + use<'_> {
+        self.next = 0;
+        self.items.drain(..)
+    }
+
+    pub fn new(start: u16) -> Self {
+        Self {
+            next: start,
+            items: Vec::new(),
+        }
     }
 }
 
@@ -120,10 +184,10 @@ pub enum ElementType {
 }
 
 impl ElementType {
-    pub const TYPEID_MARKER_MAX: u16 = 64;
-    pub const TYPEID_PLAYER_START: u16 = 64;
-    pub const TYPEID_FLOW: u16 = 65;
-    pub const TYPEID_ZONE: u16 = 66;
+    pub const TYPEID_MARKER_MAX: u16 = 0x40;
+    pub const TYPEID_PLAYER_START: u16 = 0x40;
+    pub const TYPEID_FLOW: u16 = 0x41;
+    pub const TYPEID_ZONE: u16 = 0x42;
 
     /// Get the element's ("MapObject") typeid, use to identify the object in the map loader.
     pub fn typeid(&self) -> u16 {
@@ -137,6 +201,15 @@ impl ElementType {
             ElementType::Zone { .. } => Self::TYPEID_ZONE,
         }
     }
+
+    pub fn runtime_size(&self) -> Option<u16> {
+        match self {
+            ElementType::PlayerStart(_) => None,
+            ElementType::Marker { .. } => None,
+            ElementType::Flow(_) => Some(2),
+            ElementType::Zone { .. } => None,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -146,22 +219,43 @@ pub struct Element {
 }
 
 impl Element {
-    pub fn rgbasm(&self, code: &mut Vec<String>) {
+    pub fn rgbasm(&self, context: &Map, code: &mut Vec<String>) {
         let label = format!(".{}", self.id);
         code.append(&mut vec![
             format!("{}:", label),
-            format!("dw ${:02X}", self.data.typeid()),
+            format!("\tdw ${:02X}", self.data.typeid()),
         ]);
+        // runtime destination address for elements with runtime state
+        if self.data.runtime_size().is_some() {
+            code.push(format!(
+                "\tdw ${:04X}",
+                context.runtime_address(self.id).unwrap()
+            ));
+        }
         match self.data {
             ElementType::PlayerStart(position) => {
-                code.push(format!("dw {}, {}", position.y, position.x))
+                code.push(format!("\tdw {}, {}", position.y, position.x))
             }
             ElementType::Marker { tag: _, position } => {
-                code.push(format!("dw {}, {}", position.y, position.x))
+                code.push(format!("\tdw {}, {}", position.y, position.x))
             }
-            ElementType::Flow(v) => code.push(format!("db {}, {}", v.x, v.y)),
-            ElementType::Zone { .. } => (),
+            ElementType::Flow(v) => code.push(format!("\tdb {}, {}", v.x, v.y)),
+            ElementType::Zone {
+                position,
+                size,
+                rules,
+            } => {
+                code.append(&mut vec![
+                    format!("\tdb {}, {}", position.y, position.x),
+                    format!("\tdb {}, {}", size.y, size.x),
+                    format!("\tdw ${:04X}", context.runtime_address(rules).unwrap()),
+                ]);
+            }
         }
+    }
+
+    pub fn runtime_size(&self) -> Option<u16> {
+        self.data.runtime_size()
     }
 
     pub fn new(id: ElemId, data: ElementType) -> Self {
@@ -178,7 +272,7 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    pub fn rgbasm(&self, code: &mut Vec<String>) {
+    pub fn rgbasm(&self, context: &Map, code: &mut Vec<String>) {
         let label = self.label();
         let label_br0 = format!("{}_br0", &label);
         let label_br1 = format!("{}_br1", &label);
@@ -195,6 +289,9 @@ impl Chunk {
             format!("{}:", &label_elems),
             format!("\tdb {}", self.elements.len()),
         ]);
+        for elem in self.elements.iter() {
+            elem.rgbasm(context, code);
+        }
     }
 
     pub fn label(&self) -> String {

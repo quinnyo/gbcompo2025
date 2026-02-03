@@ -6,20 +6,21 @@ map_c1::
 .resources:
 	db 5
 .EidSrc_f:
-dw $00
-dw 63, 144
+	dw $00
+	dw 63, 144
 .EidSrc_10:
-dw $01
-dw 60, 240
+	dw $01
+	dw 60, 240
 .EidSrc_11:
-dw $02
-dw 80, 296
+	dw $02
+	dw 80, 296
 .EidSrc_9:
-dw $40
-dw 64, 72
+	dw $40
+	dw 64, 72
 .EidSrc_3a:
-dw $41
-db 75, 65
+	dw $41
+	dw $D000
+	db 75, 65
 
 .chunk_0_0:
 	dw .chunk_0_0_br0, .chunk_0_0_br1, .chunk_0_0_elems
@@ -29,6 +30,16 @@ db 75, 65
 	db $01,$FF,$00,$00
 .chunk_0_0_elems:
 	db 2
+.EidSrc_4a:
+	dw $42
+	db 16, 40
+	db 48, 32
+	dw $D000
+.EidSrc_2b:
+	dw $42
+	db 0, 0
+	db 56, 40
+	dw $D000
 .chunk_1_0:
 	dw .chunk_1_0_br0, .chunk_1_0_br1, .chunk_1_0_elems
 .chunk_1_0_br0:

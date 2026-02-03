@@ -58,5 +58,11 @@ st MapChunkHeader
 st
 
 
+;; Start address of map runtime state section.
+def MAP_RUNTIME_STATE_ADDRESS equ $D000
+;; Size of map runtime state section.
+def MAP_RUNTIME_STATE_SIZE equ $400
+
+
 endc ; Q_MAP_INC_rJ398bhW
 
