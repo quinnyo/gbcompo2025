@@ -36,12 +36,24 @@ def MapObject_ITEM_ID_MAX rb 0
 def MapObject_PLAYER_START rb 1
 ;; Flow zone rules
 def MapObject_FLOW_RULES rb 1
+;; A Zone local to a chunk
+def MapObject_CHUNK_ZONE rb 1
 def MapObject_NULL equ $FF
 
 
 st FlowRules
 	stf vx, 1
 	stf vy, 1
+st
+
+
+;; A Zone local to a chunk
+st ChunkZone
+	stf y, 1
+	stf h, 1
+	stf x, 1
+	stf w, 1
+	stf rules, 2
 st
 
 

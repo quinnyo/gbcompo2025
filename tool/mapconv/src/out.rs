@@ -246,8 +246,8 @@ impl Element {
                 rules,
             } => {
                 code.append(&mut vec![
-                    format!("\tdb {}, {}", position.y, position.x),
-                    format!("\tdb {}, {}", size.y, size.x),
+                    format!("\tdb {}, {}", position.y, size.y),
+                    format!("\tdb {}, {}", position.x, size.x),
                     format!("\tdw ${:04X}", context.runtime_address(rules).unwrap()),
                 ]);
             }

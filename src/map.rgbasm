@@ -1128,6 +1128,7 @@ MapChunkLookup::
 	ld h, [hl]
 	ld l, a
 
+		push de
 	; Copy header to cache
 	ld de, wMapChunkHeader
 	ld b, szMapChunkHeader
@@ -1136,6 +1137,7 @@ MapChunkLookup::
 	ld [de], a :: inc de
 	dec b
 	jr nz, :-
+		pop de
 
 	scf
 	ret
@@ -1159,6 +1161,91 @@ endr
 	ret
 
 */
+
+
+section "MapZoneQuery", rom0
+;; Find Zone(Rules) that contains point (if any).
+;; @param BC: query point Y (dots)
+;; @param DE: query point X (dots)
+;; @ret F.C: Set if point in zone
+;; @ret DE: Rules applicable to zone (only valid with F.C)
+;; @mut: AF, BC, DE, HL
+MapZoneQuery::
+		rombpush
+	ldh a, [hMapSelectBank]
+	ld [ROMB_LO], a
+		push de :: push bc
+	; dots to chunk coord
+	rl e :: rl d
+	ld e, b :: rl c :: rl e
+
+	ld hl, hMapSelectAddr
+	ld a, [hl+] :: ld h, [hl] :: ld l, a ; hMapSelectAddr
+	ld a, [hl+] :: ld h, [hl] :: ld l, a ; map.chunk_table
+	call MapChunkLookup
+		pop bc :: pop de
+	jr nc, .exit_miss
+
+	ld hl, wMapChunkHeader.elements
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+	ld a, [hl+] :: ld b, a ; number of items
+	; early out if zero items
+	and a
+	jr z, .exit_miss
+
+	; query point relative to chunk
+	; NOTE: `res 7, R8` faster than equiv. using `and $7F`
+	res 7, c ; Y
+	res 7, e ; X
+
+	; iterate elements
+.loop
+	; filter ChunkZone type
+	ld a, [hl+] ; .typeid.0
+	inc hl ; skip typeid.1
+	cp MapObject_CHUNK_ZONE
+	jr nz, .err_unexpected_typeid
+		push hl
+	; Y
+	; rel = p - min; rel < 0 ? miss
+	ld a, c :: sub [hl] :: jr c, .continue
+	inc hl
+	; rel >= size ? miss
+	cp [hl] :: jr nc, .continue ; compare relative point in zone with size
+	inc hl
+
+	; X
+	ld a, e :: sub [hl] :: jr c, .continue
+	inc hl
+	cp [hl] :: jr nc, .continue
+	inc hl
+
+	; hit
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+
+		pop af ; discard stashed element pointer
+		rombpop
+	scf
+	ret
+
+.continue
+		pop hl
+	ld a, szChunkZone
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+
+	dec b
+	jr nz, .loop
+
+.exit_miss:
+		rombpop
+	and a ; Clear F.C
+	ret
+
+.err_unexpected_typeid:
+	ld b, b
+	jr .err_unexpected_typeid
 
 
 section "MapReset", rom0

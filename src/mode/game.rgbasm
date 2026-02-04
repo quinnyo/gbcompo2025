@@ -102,6 +102,8 @@ modeGame_Enter::
 
 
 modeGame_Process::
+	call _TestMapZones
+
 	call EntityUpdate
 	call _ViewUpdate
 
@@ -137,6 +139,43 @@ _GotoPack:
 	call ModePush
 	ld de, rModes_modePack
 	jp ModeSetActive
+
+
+;; DEBUG: Map Flow Zone & Query
+;; Sets player acceleration from flow vector if player entity is inside zone.
+;; NOTE: Assumes all Zone Rules are Flow
+;; NOTE: Flow vector applied without appropriate scaling
+_TestMapZones:
+	ld a, [wPlayer.ent]
+	call EntityAt
+	ret nc
+
+	entity_index Entity_PosX
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+	coord_int16 de
+
+	entity_index Entity_PosY
+	ld a, [hl+] :: ld c, a
+	ld a, [hl+] :: ld b, a
+	coord_int16 bc
+
+		push hl
+	call MapZoneQuery
+		pop hl
+	ret nc
+
+	; Set entity acceleration from flow vector
+		wrambpush bank(wMapState)
+	entity_index Entity_AccX
+	ld a, [de] :: inc de ; flow.vx
+	ld [hl+], a ; AccX
+	entity_index Entity_AccY
+	ld a, [de] :: inc de ; flow.vy
+	ld [hl+], a ; AccY
+		wrambpop ; wMapState
+
+	ret
 
 
 _ItemsUpdateCollision:

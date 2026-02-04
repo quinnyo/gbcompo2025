@@ -261,9 +261,13 @@ PlayerThink:
 	ldh a, [hEntityActive.state + 0] :: ld l, a
 	ldh a, [hEntityActive.state + 1] :: ld h, a
 	entity_index Entity_AccY
-	ld [hl], d
+	ld b, d :: ld c, [hl]
+	call AddS8_sat
+	ld [hl], c
 	entity_index Entity_AccX
-	ld [hl], e
+	ld b, e :: ld c, [hl]
+	call AddS8_sat
+	ld [hl], c
 
 	entity_index Entity_Ctrl
 	; set NOGRAV if active directional input.
