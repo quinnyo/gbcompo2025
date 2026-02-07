@@ -6,7 +6,7 @@ use crate::{
     coord::*,
     elem::ElemId,
     geometry::Shape,
-    out::{self, Element, ElementType, Map},
+    out::{self, Element, ElementType, FlowRules, Map},
     placement::{Placement, PlacementType},
     tsr::Tilesetter,
 };
@@ -141,17 +141,24 @@ impl Builder {
                         panic!("expected Rect shape for Zone");
                     }
                 }
-                PlacementType::ZFlow { magnitude, to } => {
-                    assert!(magnitude <= 127.0);
-                    // TODO: lookup `to` in .placements
+                PlacementType::ZFlow {
+                    ref vecs_magnitude,
+                    ref sequence,
+                    to,
+                } => {
                     if let Some(rhs) = self.placements.get(&to) {
                         let diff = rhs.position.as_dvec2() - placement.position.as_dvec2();
                         let dir = diff
                             .try_normalize()
                             .expect("failed to normalise flow vector");
+                        let vecs = vecs_magnitude
+                            .iter()
+                            .map(|m| (m * dir).round().as_i8vec2())
+                            .collect();
+
                         resources.push(Element::new(
                             id,
-                            ElementType::Flow((dir * magnitude).as_i8vec2()),
+                            ElementType::FlowRules(FlowRules::new(vecs, sequence.clone())),
                         ));
                     } else {
                         panic!("ZFlow 'to' object not found");

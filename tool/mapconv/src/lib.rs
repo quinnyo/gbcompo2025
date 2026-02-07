@@ -50,7 +50,7 @@ pub fn process_tmx(builder: &mut Builder, tmx: Tmx) {
     builder.name = map_name.to_string();
 
     for layer in tmx.layers() {
-        if !tiled_ext::properties_get_bool(&layer.properties, PROP_EDITOR_ONLY).unwrap_or(false) {
+        if !tiled_ext::properties_get(&layer.properties, PROP_EDITOR_ONLY).unwrap_or(false) {
             builder.extract_layer(&layer);
         }
     }

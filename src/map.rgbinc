@@ -41,12 +41,6 @@ def MapObject_CHUNK_ZONE rb 1
 def MapObject_NULL equ $FF
 
 
-st FlowRules
-	stf vx, 1
-	stf vy, 1
-st
-
-
 ;; A Zone local to a chunk
 st ChunkZone
 	stf y, 1
@@ -74,6 +68,45 @@ st
 def MAP_RUNTIME_STATE_ADDRESS equ $D000
 ;; Size of map runtime state section.
 def MAP_RUNTIME_STATE_SIZE equ $400
+
+
+/***************************************
+************** MapEntity ***************
+***************************************/
+rsreset
+def MapEntityType_FLOW rb 1
+
+rsreset
+def bMapEntityCtl_ACTIVE rb 1
+
+def MapEntityCtl_ACTIVE equ 1 << bMapEntityCtl_ACTIVE
+
+st MapEntitySlot
+	;; The entity's type ID (MapEntityType).
+	stf type, 1
+	;; Status/control flags.
+	stf ctl, 1
+	;; Pointer to entity type data.
+	stf data, 2
+st
+
+;; Flow effect runtime state.
+st FlowState
+	;; MapEntityType
+	stf type, 1
+	;; Pointer to FlowDef data.
+	stf flow_def, 2
+	;; Current position in sequence.
+	stf iseq, 1
+	;; Current flow vector, X component.
+	stf vx, 1
+	;; Current flow vector, Y component.
+	stf vy, 1
+st
+
+
+;; Number of MapEntitySlots available.
+def MAP_ENTITY_SLOTS_LENGTH equ 32
 
 
 endc ; Q_MAP_INC_rJ398bhW

@@ -12,10 +12,13 @@ pub struct Placement {
 }
 
 impl TryFrom<&tiled::Object<'_>> for Placement {
-    type Error = PlacementTypeError;
+    type Error = UserTypeError;
 
     fn try_from(value: &tiled::Object) -> Result<Self, Self::Error> {
-        let data = PlacementType::try_from(value)?;
+        let data = PlacementType::try_from(value).map_err(|err| UserTypeError {
+            user_type: value.user_type.to_string(),
+            err,
+        })?;
         Ok(Self {
             id: ElemId::Source(value.id()),
             name: value.name.clone(),
@@ -36,59 +39,41 @@ pub enum PlacementType {
     /// Effective area for a Zone
     ZArea { modulate: f64, rules: ElemId },
     /// Flow Zone rules
-    ZFlow { magnitude: f64, to: ElemId },
+    ZFlow {
+        vecs_magnitude: Vec<f64>,
+        sequence: Vec<u8>,
+        to: ElemId,
+    },
     /// Unrecognised user type string
     Unknown(String),
 }
 
 impl TryFrom<&tiled::Object<'_>> for PlacementType {
-    type Error = PlacementTypeError;
+    type Error = UserTypeErrorKind;
 
     fn try_from(value: &tiled::Object) -> Result<Self, Self::Error> {
         match value.user_type.as_str() {
             "PlayerStart" => Ok(Self::PlayerStart),
             "Marker" => {
-                if let Some(id) = tiled_ext::properties_get_int(&value.properties, "id") {
-                    Ok(Self::Marker(id as u8))
-                } else {
-                    Err(PlacementTypeError::Property {
-                        user_type: "Marker",
-                        property: "id",
-                    })
-                }
+                let id: i32 = tiled_ext::properties_get(&value.properties, "id")?;
+                Ok(Self::Marker(id as u8))
             }
             "ZArea" => {
-                if let Some(rules) = tiled_ext::properties_get_object(&value.properties, "rules") {
-                    Ok(Self::ZArea {
-                        modulate: tiled_ext::properties_get_float(&value.properties, "modulate")
-                            .unwrap_or(1.0),
-                        rules,
-                    })
-                } else {
-                    Err(PlacementTypeError::Property {
-                        user_type: "ZArea",
-                        property: "rules",
-                    })
-                }
+                let rules = tiled_ext::properties_get(&value.properties, "rules")?;
+                let modulate =
+                    tiled_ext::properties_get(&value.properties, "modulate").unwrap_or(1.0);
+                Ok(Self::ZArea { modulate, rules })
             }
             "ZFlow" => {
-                if let Some(magnitude) =
-                    tiled_ext::properties_get_float(&value.properties, "magnitude")
-                {
-                    if let Some(to) = tiled_ext::properties_get_object(&value.properties, "to") {
-                        Ok(Self::ZFlow { magnitude, to })
-                    } else {
-                        Err(PlacementTypeError::Property {
-                            user_type: "ZFlow",
-                            property: "to",
-                        })
-                    }
-                } else {
-                    Err(PlacementTypeError::Property {
-                        user_type: "ZFlow",
-                        property: "magnitude",
-                    })
-                }
+                let vecs_magnitude =
+                    tiled_ext::properties_get_list(&value.properties, "vecs_magnitude")?;
+                let sequence = tiled_ext::properties_get_list(&value.properties, "sequence")?;
+                let to = tiled_ext::properties_get(&value.properties, "to")?;
+                Ok(PlacementType::ZFlow {
+                    vecs_magnitude,
+                    sequence,
+                    to,
+                })
             }
             s => Ok(Self::Unknown(s.to_string())),
         }
@@ -96,10 +81,19 @@ impl TryFrom<&tiled::Object<'_>> for PlacementType {
 }
 
 #[derive(Debug)]
-pub enum PlacementTypeError {
-    Failed,
-    Property {
-        user_type: &'static str,
-        property: &'static str,
-    },
+pub enum UserTypeErrorKind {
+    Property(tiled_ext::PropertyError),
+}
+
+impl From<tiled_ext::PropertyError> for UserTypeErrorKind {
+    fn from(v: tiled_ext::PropertyError) -> Self {
+        Self::Property(v)
+    }
+}
+
+/// Error converting a user type from Tiled.
+#[derive(Debug)]
+pub struct UserTypeError {
+    pub user_type: String,
+    pub err: UserTypeErrorKind,
 }

@@ -105,6 +105,11 @@ wMapHeader::
 section union "wMapState", wramx[MAP_RUNTIME_STATE_ADDRESS]
 wMapState:: ds MAP_RUNTIME_STATE_SIZE
 
+;; Number of slots filled.
+wMapEntitySlotsFilled: db
+;; MapEntitySlot array
+wMapEntitySlots: ds MAP_ENTITY_SLOTS_LENGTH * szMapEntitySlot
+
 
 section "wMapObjectCache", wram0
 ;; Copy of MapObject that's being worked on.
@@ -285,17 +290,97 @@ _DoObject:
 	ld a, [hl+] :: ld [wMapPlayerStartX + 1], a
 	ret
 .do_flow_rules:
-	; FlowRules:
-	; Defines a flow Zone effect.
-	; { typeid: dw, runtime_addr: dw, vx: db, vy: db }
+/* FlowRules: Defines a flow Zone effect.
+	FlowRules {
+		typeid: dw,
+		runtime_addr: dw,
+		FlowDef {
+			OffsetTable {
+				vecs_offset: db,
+				sequence_offset: db,
+				end_offset: db,
+			},
+			vecs: { len: db, * },
+			sequence: { len: db, * },
+			end: {}
+		}
+	}
+*/
 		wrambpush bank(wMapState)
 	inc hl :: inc hl ; skip typeid
 	; runtime state destination address
 	ld a, [hl+] :: ld e, a
 	ld a, [hl+] :: ld d, a
+	ld bc, (MapEntityType_FLOW << 8) | MapEntityCtl_ACTIVE
+	assert bank(wMapState) == bank(wMapEntitySlots)
+	call MapEntitySlotInitNext.no_banking
+
+	; Initialise FlowState
+	ld a, b :: ld [de], a :: inc de ; .type
+	ld a, l :: ld [de], a :: inc de ; .flow_def.0
+	ld a, h :: ld [de], a :: inc de ; .flow_def.1
+	xor a :: ld [de], a :: inc de ; .iseq
+	; get .vecs_offset and calc @vecs (BC)
+	ld a, [hl+]
+	add l :: ld c, a
+	adc h :: sub c :: ld b, a
+	; get .sequence_offset and calc @sequence (HL)
+	ld a, [hl+]
+		push hl ; @end_offset
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	; get first index in sequence & index .vecs
+	ld l, [hl] :: ld h, 0
+	add hl, bc
+	; copy initial flow vec to FlowState
 	ld a, [hl+] :: ld [de], a :: inc de ; .vx
-	ld a, [hl+] :: ld [de], a ; .vx
+	ld a, [hl+] :: ld [de], a :: inc de ; .vy
+		pop hl ; @end_offset
+	; get .end_offset and calc @end (HL)
+	ld a, [hl+]
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
 		wrambpop ; wMapState
+	ret
+
+
+section "MapEntitySlotInitNext", rom0
+;; Initialise the next MapEntity slot.
+;; @param DE: Pointer to entity type data. Assumed to be in wMapState.
+;; @param B: MapEntityType
+;; @param C: MapEntityCtl
+;; @mut: AF
+MapEntitySlotInitNext:
+		wrambopen bank(wMapEntitySlots)
+;; Alt. entry point to skip banking.
+;; NOTE: The WRAMX bank containing wMapEntitySlots must be active before calling this function.
+.no_banking:
+		push hl
+	ld hl, wMapEntitySlotsFilled
+	ld a, [hl]
+	cp MAP_ENTITY_SLOTS_LENGTH
+	jr nc, .err_cap
+	; increment slots filled counter
+	inc [hl] :: inc hl
+
+	if szMapEntitySlot * MAP_ENTITY_SLOTS_LENGTH <= 256
+		assert szMapEntitySlot == 4
+		add a :: add a ; mul 4
+		add l :: ld l, a
+		adc h :: sub l :: ld h, a
+	else
+		fail "wMapEntitySlots exceeds 256 bytes"
+	endc
+
+	ld a, b :: ld [hl+], a
+	ld a, c :: ld [hl+], a
+	ld a, e :: ld [hl+], a
+	ld [hl], d
+		pop hl
+	ret
+
+.err_cap
+	ld b, b
 	ret
 
 
@@ -1275,6 +1360,14 @@ MapReset::
 	xor a
 	ldh [hMapSrcOriginX], a
 	ldh [hMapSrcOriginY], a
+
+	; reset MapEntitySlots
+		wrambpush bank(wMapEntitySlots)
+	ld hl, wMapEntitySlotsFilled
+	xor a
+	ld c, MAP_ENTITY_SLOTS_LENGTH * szMapEntitySlot + 1
+	call MemFillSmall
+		wrambpop ; wMapEntitySlots
 
 		rombopen bank(xMapBufferInit)
 	jp xMapBufferInit

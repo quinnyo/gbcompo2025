@@ -40,12 +40,12 @@ impl Map {
             format!("\tdb {}", self.resources.len()),
         ]);
         for res in self.resources.iter() {
-            res.rgbasm(&self, code);
+            res.rgbasm(self, code);
         }
         code.push(String::default());
         let mut chunk_table: HashMap<u8, Vec<u8>> = HashMap::new();
         for chunk in self.chunks.iter() {
-            chunk.rgbasm(&self, code);
+            chunk.rgbasm(self, code);
             chunk_table
                 .entry(chunk.coord.y)
                 .or_default()
@@ -167,14 +167,157 @@ impl ChunkTableRow {
     }
 }
 
+pub mod code {
+
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    pub enum Code {
+        /// Raw bytes
+        Db(Vec<u8>),
+        /// Block of Code
+        Block(Vec<Code>),
+        /// No-op
+        Nil,
+    }
+
+    impl Code {
+        /// Size of code in bytes
+        pub fn sizeof(&self) -> usize {
+            match self {
+                Code::Db(items) => items.len(),
+                Code::Block(codes) => codes.iter().map(|code| code.sizeof()).sum(),
+                Code::Nil => 0,
+            }
+        }
+
+        pub fn bytes(&self) -> Vec<u8> {
+            match self {
+                Code::Db(items) => items.clone(),
+                Code::Block(codes) => codes.iter().flat_map(|code| code.bytes()).collect(),
+                Code::Nil => vec![],
+            }
+        }
+    }
+
+    impl From<u8> for Code {
+        fn from(value: u8) -> Self {
+            Code::Db(vec![value])
+        }
+    }
+
+    pub type Result<T> = core::result::Result<T, Error>;
+
+    #[derive(Debug)]
+    pub enum Error {
+        ElementMisconfigured,
+        TryFromIntError(std::num::TryFromIntError),
+        Custom(&'static str),
+    }
+
+    impl From<&'static str> for Error {
+        fn from(v: &'static str) -> Self {
+            Self::Custom(v)
+        }
+    }
+
+    impl From<std::num::TryFromIntError> for Error {
+        fn from(v: std::num::TryFromIntError) -> Self {
+            Self::TryFromIntError(v)
+        }
+    }
+}
+
+use code::Code;
+
+/// Flow zone rules / configuration
+#[derive(Debug)]
+pub struct FlowRules {
+    /// Precomputed/prescaled set of possible flow vectors.
+    pub vecs: Vec<I8Vec2>,
+    /// Flow vector selection program -- each value is an index in `vecs`
+    pub sequence: Vec<u8>,
+}
+
+impl FlowRules {
+    /// Generate code for an array with its length (number of items) prepended.
+    fn encode_array<T, U, F>(it: impl ExactSizeIterator<Item = T>, f: F) -> code::Result<Code>
+    where
+        U: IntoIterator<Item = u8>,
+        F: Fn(T) -> U,
+    {
+        let n = u8::try_from(it.len())?;
+        Ok(Code::Db(
+            vec![n].into_iter().chain(it.flat_map(f)).collect(),
+        ))
+    }
+
+    pub fn encode(&self) -> code::Result<Code> {
+        let vecs_code = Self::encode_array(self.vecs.iter(), |v| vec![v.x as u8, v.y as u8])?;
+        let sequence_code = Self::encode_array(self.sequence.iter(), |a| [*a])?;
+        let mut offset_table = OffsetTable::default();
+        offset_table.push_target(vecs_code.sizeof());
+        offset_table.push_target(sequence_code.sizeof());
+        offset_table.push_target(0);
+
+        if let Some(offsets) = offset_table.build() {
+            Ok(Code::Block(vec![
+                Code::Db(offsets),
+                vecs_code,
+                sequence_code,
+            ]))
+        } else {
+            Err("Building offset table failed".into())
+        }
+    }
+
+    pub fn new(vecs: Vec<I8Vec2>, sequence: Vec<u8>) -> Self {
+        Self { vecs, sequence }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct OffsetTable {
+    /// Target fields (sizes)
+    targets: Vec<usize>,
+}
+
+impl OffsetTable {
+    /// push a new target of size `sz_target` to the end of the table.
+    pub fn push_target(&mut self, sz_target: usize) {
+        self.targets.push(sz_target);
+    }
+
+    pub fn build<T>(&self) -> Option<Vec<T>>
+    where
+        T: Sized + TryFrom<usize>,
+    {
+        let sz_offset = std::mem::size_of::<T>();
+        let result: Vec<T> = self
+            .targets
+            .iter()
+            .enumerate()
+            .scan(sz_offset * self.targets.len(), |addr, (i, &sz_target)| {
+                let offset = *addr - (i + 1) * sz_offset;
+                *addr += sz_target;
+                // terminates iterator if None
+                T::try_from(offset).ok()
+            })
+            .collect();
+        if result.len() == self.targets.len() {
+            Some(result)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum ElementType {
     /// Initial player spawn location.
     PlayerStart(U16Vec2),
     /// Tagged point
     Marker { tag: u16, position: U16Vec2 },
-    /// Flow Zone rules resource. Flow vector is directional force.
-    Flow(I8Vec2),
+    /// Flow zone rules / configuration
+    FlowRules(FlowRules),
     /// Zone rect. Apply rules inside rect.
     Zone {
         position: U8Vec2,
@@ -186,8 +329,11 @@ pub enum ElementType {
 impl ElementType {
     pub const TYPEID_MARKER_MAX: u16 = 0x40;
     pub const TYPEID_PLAYER_START: u16 = 0x40;
-    pub const TYPEID_FLOW: u16 = 0x41;
+    pub const TYPEID_FLOW_RULES: u16 = 0x41;
     pub const TYPEID_ZONE: u16 = 0x42;
+
+    /// FlowState { typeid: db, rules: dw, vx: db, vy: db, pseq: db }
+    pub const FLOW_STATE_SIZE: u16 = 1 + 2 + 2 + 1;
 
     /// Get the element's ("MapObject") typeid, use to identify the object in the map loader.
     pub fn typeid(&self) -> u16 {
@@ -197,7 +343,7 @@ impl ElementType {
                 assert!(tag < &Self::TYPEID_MARKER_MAX);
                 *tag
             }
-            ElementType::Flow(_) => Self::TYPEID_FLOW,
+            ElementType::FlowRules(_) => Self::TYPEID_FLOW_RULES,
             ElementType::Zone { .. } => Self::TYPEID_ZONE,
         }
     }
@@ -206,7 +352,7 @@ impl ElementType {
         match self {
             ElementType::PlayerStart(_) => None,
             ElementType::Marker { .. } => None,
-            ElementType::Flow(_) => Some(2),
+            ElementType::FlowRules(_) => Some(Self::FLOW_STATE_SIZE),
             ElementType::Zone { .. } => None,
         }
     }
@@ -239,7 +385,19 @@ impl Element {
             ElementType::Marker { tag: _, position } => {
                 code.push(format!("\tdw {}, {}", position.y, position.x))
             }
-            ElementType::Flow(v) => code.push(format!("\tdb {}, {}", v.x, v.y)),
+            ElementType::FlowRules(ref rules) => {
+                code.push(format!(
+                    "\tdb {}",
+                    rules
+                        .encode()
+                        .unwrap()
+                        .bytes()
+                        .iter()
+                        .map(|x| format!("${:02X}", *x))
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                ));
+            }
             ElementType::Zone {
                 position,
                 size,

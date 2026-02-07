@@ -55,7 +55,7 @@
             ]
         },
         {
-            "color": "#ff4f89a4",
+            "color": "#ffe8e6a8",
             "drawFill": true,
             "id": 13,
             "members": [
@@ -77,7 +77,7 @@
             ]
         },
         {
-            "color": "#ff11cb84",
+            "color": "#ffdfdf55",
             "drawFill": true,
             "id": 15,
             "members": [
@@ -87,9 +87,19 @@
                     "value": 0
                 },
                 {
+                    "name": "sequence",
+                    "type": "string",
+                    "value": ""
+                },
+                {
                     "name": "to",
                     "type": "object",
                     "value": 0
+                },
+                {
+                    "name": "vecs_magnitude",
+                    "type": "string",
+                    "value": ""
                 }
             ],
             "name": "ZFlow",

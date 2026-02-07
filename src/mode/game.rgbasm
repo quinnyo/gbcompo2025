@@ -3,6 +3,7 @@ include "banker.rgbinc"
 include "mode.rgbinc"
 include "coord.rgbinc"
 include "sim/entity.rgbinc"
+include "map.rgbinc"
 
 
 	mode_def modeGamePrep, modeGamePrep_ExtraFuncs
@@ -143,8 +144,6 @@ _GotoPack:
 
 ;; DEBUG: Map Flow Zone & Query
 ;; Sets player acceleration from flow vector if player entity is inside zone.
-;; NOTE: Assumes all Zone Rules are Flow
-;; NOTE: Flow vector applied without appropriate scaling
 _TestMapZones:
 	ld a, [wPlayer.ent]
 	call EntityAt
@@ -167,12 +166,19 @@ _TestMapZones:
 
 	; Set entity acceleration from flow vector
 		wrambpush bank(wMapState)
+	; check type ...
+	ld a, [de] :: inc de
+	cp MapEntityType_FLOW
+	jr nz, :+
+	; Flow Zone
+	inc de :: inc de :: inc de ; skip flow_def, iseq
 	entity_index Entity_AccX
 	ld a, [de] :: inc de ; flow.vx
 	ld [hl+], a ; AccX
 	entity_index Entity_AccY
 	ld a, [de] :: inc de ; flow.vy
 	ld [hl+], a ; AccY
+:
 		wrambpop ; wMapState
 
 	ret

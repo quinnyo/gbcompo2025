@@ -4,7 +4,7 @@ map_c1::
 	dw .resources
 
 .resources:
-	db 5
+	db 6
 .EidSrc_f:
 	dw $00
 	dw 63, 144
@@ -20,7 +20,11 @@ map_c1::
 .EidSrc_3a:
 	dw $41
 	dw $D000
-	db 75, 65
+	db $02, $08, $0C, $03, $01, $01, $02, $02, $04, $04, $04, $00, $01, $00, $02
+.EidSrc_4d:
+	dw $41
+	dw $D006
+	db $02, $08, $1A, $03, $01, $01, $02, $01, $03, $02, $12, $00, $01, $00, $00, $00, $01, $00, $01, $02, $00, $00, $01, $01, $02, $01, $01, $00, $01
 
 .chunk_0_0:
 	dw .chunk_0_0_br0, .chunk_0_0_br1, .chunk_0_0_elems
@@ -29,10 +33,10 @@ map_c1::
 .chunk_0_0_br1:
 	db $01,$FF,$00,$00
 .chunk_0_0_elems:
-	db 2
+	db 3
 .EidSrc_4a:
 	dw $42
-	db 16, 48
+	db 16, 24
 	db 40, 32
 	dw $D000
 .EidSrc_2b:
@@ -40,6 +44,11 @@ map_c1::
 	db 0, 56
 	db 0, 40
 	dw $D000
+.EidSrc_4c:
+	dw $42
+	db 40, 32
+	db 40, 56
+	dw $D006
 .chunk_1_0:
 	dw .chunk_1_0_br0, .chunk_1_0_br1, .chunk_1_0_elems
 .chunk_1_0_br0:
