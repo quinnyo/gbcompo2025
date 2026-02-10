@@ -1,0 +1,128 @@
+include "map.rgbinc"
+include "hardware.inc"
+include "banker.rgbinc"
+
+
+pushs "MapEntitySlotInitNext", rom0
+;; Initialise the next MapEntity slot.
+;; @param DE: Pointer to entity type data. Assumed to be in wMapState.
+;; @param B: MapEntityType
+;; @param C: MapEntityCtl
+;; @mut: AF
+MapEntitySlotInitNext::
+		wrambopen bank(wMapEntitySlots)
+;; Alt. entry point to skip banking.
+;; NOTE: The WRAMX bank containing wMapEntitySlots must be active before calling this function.
+.no_banking::
+		push hl
+	ld hl, wMapEntitySlotsFilled
+	ld a, [hl]
+	cp MAP_ENTITY_SLOTS_LENGTH
+	jr nc, .err_cap
+	; increment slots filled counter
+	inc [hl] :: inc hl
+
+	if szMapEntitySlot * MAP_ENTITY_SLOTS_LENGTH <= 256
+		assert szMapEntitySlot == 4
+		add a :: add a ; mul 4
+		add l :: ld l, a
+		adc h :: sub l :: ld h, a
+	else
+		fail "wMapEntitySlots exceeds 256 bytes"
+	endc
+
+	ld a, b :: ld [hl+], a
+	ld a, c :: ld [hl+], a
+	ld a, e :: ld [hl+], a
+	ld [hl], d
+		pop hl
+	ret
+
+.err_cap
+	ld b, b
+	ret
+
+pops ; MapEntitySlotInitNext
+
+
+pushs "MapEntityUpdateAll", rom0
+;; Update routine for all MapEntity
+;; NOTE: This routine expects the appropriate banks to be active.
+;;     : The following must be made accessible before calling this function:
+;;     : - wMapState
+;;     : - wMapEntitySlots
+;;     : - the open map's data
+MapEntityUpdateAll::
+	ld hl, wMapEntitySlotsFilled
+	ld a, [hl+] :: ld c, a
+.loop
+		push bc
+	ld a, [hl+] :: ld c, a
+	ld a, [hl+] :: ld b, a
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+	bit bMapEntityCtl_ACTIVE, b
+	jr z, :+
+		push hl
+	ld a, c
+	call _UpdateMapEnt
+		pop hl
+:
+		pop bc
+	dec c
+	jr nz, .loop
+	ret
+
+
+;; @param A: MapEntitySlot.type
+;; @param DE: MapEntitySlot.data
+_UpdateMapEnt:
+	cp MapEntityType__COUNT
+	ret nc
+	rst RST_SwitchJump
+.jumptab
+	dw .do_flow
+	assert (@ - .jumptab) >> 1 == MapEntityType__COUNT
+
+;; @param DE: this FlowState
+.do_flow:
+	inc de ; skip .type
+	ld a, [de] :: inc de :: ld l, a ; .flow_def.0
+	ld a, [de] :: inc de :: ld h, a ; .flow_def.1
+	; get .vecs_offset and calc @vecs (BC)
+	ld a, [hl+]
+	add l :: ld c, a
+	adc h :: sub c :: ld b, a
+		push bc ; @vecs
+	; get .sequence_offset and calc @sequence (HL)
+	ld a, [hl+]
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	; get current .iseq (C)
+	ld a, [de] :: ld c, a
+	; advance .iseq
+	inc a
+	cp [hl]
+	jr c, :+
+	xor a
+:
+	ld [de], a :: inc de
+
+	; index sequence array
+	inc hl ; sequence.len
+	ld b, 0
+	add hl, bc
+	ld c, [hl] ; vecs index
+	; index vecs array
+		pop hl ; @vecs
+	inc hl ; vecs.len
+	add hl, bc :: add hl, bc ; double add: multiply by 2 (each element is 2 bytes)
+
+	; load vec
+	ld a, [hl+] :: ld [de], a :: inc de ; .vx
+	ld a, [hl+] :: ld [de], a :: inc de ; .vy
+
+	ret
+
+pops ; MapEntityUpdateAll
+

@@ -106,9 +106,9 @@ section union "wMapState", wramx[MAP_RUNTIME_STATE_ADDRESS]
 wMapState:: ds MAP_RUNTIME_STATE_SIZE
 
 ;; Number of slots filled.
-wMapEntitySlotsFilled: db
+wMapEntitySlotsFilled:: db
 ;; MapEntitySlot array
-wMapEntitySlots: ds MAP_ENTITY_SLOTS_LENGTH * szMapEntitySlot
+wMapEntitySlots:: ds MAP_ENTITY_SLOTS_LENGTH * szMapEntitySlot
 
 
 section "wMapObjectCache", wram0
@@ -330,9 +330,11 @@ _DoObject:
 	add l :: ld l, a
 	adc h :: sub l :: ld h, a
 	; get first index in sequence & index .vecs
+		; TODO: Be aware of sequence.len
 	ld l, [hl] :: ld h, 0
 	add hl, bc
 	; copy initial flow vec to FlowState
+		; TODO: Be aware of vecs.len
 	ld a, [hl+] :: ld [de], a :: inc de ; .vx
 	ld a, [hl+] :: ld [de], a :: inc de ; .vy
 		pop hl ; @end_offset
@@ -341,46 +343,6 @@ _DoObject:
 	add l :: ld l, a
 	adc h :: sub l :: ld h, a
 		wrambpop ; wMapState
-	ret
-
-
-section "MapEntitySlotInitNext", rom0
-;; Initialise the next MapEntity slot.
-;; @param DE: Pointer to entity type data. Assumed to be in wMapState.
-;; @param B: MapEntityType
-;; @param C: MapEntityCtl
-;; @mut: AF
-MapEntitySlotInitNext:
-		wrambopen bank(wMapEntitySlots)
-;; Alt. entry point to skip banking.
-;; NOTE: The WRAMX bank containing wMapEntitySlots must be active before calling this function.
-.no_banking:
-		push hl
-	ld hl, wMapEntitySlotsFilled
-	ld a, [hl]
-	cp MAP_ENTITY_SLOTS_LENGTH
-	jr nc, .err_cap
-	; increment slots filled counter
-	inc [hl] :: inc hl
-
-	if szMapEntitySlot * MAP_ENTITY_SLOTS_LENGTH <= 256
-		assert szMapEntitySlot == 4
-		add a :: add a ; mul 4
-		add l :: ld l, a
-		adc h :: sub l :: ld h, a
-	else
-		fail "wMapEntitySlots exceeds 256 bytes"
-	endc
-
-	ld a, b :: ld [hl+], a
-	ld a, c :: ld [hl+], a
-	ld a, e :: ld [hl+], a
-	ld [hl], d
-		pop hl
-	ret
-
-.err_cap
-	ld b, b
 	ret
 
 
@@ -431,6 +393,15 @@ MapUpdate::
 	ld e, a
 	call MapSyncFrontColumn
 :
+
+		rombpush
+	ldh a, [hMapSelectBank]
+	ld [$2000], a
+		assert bank(wMapState) == bank(wMapEntitySlots)
+		wrambpush bank(wMapState)
+	call MapEntityUpdateAll
+		wrambpop ; wMapState
+		rombpop ; hMapSelectBank
 
 	ret
 

@@ -82,11 +82,6 @@
             "id": 15,
             "members": [
                 {
-                    "name": "magnitude",
-                    "type": "float",
-                    "value": 0
-                },
-                {
                     "name": "sequence",
                     "type": "string",
                     "value": ""
