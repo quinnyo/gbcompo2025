@@ -373,8 +373,13 @@ MapUpdate::
 	and MapCtl_PROCEN
 	ret z
 
+		rombpush
+	ldh a, [hMapSelectBank]
+	ld [$2000], a
+		wrambpush
+
 	call MapUpdateViewChunk
-	call MapUpdateCache
+	call MapRenderScan
 
 	;call _ProcessAllSynXfers
 
@@ -394,15 +399,12 @@ MapUpdate::
 	call MapSyncFrontColumn
 :
 
-		rombpush
-	ldh a, [hMapSelectBank]
-	ld [$2000], a
-		assert bank(wMapState) == bank(wMapEntitySlots)
-		wrambpush bank(wMapState)
+	assert bank(wMapState) == bank(wMapEntitySlots)
+	wrambsel bank(wMapState)
 	call MapEntityUpdateAll
-		wrambpop ; wMapState
-		rombpop ; hMapSelectBank
 
+		wrambpop
+		rombpop ; hMapSelectBank
 	ret
 
 
@@ -423,10 +425,15 @@ section "MapSyncVisible", rom0
 ;; Force bulk sync of visible region.
 ;; @mut: AF, BC, DE, HL
 MapSyncVisible::
+		rombpush
+	ldh a, [hMapSelectBank]
+	ld [$2000], a
+		wrambpush
+
 	call MapUpdateViewChunk
-	call MapUpdateCache
-	call MapUpdateCache
-	call MapUpdateCache
+	call MapRenderScan
+	call MapRenderScan
+	call MapRenderScan
 	ld d, 20
 	ld a, [wScroll.row]
 	dec a
@@ -440,6 +447,9 @@ MapSyncVisible::
 	inc e
 	dec d
 	jr nz, :-
+
+		wrambpop
+		rombpop ; hMapSelectBank
 	ret
 
 
@@ -839,11 +849,40 @@ db 1, 0
 db 1, 1
 
 
-section "MapUpdateSlot", rom0
-;; Render the chunk in the given slot, if it hasn't been already.
+section "MapRenderSlot", rom0
+;; Regular scan and render chunks in view, as needed.
+;; NOTE: Map data must be accessible.
+;; NOTE: Changes WRAMX bank (no restore).
+;; @mut: AF, BC, DE, HL
+MapRenderScan:
+	call MapRenderNextSlot
+	call MapRenderNextSlot
+
+	; FALLTHROUGH
+
+;; If needed, render the chunk in the 'next' slot (specified by [hMapSlotIdx]).
+;; Advance the 'next' slot index.
+;; NOTE: Map data must be accessible.
+;; NOTE: Changes WRAMX bank (no restore).
 ;; @param L: index
 ;; @mut: AF, BC, DE, HL
-MapUpdateSlot:
+MapRenderNextSlot:
+	ldh a, [hMapSlotIdx] :: ld l, a
+	inc a
+	cp MAP_CHUNK_BUFFER_COUNT
+	jr c, :+
+	xor a
+:
+	ldh [hMapSlotIdx], a
+
+	; FALLTHROUGH
+
+;; Render the chunk in the given slot, if it hasn't been already.
+;; NOTE: Map data must be accessible.
+;; NOTE: Changes WRAMX bank (no restore).
+;; @param L: index
+;; @mut: AF, BC, DE, HL
+MapRenderSlot:
 	ld a, l :: add low(hMapChunkSlots) :: ld c, a
 	ldh a, [c]
 	and SLOT_RENDERED | SLOT_NOCHUNK
@@ -892,33 +931,6 @@ MapUpdateSlot:
 	xor SLOT_RENDERED | SLOT_NOCHUNK ; clear NOCHUNK & set RENDERED
 	ldh [c], a
 	ret
-
-
-section "MapUpdateCache", rom0
-MapUpdateCache:
-		rombpush
-	ldh a, [hMapSelectBank]
-	ld [$2000], a
-		wrambpush
-
-	call _UpdateNext
-	call _UpdateNext
-	call _UpdateNext
-
-		wrambpop
-		rombpop
-	ret
-
-
-_UpdateNext:
-	ldh a, [hMapSlotIdx] :: ld l, a
-	inc a
-	cp MAP_CHUNK_BUFFER_COUNT
-	jr c, :+
-	xor a
-:
-	ldh [hMapSlotIdx], a
-	jp MapUpdateSlot
 
 
 section "MapUpdateViewChunk", rom0
