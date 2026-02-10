@@ -4,7 +4,7 @@ include "chrimp.rgbinc"
 include "sprite.rgbinc"
 include "banker.rgbinc"
 include "quest/quest.rgbinc"
-include "map.rgbinc"
+include "map/map.rgbinc"
 include "item.rgbinc"
 
 /*

@@ -3,7 +3,7 @@ include "banker.rgbinc"
 include "mode.rgbinc"
 include "coord.rgbinc"
 include "sim/entity.rgbinc"
-include "map.rgbinc"
+include "map/map.rgbinc"
 
 
 	mode_def modeGamePrep, modeGamePrep_ExtraFuncs
