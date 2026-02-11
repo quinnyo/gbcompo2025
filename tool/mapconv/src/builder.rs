@@ -93,12 +93,7 @@ impl Builder {
                 let coord = (old_coord - chunk_origin).as_u8vec2();
                 (
                     coord,
-                    out::Chunk {
-                        coord,
-                        brushes0: chr_brushes,
-                        brushes1: atrb_brushes,
-                        elements: Vec::new(),
-                    },
+                    out::Chunk::with_tilemap(coord, chr_brushes, atrb_brushes),
                 )
             })
             .collect();
@@ -129,7 +124,7 @@ impl Builder {
                         let chunk = chunks
                             .entry(chunk_pos.as_u8vec2())
                             .or_insert_with(|| out::Chunk::new(chunk_pos.as_u8vec2()));
-                        chunk.elements.push(Element::new(
+                        chunk.push_element(Element::new(
                             id,
                             ElementType::Zone {
                                 position: local_position.as_u8vec2(),

@@ -1,5 +1,5 @@
 use crate::{brush::Brushes, coord::*, elem::ElemId};
-use std::collections::HashMap;
+use std::{collections::HashMap, mem};
 
 #[derive(Debug, Default)]
 pub struct Map {
@@ -228,7 +228,7 @@ pub mod code {
 use code::Code;
 
 /// Flow zone rules / configuration
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FlowRules {
     /// Precomputed/prescaled set of possible flow vectors.
     vecs: Vec<I8Vec2>,
@@ -295,7 +295,7 @@ impl OffsetTable {
     where
         T: Sized + TryFrom<usize>,
     {
-        let sz_offset = std::mem::size_of::<T>();
+        let sz_offset = mem::size_of::<T>();
         let result: Vec<T> = self
             .targets
             .iter()
@@ -315,7 +315,7 @@ impl OffsetTable {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ElementType {
     /// Initial player spawn location.
     PlayerStart(U16Vec2),
@@ -363,7 +363,7 @@ impl ElementType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Element {
     pub id: ElemId,
     pub data: ElementType,
@@ -426,16 +426,35 @@ impl Element {
     }
 }
 
+impl Ord for Element {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        (self.id).cmp(&other.id)
+    }
+}
+
+impl PartialOrd for Element {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Chunk {
-    pub coord: U8Vec2,
-    pub brushes0: Brushes<u8>,
-    pub brushes1: Brushes<u8>,
-    pub elements: Vec<Element>,
+    coord: U8Vec2,
+    brushes0: Brushes<u8>,
+    brushes1: Brushes<u8>,
+    elements: Vec<Element>,
 }
 
 impl Chunk {
+    pub fn push_element(&mut self, el: Element) {
+        self.elements.push(el);
+    }
+
     pub fn rgbasm(&self, context: &Map, code: &mut Vec<String>) {
+        let mut elements = self.elements.clone();
+        elements.sort();
+
         let label = self.label();
         let label_br0 = format!("{}_br0", &label);
         let label_br1 = format!("{}_br1", &label);
@@ -450,9 +469,9 @@ impl Chunk {
         self.brushes1.rgbasm(code);
         code.append(&mut vec![
             format!("{}:", &label_elems),
-            format!("\tdb {}", self.elements.len()),
+            format!("\tdb {}", elements.len()),
         ]);
-        for elem in self.elements.iter() {
+        for elem in elements.iter() {
             elem.rgbasm(context, code);
         }
     }
@@ -466,6 +485,15 @@ impl Chunk {
             coord,
             brushes0: Default::default(),
             brushes1: Default::default(),
+            elements: Default::default(),
+        }
+    }
+
+    pub fn with_tilemap(coord: U8Vec2, brushes0: Brushes<u8>, brushes1: Brushes<u8>) -> Self {
+        Self {
+            coord,
+            brushes0,
+            brushes1,
             elements: Default::default(),
         }
     }

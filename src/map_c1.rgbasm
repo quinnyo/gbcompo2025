@@ -34,6 +34,11 @@ map_c1::
 	db $01,$FF,$00,$00
 .chunk_0_0_elems:
 	db 3
+.EidSrc_2b:
+	dw $42
+	db 0, 56
+	db 0, 40
+	dw $D000
 .EidSrc_4a:
 	dw $42
 	db 16, 24
@@ -44,11 +49,6 @@ map_c1::
 	db 40, 32
 	db 40, 72
 	dw $D006
-.EidSrc_2b:
-	dw $42
-	db 0, 56
-	db 0, 40
-	dw $D000
 .chunk_1_0:
 	dw .chunk_1_0_br0, .chunk_1_0_br1, .chunk_1_0_elems
 .chunk_1_0_br0:
