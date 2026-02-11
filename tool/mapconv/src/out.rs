@@ -168,7 +168,6 @@ impl ChunkTableRow {
 }
 
 pub mod code {
-
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum Code {
         /// Raw bytes
@@ -232,9 +231,9 @@ use code::Code;
 #[derive(Debug)]
 pub struct FlowRules {
     /// Precomputed/prescaled set of possible flow vectors.
-    pub vecs: Vec<I8Vec2>,
+    vecs: Vec<I8Vec2>,
     /// Flow vector selection program -- each value is an index in `vecs`
-    pub sequence: Vec<u8>,
+    sequence: Vec<u8>,
 }
 
 impl FlowRules {
@@ -251,6 +250,12 @@ impl FlowRules {
     }
 
     pub fn encode(&self) -> code::Result<Code> {
+        assert!(!self.vecs.is_empty());
+        assert!(!self.sequence.is_empty());
+        assert!(self
+            .sequence
+            .iter()
+            .all(|idx| (*idx as usize) < self.vecs.len()));
         let vecs_code = Self::encode_array(self.vecs.iter(), |v| vec![v.x as u8, v.y as u8])?;
         let sequence_code = Self::encode_array(self.sequence.iter(), |a| [*a])?;
         let mut offset_table = OffsetTable::default();
