@@ -171,7 +171,12 @@ _TestMapZones:
 	cp MapEntityType_FLOW
 	jr nz, :+
 	; Flow Zone
-	inc de :: inc de :: inc de ; skip flow_def, iseq
+	inc de :: inc de :: inc de :: inc de ; skip timer, flow_def, iseq
+	; check type is flow and effect is enabled...
+	ld a, [de] :: inc de
+	and Effect_ENABLE | Effect_TYPE
+	cp Effect_ENABLE | EffectType_FLOW
+	jr nz, :+
 	entity_index Entity_AccX
 	ld a, [de] :: inc de ; flow.vx
 	ld [hl+], a ; AccX

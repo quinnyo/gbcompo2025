@@ -1,4 +1,4 @@
-use crate::{brush::Brushes, coord::*, elem::ElemId};
+use crate::{brush::Brushes, coord::*, elem::ElemId, flow};
 use std::{collections::HashMap, mem};
 
 #[derive(Debug, Default)]
@@ -233,7 +233,7 @@ pub struct FlowRules {
     /// Precomputed/prescaled set of possible flow vectors.
     vecs: Vec<I8Vec2>,
     /// Flow vector selection program -- each value is an index in `vecs`
-    sequence: Vec<u8>,
+    sequence: Vec<flow::FlowSeqCom>,
 }
 
 impl FlowRules {
@@ -255,9 +255,18 @@ impl FlowRules {
         assert!(self
             .sequence
             .iter()
-            .all(|idx| (*idx as usize) < self.vecs.len()));
+            .filter_map(|com| match com {
+                flow::FlowSeqCom::On => None,
+                flow::FlowSeqCom::Off => None,
+                flow::FlowSeqCom::VecIndex(i) => Some(i),
+                flow::FlowSeqCom::Delay(_) => None,
+            })
+            .all(|i| (*i as usize) < self.vecs.len()));
         let vecs_code = Self::encode_array(self.vecs.iter(), |v| vec![v.x as u8, v.y as u8])?;
-        let sequence_code = Self::encode_array(self.sequence.iter(), |a| [*a])?;
+        let sequence_code =
+            Self::encode_array(self.sequence.iter().map(flow::FlowSeqCom::encode_a), |a| {
+                [a]
+            })?;
         let mut offset_table = OffsetTable::default();
         offset_table.push_target(vecs_code.sizeof());
         offset_table.push_target(sequence_code.sizeof());
@@ -274,7 +283,7 @@ impl FlowRules {
         }
     }
 
-    pub fn new(vecs: Vec<I8Vec2>, sequence: Vec<u8>) -> Self {
+    pub fn new(vecs: Vec<I8Vec2>, sequence: Vec<flow::FlowSeqCom>) -> Self {
         Self { vecs, sequence }
     }
 }
@@ -337,8 +346,8 @@ impl ElementType {
     pub const TYPEID_FLOW_RULES: u16 = 0x41;
     pub const TYPEID_ZONE: u16 = 0x42;
 
-    /// FlowState { typeid: db, rules: dw, vx: db, vy: db, pseq: db }
-    pub const FLOW_STATE_SIZE: u16 = 1 + 2 + 2 + 1;
+    /// FlowState { type: db, timer: db, flow_def: dw, iseq: db, effect: db, vx: db, vy: db }
+    pub const FLOW_STATE_SIZE: u16 = 1 + 1 + 2 + 1 + 1 + 1 + 1;
 
     /// Get the element's ("MapObject") typeid, use to identify the object in the map loader.
     pub fn typeid(&self) -> u16 {

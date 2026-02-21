@@ -317,9 +317,11 @@ _DoObject:
 
 	; Initialise FlowState
 	ld a, b :: ld [de], a :: inc de ; .type
+	xor a :: ld [de], a :: inc de ; .timer
 	ld a, l :: ld [de], a :: inc de ; .flow_def.0
 	ld a, h :: ld [de], a :: inc de ; .flow_def.1
 	xor a :: ld [de], a :: inc de ; .iseq
+	ld a, EffectType_FLOW :: ld [de], a :: inc de ; .effect
 	; get .vecs_offset and calc @vecs (BC)
 	ld a, [hl+]
 	add l :: ld c, a

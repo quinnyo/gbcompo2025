@@ -4,6 +4,7 @@ pub mod brush;
 pub mod builder;
 pub mod chunk;
 pub mod elem;
+pub mod flow;
 pub mod geometry;
 pub mod out;
 pub mod placement;

@@ -1,4 +1,4 @@
-use crate::{coord::*, elem::ElemId, geometry::Shape, tiled_ext};
+use crate::{coord::*, elem::ElemId, flow, geometry::Shape, tiled_ext};
 
 /// Extracted editor object. Places a something in the map.
 #[derive(Debug, Clone)]
@@ -41,7 +41,7 @@ pub enum PlacementType {
     /// Flow Zone rules
     ZFlow {
         vecs_magnitude: Vec<f64>,
-        sequence: Vec<u8>,
+        sequence: Vec<flow::FlowSeqCom>,
         to: ElemId,
     },
     /// Unrecognised user type string

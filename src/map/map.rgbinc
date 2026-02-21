@@ -78,8 +78,8 @@ def MapEntityType_FLOW rb 1
 def MapEntityType__COUNT rb 0
 
 rsreset
+;; Set while an entity exists in the slot.
 def bMapEntityCtl_ACTIVE rb 1
-
 def MapEntityCtl_ACTIVE equ 1 << bMapEntityCtl_ACTIVE
 
 st MapEntitySlot
@@ -91,14 +91,28 @@ st MapEntitySlot
 	stf data, 2
 st
 
+
+rsreset
+def EffectType_FLOW rb 1
+def EffectType__COUNT rb 0
+
+def Effect_TYPE equ $0F
+assert EffectType__COUNT - 1 <= Effect_TYPE
+def bEffect_ENABLE equ 7
+def Effect_ENABLE equ 1 << bEffect_ENABLE
+
 ;; Flow effect runtime state.
 st FlowState
 	;; MapEntityType
 	stf type, 1
+	;; Delay timer
+	stf timer, 1
 	;; Pointer to FlowDef data.
 	stf flow_def, 2
 	;; Current position in sequence.
 	stf iseq, 1
+	;; Effect type and status flags
+	stf effect, 1
 	;; Current flow vector, X component.
 	stf vx, 1
 	;; Current flow vector, Y component.
@@ -108,6 +122,22 @@ st
 
 ;; Number of MapEntitySlots available.
 def MAP_ENTITY_SLOTS_LENGTH equ 32
+
+
+/***************************************
+************ Flow Sequence *************
+***************************************/
+
+;; Mask the code part of a sequence command
+def FlowSeq_CODE equ $30
+;; Mask the value part of a sequence command
+def FlowSeq_VALUE equ $0F
+;; Set the Effect_ENABLE flag
+def FlowSeq_ENABLE equ $00
+;; Select the flow vector by index
+def FlowSeq_VEC equ $10
+;; Delay sequence for `x * 16 + 15` ticks
+def FlowSeq_DELAY equ $20
 
 
 endc ; Q_MAP_INC_rJ398bhW

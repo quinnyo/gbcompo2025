@@ -87,6 +87,17 @@ _UpdateMapEnt:
 ;; @param DE: this FlowState
 .do_flow:
 	inc de ; skip .type
+
+	; if timer is nonzero, decrement it and exit
+	ld a, [de]
+	and a
+	jr z, :+
+	dec a
+	ld [de], a
+	ret
+:
+	inc de
+
 	ld a, [de] :: inc de :: ld l, a ; .flow_def.0
 	ld a, [de] :: inc de :: ld h, a ; .flow_def.1
 	; get .vecs_offset and calc @vecs (BC)
@@ -112,16 +123,61 @@ _UpdateMapEnt:
 	inc hl ; sequence.len
 	ld b, 0
 	add hl, bc
-	ld c, [hl] ; vecs index
+
+	; read sequence command
+	ld c, [hl]
+	ld a, c
+	and FlowSeq_CODE
+	swap a
+	rst RST_SwitchJump
+	dw .flow_enable
+	dw .flow_vec
+	dw .flow_delay
+	dw .flow_nop
+
+.flow_enable:
+		pop af ; discard @vecs
+	ld l, e :: ld h, d
+	ld a, c
+	and FlowSeq_VALUE
+	jr z, :+
+	set bEffect_ENABLE, [hl]
+	ret
+:
+	res bEffect_ENABLE, [hl]
+	ret
+.flow_vec:
+	; get index from seq command
+	ld a, c
+	and FlowSeq_VALUE
+	ld c, a
 	; index vecs array
 		pop hl ; @vecs
 	inc hl ; vecs.len
 	add hl, bc :: add hl, bc ; double add: multiply by 2 (each element is 2 bytes)
 
+	; enable effect
+	ld a, [de]
+	set bEffect_ENABLE, a
+	ld [de], a :: inc de ; .effect
 	; load vec
 	ld a, [hl+] :: ld [de], a :: inc de ; .vx
 	ld a, [hl+] :: ld [de], a :: inc de ; .vy
-
+	ret
+.flow_delay:
+		pop af ; discard @vecs
+	; back to .timer ...
+	rept FlowState_effect - FlowState_timer
+		dec de
+	endr
+	; delay duration
+	ld a, c
+	swap a ; mul 16
+	or $0F ; + 15
+	ld [de], a
+	ret
+.flow_nop:
+		pop af ; discard @vecs
 	ret
 
 pops ; MapEntityUpdateAll
