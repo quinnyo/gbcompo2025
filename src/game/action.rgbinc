@@ -3,23 +3,18 @@ def Q_ACTION_INC_bm34wuAk equ 1
 
 
 rsreset
+def bActionState_EXT rb 4
 ;; Newly created action
 def bActionState_NEW rb 1
 ;; Action in progress
 def bActionState_ACTIVE rb 1
 ;; If the action is blocking others from starting.
 def bActionState_BLOCKING rb 1
-;; Indicates that target parameter is an Entity ID
-def bActionState_TARGET_ENTITY rb 1
-;; Indicates that target parameter is an Item ID
-def bActionState_TARGET_ITEM rb 1
 
 
 def ActionState_NEW           equ 1 << bActionState_NEW
 def ActionState_ACTIVE        equ 1 << bActionState_ACTIVE
 def ActionState_BLOCKING      equ 1 << bActionState_BLOCKING
-def ActionState_TARGET_ENTITY equ 1 << bActionState_TARGET_ENTITY
-def ActionState_TARGET_ITEM   equ 1 << bActionState_TARGET_ITEM
 
 def ActionState_LIVE          equ ActionState_NEW | ActionState_ACTIVE
 
@@ -83,22 +78,6 @@ def szActionTrigger rb 0
 
 ;; NULL variant
 def ActionTrigger_NULL equ $FF
-
-
-/******************************* struct Action *********************************
-
-	An instance of an action, including configuration and execution state.
-
-*******************************************************************************/
-
-rsreset
-def Action_type rb 1
-def Action_state rb 1
-def Action_target rb 1
-def Action__RESERVED rb 1
-def Action_x rb 2
-def Action_y rb 2
-def szAction rb 0
 
 
 endc ; Q_ACTION_INC_bm34wuAk

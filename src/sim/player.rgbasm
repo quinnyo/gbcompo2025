@@ -4,17 +4,21 @@ include "coord.rgbinc"
 include "vis/diver.rgbinc"
 include "banker.rgbinc"
 include "game/action.rgbinc"
+include "vis/widgets.rgbinc"
 
 
 def KEY_JET equ PADF_B
 def KEY_CLAW equ PADF_A | PADF_B
 def KEY_GRIP equ PADF_A
 
+def KEYS_ACTION equ PADF_A | PADF_B | PADF_START | PADF_SELECT
+
 
 rsreset
 def bInput_DASH rb 1
 def bInput_SWEEP rb 1
 def bInput_CLAW rb 1
+def bInput_GRIP rb 1
 ; def bInput_CRUSH rb 1
 ; def bInput_COMPACT rb 1
 ; def bInput_ANCHOR rb 1
@@ -24,6 +28,7 @@ def bInput_CLAW rb 1
 def Input_DASH    equ 1 << bInput_DASH
 def Input_SWEEP   equ 1 << bInput_SWEEP
 def Input_CLAW    equ 1 << bInput_CLAW
+def Input_GRIP    equ 1 << bInput_GRIP
 ; def Input_CRUSH   equ 1 << bInput_CRUSH
 ; def Input_COMPACT equ 1 << bInput_COMPACT
 ; def Input_ANCHOR  equ 1 << bInput_ANCHOR
@@ -54,8 +59,14 @@ def VECDIR_MAG_DEFAULT equ (5 << 8) | 7
 def VECDIR_MAG_DASH equ (12 << 8) | 17
 
 
+;; Break anchor if player distance to anchor point reaches this. In dots.
+def ANCHOR_BREAK_DISTANCE equ 20
+
+
 ;; Max. number of ActionTrigger requests that can be buffered at once.
 def ACTION_REQS_MAX equ 4
+;; Duration of action trigger request lockout in ticks
+def ACTION_REQ_LOCKOUT equ 15
 
 
 rsreset
@@ -65,7 +76,13 @@ assert szPlayer <= szEntityUsr0, "Player struct exceeds Entity Usr0 allocation. 
 
 
 pushs "wPlayerAction", wram0
-wPlayerAction: ds szAction
+wPlayerAction:
+	.type: db
+	.state: db
+union
+	.anchor_x: dw
+	.anchor_y: dw
+endu
 
 pops
 
@@ -90,6 +107,8 @@ wPlayer::
 
 	.action_reqs_len: db
 	.action_reqs: ds ACTION_REQS_MAX
+	;; Action lockout timer -- prevent triggering actions for cooldown period.
+	.action_req_lockout: db
 
 
 section "Player", rom0
@@ -106,14 +125,16 @@ PlayerInit::
 PlayerSpawn::
 	ld [wPlayer.ent], a
 
-	ld a, ActionType_NULL
-	ld hl, wPlayerAction
-	ld c, szAction
+	ld hl, wPlayerAction.type
+	ld a, ActionType_NULL :: ld [hl+], a
+	ld c, sizeof("wPlayerAction") - 1
+	xor a
 	call MemFillSmall
 
 	call _PlayerClearActReqs
 
 	xor a
+	ld [wPlayer.action_req_lockout], a
 	ld [wPlayer.driveY], a
 	ld [wPlayer.driveX], a
 	ld [wPlayer.inputDir], a
@@ -185,6 +206,11 @@ PlayerThink:
 	; was returned, add it to the pool of candidates.
 
 	call _PlayerInput_claw
+	ld a, b
+	cp szActionTrigger
+	call c, _PlayerAddActReq
+
+	call _PlayerInput_grip
 	ld a, b
 	cp szActionTrigger
 	call c, _PlayerAddActReq
@@ -443,9 +469,18 @@ _PlayerAddActReq:
 ;; Process the buffered ActionTrigger requests
 ;; @mut: AF, C, DE, HL
 _PlayerProcessActReqs:
-	ld hl, wPlayerAction + Action_state
+	; Do lockout timer
+	ld a, [wPlayer.action_req_lockout]
+	and a
+	jr z, :+
+	dec a
+	ld [wPlayer.action_req_lockout], a
+	jr .flush
+:
+
+	ld hl, wPlayerAction.state
 	ld a, [hl-] :: ld e, a ; state
-	ld a, [hl] :: ld d, a ; type
+	ld d, [hl] ; type
 	cp szActionType
 	jr nc, .proc_reqs ; action type is NULL, do reqs
 	ld a, e
@@ -469,6 +504,7 @@ _PlayerProcessActReqs:
 	ret z ; list is empty
 
 	ld c, a ; len
+	ld a, ACTION_REQ_LOCKOUT :: ld [wPlayer.action_req_lockout], a
 .loop:
 	ld a, [hl+] ; ActionTrigger
 		push hl :: push bc
@@ -489,6 +525,8 @@ _PlayerProcessActReqs:
 	ret
 
 
+;; Process an action trigger request into a new action.
+;; Activates new action if successful.
 ;; @param A: request (ActionTrigger)
 ;; @param D: current action type
 ;; @param E: current action state
@@ -499,43 +537,73 @@ _PlayerResolveActionTrigger:
 	jr nc, .err_unexpected
 	rst RST_SwitchJump
 .jumptab
-	dw .proc_dash
-	dw .proc_sweep
-	dw .proc_claw
-	dw .proc_grip
+	dw .trigger_proc_dash
+	dw .trigger_proc_sweep
+	dw .trigger_proc_claw
+	dw .trigger_proc_grip
 assert (@ - .jumptab) >> 1 == szActionTrigger
 
 .err_unexpected:
 	ld b, b
 	ret
 
-.proc_dash:
+.trigger_proc_dash:
 	; Resolve into DASH action.
 	ld b, ActionType_DASH
-	jp _PlayerResolveSimple
+	jp _PlayerActionSimple
 
-.proc_sweep:
+.trigger_proc_sweep:
 	; Resolve into SWEEP action.
 	ld b, ActionType_SWEEP
-	jp _PlayerResolveSimple
+	jp _PlayerActionSimple
 
-.proc_claw:
+.trigger_proc_claw:
 	; Try to resolve into CRUSH or COMPACT if a valid target is in range.
 
-	; Could not resolve
+	jr .no_change
+
+.trigger_proc_grip:
+	; If carryable target detected, do CARRY action.
+	; Otherwise, if anchor point detected, do ANCHOR action.
+
+	; If either GRIP action is current active, do nothing.
+	call _PlayerGetActionLive
+	cp ActionType_CARRY
+	jr z, .no_change
+	cp ActionType_ANCHOR
+	jr z, .no_change
+
+	; CARRY
+	; call Player_DetectCarryTarget
+
+	; ANCHOR
+	call Player_DetectAnchorTarget
+	jr nc, .no_change
+	ld hl, wPlayerAction.type
+	ld a, ActionType_ANCHOR :: ld [hl+], a ; .type
+	ld a, ActionState_NEW :: ld [hl+], a ; .state
+	ld a, e :: ld [hl+], a ; .anchor_x
+	ld a, d :: ld [hl+], a
+	ld a, c :: ld [hl+], a ; .anchor_y
+	ld a, b :: ld [hl+], a
+	ld a, [wPlayerAction.type] :: ld d, a
+	ret
+.no_change:
 	ld d, ActionType_NULL
-	ld hl, wPlayerAction + Action_type
-	ld a, d :: ld [hl+], a ; type
-	xor a :: ld [hl+], a ; state
 	ret
 
-.proc_grip:
 
-	; Could not resolve
-	ld d, ActionType_NULL
-	ld hl, wPlayerAction + Action_type
-	ld a, d :: ld [hl+], a ; type
-	xor a :: ld [hl+], a ; state
+;; Get the player's current live action, if any.
+;; Returns ActionType_NULL if current action is not live.
+;; @ret A: current live action type
+;; @ret F.Z: set if player action is live
+;; @mut: AF
+_PlayerGetActionLive:
+	ld a, [wPlayerAction.state]
+	and ActionState_LIVE
+	ld a, ActionType_NULL
+	ret z
+	ld a, [wPlayerAction.type]
 	ret
 
 
@@ -545,8 +613,10 @@ assert (@ - .jumptab) >> 1 == szActionTrigger
 ;; @param D: current action type
 ;; @param E: current action state
 ;; @ret D: resolved action type
+;; @ret HL: @action.ext (only valid with F.C)
+;; @ret F.C: success -- set if initialising new action
 ;; @mut: AF, D, HL
-_PlayerResolveSimple:
+_PlayerActionSimple:
 	ld a, e
 	and ActionState_LIVE
 	jr z, :+
@@ -556,53 +626,60 @@ _PlayerResolveSimple:
 :
 	; initialise new action
 	ld d, b
-	ld hl, wPlayerAction + Action_type
+	ld hl, wPlayerAction.type
 	ld a, d :: ld [hl+], a ; type
 	ld a, ActionState_NEW :: ld [hl+], a ; state
-
+	scf
 	ret
 
 
 ;; Cancel the current action
 ;; @mut: AF
 _PlayerCancelAction:
-	ld a, [wPlayerAction + Action_state]
+	ld a, [wPlayerAction.state]
 	and ~ActionState_LIVE
-	ld [wPlayerAction + Action_state], a
+	ld [wPlayerAction.state], a
+
+	; reset toggleable inputs
+	ld a, [wPlayer.input]
+	res bInput_GRIP, a
+	ld [wPlayer.input], a
+
+	ld a, ACTION_REQ_LOCKOUT :: ld [wPlayer.action_req_lockout], a
 	ret
 
 
 _PlayerActionUpdate:
-	ld de, wPlayerAction + Action_type
+	ld de, wPlayerAction.type
 	ld a, [de] :: inc de ; type
 	cp szActionType
 	ret nc
 	rst RST_SwitchJump
 .jump_table:
-	dw .resolve_jet
-	dw .resolve_claw
-	dw .resolve_grip
-	dw .proc_dash
-	dw .proc_sweep
-	dw .proc_crush
-	dw .proc_compact
-	dw .proc_anchor
-	dw .proc_carry
+	dw _act_jet
+	dw _act_claw
+	dw _act_grip
+	dw _act_dash
+	dw _act_sweep
+	dw _act_crush
+	dw _act_compact
+	dw _act_anchor
+	dw _act_carry
 assert (@ - .jump_table) >> 1 == szActionType
 
-.resolve_jet:
+_act_jet:
 	ld b, b
 	ret
 
-.resolve_claw:
+_act_claw:
 	ld b, b
 	ret
 
-.resolve_grip:
+_act_grip:
 	ld b, b
 	ret
 
-.proc_dash:
+_act_dash:
 	; Cancel dash if input flag not set.
 	ld a, [wPlayer.input]
 	bit bInput_DASH, a
@@ -642,7 +719,7 @@ assert (@ - .jump_table) >> 1 == szActionType
 
 	ret
 
-.proc_sweep:
+_act_sweep:
 	; Cancel if input flag not set.
 	ld a, [wPlayer.input]
 	bit bInput_SWEEP, a
@@ -653,28 +730,117 @@ assert (@ - .jump_table) >> 1 == szActionType
 	ld [de], a
 	ret
 
-.proc_crush:
+_act_crush:
 	ld a, [de]
 	res bActionState_NEW, a
 	ld [de], a
 	ret
 
-.proc_compact:
+_act_compact:
 	ld a, [de]
 	res bActionState_NEW, a
 	ld [de], a
 	ret
 
-.proc_anchor:
+_act_anchor:
+	ld a, [de]
+	bit bActionState_ACTIVE, a
+	jr nz, :+
+	bit bActionState_NEW, a
+	ret z
+	; NEW
+	xor ActionState_NEW | ActionState_ACTIVE
+	ld [de], a
+	ret
+:
+	; ACTIVE
+	ld a, [wPlayer.input]
+	bit bInput_GRIP, a
+	jp z, _PlayerCancelAction
+
+	; Check distance to anchor point
+	ldh a, [hEntityActive.state + 0] :: ld l, a
+	ldh a, [hEntityActive.state + 1] :: ld h, a
+
+	entity_index Entity_PosY
+	ld a, [hl+] :: ld c, a
+	ld a, [hl+] :: ld b, a
+	coord_int16 bc
+		push bc
+	entity_index Entity_PosX
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+	coord_int16 de
+
+	ld hl, wPlayerAction.anchor_x
+	ld a, [hl+] :: ld c, a
+	ld b, [hl]
+	ld hl, ANCHOR_BREAK_DISTANCE
+	call _check_distance
+		pop de ; entity Y
+	jp nc, _PlayerCancelAction
+
+	ld hl, wPlayerAction.anchor_y
+	ld a, [hl+] :: ld c, a
+	ld b, [hl]
+	ld hl, ANCHOR_BREAK_DISTANCE
+	call _check_distance
+	jp nc, _PlayerCancelAction
+
+	; [DEBUG] Show anchor point
+	ld hl, wPlayerAction.anchor_x
+	ld a, [hl+] :: ld c, a
+	ld a, [hl+] :: ld b, a
+	ld a, [wScroll.x + 0] :: ld e, a
+	ld a, [wScroll.x + 1] :: ld d, a
+	ld a, c :: sub e :: ld c, a
+	ld a, b :: sbc d :: ld b, a
+		push bc
+	ld a, [hl+] :: ld c, a
+	ld a, [hl+] :: ld b, a
+	ld a, [wScroll.y + 0] :: ld e, a
+	ld a, [wScroll.y + 1] :: ld d, a
+	ld a, c :: sub e :: ld c, a
+	ld a, b :: sbc d :: ld b, a
+		pop de ; X
+	ld a, c :: add 12 :: ld b, a ; Y
+	ld a, e :: add 4 :: ld c, a ; X
+	ld a, [wVBlankCount]
+	and $F0
+	swap a
+	assert WIDGET_GRAB_LENGTH == (-WIDGET_GRAB_LENGTH) & WIDGET_GRAB_LENGTH
+	and WIDGET_GRAB_LENGTH - 1
+	add WIDGET_GRAB
+	ld e, a
+	jp WidgetRender
+
+_act_carry:
 	ld a, [de]
 	res bActionState_NEW, a
 	ld [de], a
 	ret
 
-.proc_carry:
-	ld a, [de]
-	res bActionState_NEW, a
-	ld [de], a
+
+;; Compute distance between p0 and p1 and compare the result to the threshold.
+;; @param BC: p0 (unsigned)
+;; @param DE: p1 (unsigned)
+;; @param HL: threshold
+;; @ret F.C: Set if the distance is less than the threshold
+;; @mut: AF, BC, HL
+_check_distance:
+	ld a, c :: sub e :: ld c, a
+	ld a, b :: sbc d :: ld b, a
+	jr c, .negative
+.positive:
+	cp h
+	ret c
+	ld a, c :: cp l
+	ret
+.negative:
+	add hl, bc
+	dec hl
+	rl h ; sign bit to F.C
+	ccf
 	ret
 
 
@@ -755,4 +921,80 @@ _PlayerInput_claw:
 	set bInput_CLAW, [hl]
 	ld b, ActionTrigger_CLAW
 	ret
+
+
+;; Update input state for GRIP abilities
+;; @ret B: requested action (ActionTrigger)
+;; @mut: AF, B, HL
+_PlayerInput_grip:
+	ld b, ActionTrigger_NULL
+
+	; Toggle on press
+	ldh a, [hKeysPressed]
+	and KEY_GRIP
+	ret z
+	ld hl, wPlayer.input
+	ld a, Input_GRIP
+	xor [hl]
+	ld [hl], a
+	; trigger if set
+	and Input_GRIP
+	ret z
+	ld b, ActionTrigger_GRIP
+	ret
+
+; 	ld hl, wPlayer.input
+; 	ldh a, [hKeys]
+; 	and KEYS_ACTION
+; 	cp KEY_GRIP
+; 	jr z, :+
+; 	; release grip
+; 	; bit bInput_GRIP, [hl]
+; 	res bInput_GRIP, [hl]
+; 	ret
+; :
+; 	; only trigger action if grip not already pressed.
+; 	bit bInput_GRIP, [hl]
+; 	ret nz
+; 	set bInput_GRIP, [hl]
+; 	ld b, ActionTrigger_GRIP
+; 	ret
+
+
+pushs "Player_DetectCarryTarget", rom0
+;; Scan for a carryable target within reach.
+;; @ret F.C: set on success
+Player_DetectCarryTarget:
+	xor a ; clear F.C
+	ret
+
+pops ; Player_DetectCarryTarget
+
+
+pushs "Player_DetectAnchorTarget", rom0
+;; Scan for an anchor point within reach.
+;; @ret F.C: set on success
+;; @ret DE: anchor point X
+;; @ret BC: anchor point Y
+;; @mut: AF, HL, BC, DE
+Player_DetectAnchorTarget:
+	; ld a, [wPlayer.ent]
+	; call EntityAt
+	ldh a, [hEntityActive.state + 0] :: ld l, a
+	ldh a, [hEntityActive.state + 1] :: ld h, a
+
+	entity_index Entity_PosX
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+	coord_int16 de
+
+	entity_index Entity_PosY
+	ld a, [hl+] :: ld c, a
+	ld a, [hl+] :: ld b, a
+	coord_int16 bc
+
+	scf
+	ret
+
+pops ; Player_DetectAnchorTarget
 
