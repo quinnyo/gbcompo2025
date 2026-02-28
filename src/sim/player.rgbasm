@@ -979,8 +979,14 @@ pushs "Player_DetectAnchorTarget", rom0
 ;; @ret BC: anchor point Y
 ;; @mut: AF, HL, BC, DE
 Player_DetectAnchorTarget:
-	; ld a, [wPlayer.ent]
-	; call EntityAt
+	ld b, Optid_AnchorAnywhere
+	call OptGet
+	jr nz, .anchor_anywhere
+
+.failed:
+	and a ; clear F.C
+	ret
+.anchor_anywhere:
 	ldh a, [hEntityActive.state + 0] :: ld l, a
 	ldh a, [hEntityActive.state + 1] :: ld h, a
 

@@ -2,15 +2,15 @@
 rsreset
 ;; Disconnect the player entity and allow freely scrolling the view.
 export def Optid_MapViewer rb 1
-;; Display some collision debug info
-export def Optid_CollideInfo rb 1
+;; Treat player's position as a valid anchor point target.
+export def Optid_AnchorAnywhere rb 1
 
 export def Opt__COUNT rb 0
 
 export def bOpt_MapViewer equ Optid_MapViewer
-export def bOpt_CollideInfo equ Optid_CollideInfo
+export def bOpt_AnchorAnywhere equ Optid_AnchorAnywhere
 export def Opt_MapViewer equ 1 << bOpt_MapViewer
-export def Opt_CollideInfo equ 1 << bOpt_CollideInfo
+export def Opt_AnchorAnywhere equ 1 << bOpt_AnchorAnywhere
 
 
 section "hOpt", hram
