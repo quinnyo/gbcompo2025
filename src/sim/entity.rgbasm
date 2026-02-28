@@ -23,6 +23,9 @@ hEntityActive::
 section "wEntity", wram0, align[8]
 wEntity:: ds ENTITY_COUNT_MAX * szEntity
 
+; ;; Working copy of active entity.
+; wEntityWorking:: ds szEntity
+
 
 section "wEntityFn", wram0, align[bitwidth(szEntityFn - 1)]
 def szEntityFnTable equ ENTITY_COUNT_MAX * szEntityFn
@@ -43,15 +46,9 @@ wEntityUsr0:: ds ENTITY_COUNT_MAX * szEntityUsr0
 section "Entity", rom0
 EntityInit::
 	ld hl, wEntity
-	ld b, ENTITY_COUNT_MAX
-.entity_pool_loop
-	ld c, szEntity
-:
-	ld [hl+], a
-	dec c
-	jr nz, :-
-	dec b
-	jr nz, .entity_pool_loop
+	ld bc, sizeof("wEntity")
+	xor a
+	call MemFillLarge
 
 	ld a, GRAVITY_DEFAULT
 	ldh [hSim.gravity], a
@@ -167,15 +164,44 @@ EntityActiveInvoke:
 
 section "EntityActiveSelect", rom0
 ;; Set the active entity, update hEntityActive.
-;; @param A: index of entity to select
+;; Copies the entity state to wEntityWorking.
+;; @param B: index of entity to select
 ;; @ret HL: Entity state pointer
-;; @mut: AF, HL
+;; @mut: AF, C, DE, HL
 EntityActiveSelect::
-	ldh [hEntityActive.index], a
+	ld a, b :: ldh [hEntityActive.index], a
+
+	; get entity state pointer
+	assert szEntity == 16
+	ld a, b ; index
+	swap a ; mul 16
+	ldh [hEntityActive.state + 0], a
+	ld l, a
+	ld a, high(wEntity)
+	ldh [hEntityActive.state + 1], a
+	ld h, a
+
+	; FALLTHROUGH
+
+;; @param B: entity index
+;; @param HL: entity state address
+;; @ret HL: address of empty slot
+;; @ret F.C: set if successful
+;; @mut: AF, C, DE, HL
+EntityActiveSelectFinalise:
+	ld a, [hl+] ; Info
+	ld a, [hl-] ; Ctrl
+	ldh [hEntityActive.ctrl], a
+
+		push hl
+	; ; copy entity state to working cache
+	; ld e, l :: ld d, h
+	; ld hl, wEntityWorking
+	; ld c, szEntity
+	; call MemCopySmall
 
 	ld hl, wEntityUsr0 / szEntityUsr0
-	ldh a, [hEntityActive.index]
-	add l :: ld l, a
+	ld a, b :: add l :: ld l, a
 	adc h :: sub l :: ld h, a
 	assert szEntityUsr0 == 16
 	add hl, hl
@@ -184,57 +210,52 @@ EntityActiveSelect::
 	add hl, hl
 	ld a, l :: ldh [hEntityActive.usr0 + 0], a
 	ld a, h :: ldh [hEntityActive.usr0 + 1], a
-
-	; get entity state pointer
-	assert szEntity == 16
-	ldh a, [hEntityActive.index]
-	swap a ; mul 16
-	ldh [hEntityActive.state + 0], a
-	ld l, a
-	ld a, high(wEntity)
-	ldh [hEntityActive.state + 1], a
-	ld h, a
-
-	ld a, [hl+] ; Info
-	ld a, [hl-] ; Ctrl
-	ldh [hEntityActive.ctrl], a
+		pop hl
+	; NOTE: Returning F.C for EntityActiveSelectEmpty.
+	;       There is (currently) no alternative exit point in this routine.
+	scf
 	ret
 
 
-section "EntityActiveSelectEmpty", rom0
 ;; Select the first unoccupied entity slot, if any.
 ;; @ret HL: address of empty slot
-;; @ret C: index
+;; @ret B: index
 ;; @ret F.C: set if successful
-;; @mut: AF, C, HL
+;; @mut: AF, BC, DE, HL
 EntityActiveSelectEmpty::
 	ld hl, wEntity + szEntity * ENTITY_AUTO_ASSIGN_START
-	ld c, ENTITY_AUTO_ASSIGN_START
+	ld b, ENTITY_AUTO_ASSIGN_START
+	ld de, szEntity
 :
 	ld a, [hl]
 	and ENTINFOF_OCCUPIED
 	jr z, .ok
 
-	inc c
-	ld a, c
+	inc b
+	ld a, b
 	cp ENTITY_COUNT_MAX
 	ret nc
 
-	ld a, szEntity
-	add l :: ld l, a
-	adc h :: sub l :: ld h, a
+	add hl, de
 	jr :-
 .ok
 	ld a, l :: ldh [hEntityActive.state + 0], a
 	ld a, h :: ldh [hEntityActive.state + 1], a
-	ld a, c :: ldh [hEntityActive.index], a
-		push hl
-	call EntityGetUsr0
-	ld a, l :: ldh [hEntityActive.usr0 + 0], a
-	ld a, h :: ldh [hEntityActive.usr0 + 1], a
-		pop hl
-	scf
-	ret
+	ld a, b :: ldh [hEntityActive.index], a
+	jr EntityActiveSelectFinalise
+
+
+/*
+section "EntityActiveAcceptWorking", rom0
+;; Update the active entity by transferring the working copy in wEntityWorking to it.
+;; @mut: AF, C, DE, HL
+EntityActiveAcceptWorking::
+	ld c, szEntity
+	ld de, wEntityWorking
+	ldh a, [hEntityActive.state + 0] :: ld l, a
+	ldh a, [hEntityActive.state + 1] :: ld h, a
+	jp MemCopySmall
+*/
 
 
 section "EntityGetFn", rom0
@@ -357,7 +378,6 @@ EntityAt::
 section "EntityGetUsr0", rom0
 ;; Returns a pointer to an Entity's block in wEntityUsr0.
 ;; @param A: entity index
-;; @param HL: user region start address divided by szEntityUsr0
 ;; @ret HL: pointer to the user region
 ;; @mut: AF, HL
 EntityGetUsr0::

@@ -80,11 +80,24 @@ def ENTCTRL_NOGRAV equ 1 << bENTCTRL_NOGRAV
 
 macro entity_index
 	assert _NARG == 1
-	assert (\1) <= szEntity
+	assert (\1) < szEntity
 	ld a, l
 	and $F0
 	add (\1)
 	ld l, a
+endm
+
+
+;; Get pointer to one of active entity's fields.
+;; Note that `entity_index` is preferred if HL already contains a valid entity pointer.
+macro entity_index_active
+	assert _NARG == 1
+	assert (\1) < szEntity
+	ldh a, [hEntityActive.state + 0]
+	add (\1)
+	ld l, a
+	ldh a, [hEntityActive.state + 1]
+	ld h, a
 endm
 
 

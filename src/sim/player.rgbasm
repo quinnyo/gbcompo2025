@@ -223,6 +223,7 @@ PlayerThink:
 
 	; Process ActionTrigger requests
 	call _PlayerProcessActReqs
+	; Process active action
 	call _PlayerActionUpdate
 
 	ldh a, [hKeys]
@@ -780,12 +781,28 @@ _act_anchor:
 		pop de ; entity Y
 	jp nc, _PlayerCancelAction
 
+	; accel toward anchor point (X)
+	entity_index_active Entity_AccX
+	rl b ; sign flag from high byte
+	rr c :: sra c :: sra c ; scale
+	ld b, [hl]
+	call AddS8_sat
+	ld [hl], c
+
 	ld hl, wPlayerAction.anchor_y
 	ld a, [hl+] :: ld c, a
 	ld b, [hl]
 	ld hl, ANCHOR_BREAK_DISTANCE
 	call _check_distance
 	jp nc, _PlayerCancelAction
+
+	; accel toward anchor point (Y)
+	entity_index_active Entity_AccY
+	rl b ; sign flag from high byte
+	rr c :: sra c :: sra c ; scale
+	ld b, [hl]
+	call AddS8_sat
+	ld [hl], c
 
 	; [DEBUG] Show anchor point
 	ld hl, wPlayerAction.anchor_x
@@ -826,6 +843,7 @@ _act_carry:
 ;; @param DE: p1 (unsigned)
 ;; @param HL: threshold
 ;; @ret F.C: Set if the distance is less than the threshold
+;; @ret BC: p0 - p1 (signed)
 ;; @mut: AF, BC, HL
 _check_distance:
 	ld a, c :: sub e :: ld c, a
@@ -942,23 +960,6 @@ _PlayerInput_grip:
 	ret z
 	ld b, ActionTrigger_GRIP
 	ret
-
-; 	ld hl, wPlayer.input
-; 	ldh a, [hKeys]
-; 	and KEYS_ACTION
-; 	cp KEY_GRIP
-; 	jr z, :+
-; 	; release grip
-; 	; bit bInput_GRIP, [hl]
-; 	res bInput_GRIP, [hl]
-; 	ret
-; :
-; 	; only trigger action if grip not already pressed.
-; 	bit bInput_GRIP, [hl]
-; 	ret nz
-; 	set bInput_GRIP, [hl]
-; 	ld b, ActionTrigger_GRIP
-; 	ret
 
 
 pushs "Player_DetectCarryTarget", rom0
