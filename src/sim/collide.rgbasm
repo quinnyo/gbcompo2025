@@ -159,7 +159,7 @@ jr z, .x_axis_end
 	ld a, [hl+] :: ld b, a
 	ld a, [hl+] :: ld d, a ; gridy
 
-	call _BgTileLookup
+	call MapQueryCell
 	call CollidePointInTile_enviro0
 	; do ejection if eject delta is nonzero and opposes step direction
 	ld a, e
@@ -191,7 +191,7 @@ jr z, .y_axis_end
 	ld a, [hl+] :: ld c, a
 	ld a, [hl+] :: ld e, a ; gridx
 
-	call _BgTileLookup
+	call MapQueryCell
 	call CollidePointInTile_enviro0
 	; do ejection if eject delta is nonzero and opposes step direction
 	ld a, d
@@ -209,33 +209,6 @@ jr nc, .y_axis_end
 	ld hl, wCollidePose.spy
 	call __QueryApplyStep
 .y_axis_end
-
-	ret
-
-
-;; TODO: This should probably be handled by Map.
-;; @param D,E: Y,X grid coord (mod 32)
-;; @ret A: BG Map tile ID
-;; @ret HL: pointer to BG Map cell
-;; @mut: AF, HL
-_BgTileLookup:
-	; (Y mod 32) * 32
-	ld a, d
-;	and $1F ; mod 32
-	add a :: add a :: add a ; Y * 8
-	ld l, a
-	ld h, 0
-	add hl, hl :: add hl, hl ; * 32
-	; ... + (X mod 32)
-	ld a, e
-;	and $1F ; mod 32
-	add l
-	ld l, a
-	adc h
-	sub l
-	add high(wMapBgChr)
-	ld h, a
-	ld a, [hl]
 
 	ret
 

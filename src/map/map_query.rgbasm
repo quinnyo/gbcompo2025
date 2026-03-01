@@ -1,0 +1,27 @@
+include "map.rgbinc"
+
+
+pushs "MapQueryCell", rom0
+;; Look up a BG map buffer cell via grid coordinates.
+;; @param D,E: Y,X grid coord (mod 32)
+;; @ret A: CHR ID in the cell
+;; @ret HL: pointer to the cell in wMapBgChr
+;; @mut: AF, HL
+MapQueryCell::
+	; Y * 32
+	ld a, d
+	add a :: add a :: add a ; Y * 8
+	ld l, a
+	ld h, 0
+	add hl, hl :: add hl, hl ; * 32
+	; (Y * 32) + X
+	ld a, e :: add l :: ld l, a
+	adc h :: sub l
+	; index buffer
+	add high(wMapBgChr)
+	ld h, a
+	ld a, [hl]
+	ret
+
+pops ; MapQueryCell
+
