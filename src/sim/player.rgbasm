@@ -59,8 +59,13 @@ def VECDIR_MAG_DEFAULT equ (5 << 8) | 7
 def VECDIR_MAG_DASH equ (12 << 8) | 17
 
 
-;; Break anchor if player distance to anchor point reaches this. In dots.
-def ANCHOR_BREAK_DISTANCE equ 20
+;; Distance from anchor point that spring force will begin being applied.
+def ANCHOR_SPRING_DIST_MIN equ 3
+;; Maximum distance diver can be from the anchor point.
+;; If this is exceeded, the anchor action is cancelled.
+def ANCHOR_DISTANCE_MAX equ 18
+; Number of times to shift spring strength right to calculate spring accel.
+def ANCHOR_SPRING_SCALE_SHIFT equ 2
 
 
 ;; Max. number of ActionTrigger requests that can be buffered at once.
@@ -199,6 +204,27 @@ PlayerSpawn::
 ;; Entity impl FnThink for player entity controller.
 ;; @mut: AF, BC, D, HL
 PlayerThink:
+if def(DEBUG_ANCHOR)
+	; [DEBUG] anchor point detect
+	call Player_DetectAnchorTarget
+	jr nc, :+
+		push de
+	ld a, [wScroll.y + 0] :: ld e, a
+	ld a, [wScroll.y + 1] :: ld d, a
+	ld a, c :: sub e
+	add 12 :: ld h, a ; display Y
+		pop bc
+	ld a, [wScroll.x + 0] :: ld e, a
+	ld a, [wScroll.x + 1] :: ld d, a
+	ld a, c :: sub e
+	add 4 :: ld c, a ; X
+	ld b, h ; Y
+
+	ld e, WIDGET_SPIN
+	call WidgetRender
+:
+endc ; DEBUG_ANCHOR
+
 	; Clear requests
 	xor a :: ld [wPlayer.action_reqs_len], a
 
@@ -473,30 +499,10 @@ _PlayerProcessActReqs:
 	; Do lockout timer
 	ld a, [wPlayer.action_req_lockout]
 	and a
-	jr z, :+
+	jr z, .proc_reqs
 	dec a
 	ld [wPlayer.action_req_lockout], a
 	jr .flush
-:
-
-	ld hl, wPlayerAction.state
-	ld a, [hl-] :: ld e, a ; state
-	ld d, [hl] ; type
-	cp szActionType
-	jr nc, .proc_reqs ; action type is NULL, do reqs
-	ld a, e
-	and ActionState_LIVE
-	jr z, .proc_reqs ; action is dead, do reqs
-	bit bActionState_BLOCKING, e
-	jr nz, .flush ; live action is blocking (no cancels)
-
-.proc_cancel:
-	; Check if it's appropriate to cancel the active action, and:
-	;   if active should be cancelled, process the requests; or
-	;   ignore the requests and clear the buffer.
-
-	; TODO: something about cancelling ... ?
-
 .proc_reqs:
 	; Process requests
 	ld hl, wPlayer.action_reqs_len
@@ -587,7 +593,7 @@ assert (@ - .jumptab) >> 1 == szActionTrigger
 	ld a, d :: ld [hl+], a
 	ld a, c :: ld [hl+], a ; .anchor_y
 	ld a, b :: ld [hl+], a
-	ld a, [wPlayerAction.type] :: ld d, a
+	ld d, ActionType_ANCHOR ; return resolved action type
 	ret
 .no_change:
 	ld d, ActionType_NULL
@@ -597,7 +603,7 @@ assert (@ - .jumptab) >> 1 == szActionTrigger
 ;; Get the player's current live action, if any.
 ;; Returns ActionType_NULL if current action is not live.
 ;; @ret A: current live action type
-;; @ret F.Z: set if player action is live
+;; @ret F.Z: set if no live action
 ;; @mut: AF
 _PlayerGetActionLive:
 	ld a, [wPlayerAction.state]
@@ -641,16 +647,14 @@ _PlayerCancelAction:
 	and ~ActionState_LIVE
 	ld [wPlayerAction.state], a
 
-	; reset toggleable inputs
-	ld a, [wPlayer.input]
-	res bInput_GRIP, a
-	ld [wPlayer.input], a
-
 	ld a, ACTION_REQ_LOCKOUT :: ld [wPlayer.action_req_lockout], a
 	ret
 
 
 _PlayerActionUpdate:
+	ld a, [wPlayerAction.state]
+	and ActionState_LIVE
+	ret z
 	ld de, wPlayerAction.type
 	ld a, [de] :: inc de ; type
 	cp szActionType
@@ -749,20 +753,19 @@ _act_anchor:
 	jr nz, :+
 	bit bActionState_NEW, a
 	ret z
-	; NEW
+	; clear NEW and set ACTIVE
 	xor ActionState_NEW | ActionState_ACTIVE
 	ld [de], a
 	ret
 :
-	; ACTIVE
+	; If GRIP pressed: release
 	ld a, [wPlayer.input]
 	bit bInput_GRIP, a
-	jp z, _PlayerCancelAction
+	jp nz, _PlayerCancelAction
 
-	; Check distance to anchor point
+	; Process anchor displacement
 	ldh a, [hEntityActive.state + 0] :: ld l, a
 	ldh a, [hEntityActive.state + 1] :: ld h, a
-
 	entity_index Entity_PosY
 	ld a, [hl+] :: ld c, a
 	ld a, [hl+] :: ld b, a
@@ -772,37 +775,17 @@ _act_anchor:
 	ld a, [hl+] :: ld e, a
 	ld a, [hl+] :: ld d, a
 	coord_int16 de
-
-	ld hl, wPlayerAction.anchor_x
-	ld a, [hl+] :: ld c, a
-	ld b, [hl]
-	ld hl, ANCHOR_BREAK_DISTANCE
-	call _check_distance
+	ld a, [wPlayerAction.anchor_x + 0] :: ld c, a
+	ld a, [wPlayerAction.anchor_x + 1] :: ld b, a
+	entity_index Entity_AccX
+	call _process_anchor_displacement
 		pop de ; entity Y
 	jp nc, _PlayerCancelAction
-
-	; accel toward anchor point (X)
-	entity_index_active Entity_AccX
-	rl b ; sign flag from high byte
-	rr c :: sra c :: sra c ; scale
-	ld b, [hl]
-	call AddS8_sat
-	ld [hl], c
-
-	ld hl, wPlayerAction.anchor_y
-	ld a, [hl+] :: ld c, a
-	ld b, [hl]
-	ld hl, ANCHOR_BREAK_DISTANCE
-	call _check_distance
+	ld a, [wPlayerAction.anchor_y + 0] :: ld c, a
+	ld a, [wPlayerAction.anchor_y + 1] :: ld b, a
+	entity_index Entity_AccY
+	call _process_anchor_displacement
 	jp nc, _PlayerCancelAction
-
-	; accel toward anchor point (Y)
-	entity_index_active Entity_AccY
-	rl b ; sign flag from high byte
-	rr c :: sra c :: sra c ; scale
-	ld b, [hl]
-	call AddS8_sat
-	ld [hl], c
 
 	; [DEBUG] Show anchor point
 	ld hl, wPlayerAction.anchor_x
@@ -838,27 +821,52 @@ _act_carry:
 	ret
 
 
-;; Compute distance between p0 and p1 and compare the result to the threshold.
-;; @param BC: p0 (unsigned)
-;; @param DE: p1 (unsigned)
-;; @param HL: threshold
-;; @ret F.C: Set if the distance is less than the threshold
-;; @ret BC: p0 - p1 (signed)
-;; @mut: AF, BC, HL
-_check_distance:
+;; Process anchor displacement (one axis):
+;; - Calc displacement, distance
+;; - Check anchor break distance threshold
+;; - Apply anchor spring acceleration
+;; @param BC: p_anchor (unsigned)
+;; @param DE: p_diver (unsigned)
+;; @param HL: pointer to accel state
+;; @ret F.NC: distance exceeds upper bound
+;; @mut: AF, BC, DE
+_process_anchor_displacement:
 	ld a, c :: sub e :: ld c, a
 	ld a, b :: sbc d :: ld b, a
-	jr c, .negative
-.positive:
-	cp h
-	ret c
-	ld a, c :: cp l
-	ret
-.negative:
-	add hl, bc
-	dec hl
-	rl h ; sign bit to F.C
-	ccf
+	ld d, b ; keep sign of actual difference
+	call AbsS16
+	; saturate BC ~~> C
+	ld a, b :: and a :: jr z, :+
+	; B nonzero: set C to maximum
+	ld c, $FF
+:
+
+	; check max distance
+	ld a, c :: cp ANCHOR_DISTANCE_MAX
+	ret nc
+
+	; spring return strength
+	ld a, c :: sub ANCHOR_SPRING_DIST_MIN
+	ret c ; (dist < lower bound): dead zone, no spring back
+
+	; scale spring response
+	rept ANCHOR_SPRING_SCALE_SHIFT
+		sra c
+	endr
+	inc c ; ensure strength is non-zero
+
+	; calc spring accel toward anchor point
+	bit 7, d
+	jr z, :+
+	xor a :: sub c :: ld c, a
+:
+
+	; apply accel
+	ld b, [hl]
+	call AddS8_sat
+	ld [hl], c
+
+	scf
 	ret
 
 
@@ -946,18 +954,15 @@ _PlayerInput_claw:
 ;; @mut: AF, B, HL
 _PlayerInput_grip:
 	ld b, ActionTrigger_NULL
-
-	; Toggle on press
-	ldh a, [hKeysPressed]
-	and KEY_GRIP
-	ret z
 	ld hl, wPlayer.input
-	ld a, Input_GRIP
-	xor [hl]
-	ld [hl], a
-	; trigger if set
-	and Input_GRIP
-	ret z
+	ldh a, [hKeysPressed]
+	cpl
+	and KEY_GRIP
+	jr z, :+
+	res bInput_GRIP, [hl]
+	ret
+:
+	set bInput_GRIP, [hl]
 	ld b, ActionTrigger_GRIP
 	ret
 
@@ -983,8 +988,64 @@ Player_DetectAnchorTarget:
 	call OptGet
 	jr nz, .anchor_anywhere
 
+.scan_bg:
+	; Get player grid position
+	ldh a, [hEntityActive.state + 0] :: ld l, a
+	ldh a, [hEntityActive.state + 1] :: ld h, a
+	entity_index Entity_PosX
+	; divide by 128: shift 16 bits left once, then take only the high byte
+	ld a, [hl+] :: rla
+	ld a, [hl+] :: rla
+	ld e, a
+	entity_index Entity_PosY
+	ld a, [hl+] :: rla
+	ld a, [hl+] :: rla
+	ld d, a
+
+	; HACK: testing for this single (hard-coded) tile (filled/solid).
+	ld b, $0A
+
+	; Origin
+	call MapQueryCell
+	; NOTE: using sub instead of cp so .anchor_tile can use the zero
+	sub b :: jr z, .anchor_tile
+	; tap Y axis
+	ld c, d ; preserve Y origin
+	dec d
+	call MapQueryCell
+	sub b :: jr z, .anchor_tile
+	inc d :: inc d
+	call MapQueryCell
+	sub b :: jr z, .anchor_tile
+	ld d, c ; restore Y origin
+
+	; tap X axis
+	ld c, e ; preserve X origin
+	dec e
+	call MapQueryCell
+	sub b :: jr z, .anchor_tile
+	inc e :: inc e
+	call MapQueryCell
+	sub b :: jr z, .anchor_tile
+
 .failed:
 	and a ; clear F.C
+	ret
+.anchor_tile:
+	; found a tile anchor target ... calc anchor point (dots) from grid coord
+	; Y
+	ld h, 0 :: ld l, d
+	add hl, hl
+	inc hl ; (+1) * 4 to centre on tile
+	add hl, hl :: add hl, hl
+	ld c, l :: ld b, h
+	; X
+	ld h, 0 :: ld l, e
+	add hl, hl
+	inc hl ; (+1) * 4 to centre on tile
+	add hl, hl :: add hl, hl
+	ld e, l :: ld d, h
+	scf ; success!
 	ret
 .anchor_anywhere:
 	ldh a, [hEntityActive.state + 0] :: ld l, a

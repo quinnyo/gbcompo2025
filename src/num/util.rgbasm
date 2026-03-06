@@ -79,3 +79,75 @@ AbsS8::
 
 pops ; AbsS8
 
+
+pushs "AbsS16", rom0
+;; Calculate the absolute value of the signed 16 bit integer in BC.
+;; @param BC: input
+;; @ret BC: abs(input)
+;; @mut: AF, BC
+AbsS16::
+	bit 7, b
+	ret z
+	ld a, c :: cpl :: ld c, a
+	ld a, b :: cpl :: ld b, a
+	inc bc
+	ret
+
+pops ; AbsS16
+
+
+if def(TESTS)
+pushs "test#AbsS16", rom0
+test#AbsS16::
+	ld b, b
+	call test#AbsS16_neg
+	ld b, b
+	call test#AbsS16_pos
+	ld b, b
+	ret
+
+
+test#AbsS16_neg:
+	ld hl, $8000 ; input
+	ld de, $8000 ; expect
+.loop:
+	ld c, l :: ld b, h
+	call AbsS16
+	ld a, c :: cp e :: jr z, :+
+	ld b, b
+	jr .continue
+:
+	ld a, b :: cp d :: jr z, :+
+	ld b, b
+:
+.continue:
+	ld a, l :: or h :: ret z
+	inc hl
+	dec de
+	jr .loop
+
+
+
+test#AbsS16_pos:
+	ld hl, $7FFF ; input
+.loop:
+	ld c, l :: ld b, h
+	call AbsS16
+	; expect = input
+	ld a, c :: cp l :: jr z, :+
+	ld b, b
+	jr .continue
+:
+	ld a, b :: cp h :: jr z, :+
+	ld b, b
+:
+.continue:
+	ld a, l :: or h :: ret z
+	dec hl
+	jr .loop
+	ret
+
+pops ; test#AbsS16
+
+endc ; TESTS
+
