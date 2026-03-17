@@ -6,10 +6,18 @@ section "Ani", rom0
 ;; @param HL: this Ani
 ;; @mut AF, HL
 AniInit::
+	ld a, 1 :: ld [hl+], a ; timer
 	xor a :: ld [hl+], a ; bank
-	inc a :: ld [hl+], a ; timer
 	ld a, $FF :: ld [hl+], a :: ld [hl+], a ; frame
 	ret
+
+
+;; @param HL: this Ani
+;; @param B: frame bank
+;; @param DE: initial frame address
+AniSetup::
+	xor a :: ld [hl], a ; .timer
+	jp AniSetFrame
 
 
 ;; Update Ani / advance time / submit drawables

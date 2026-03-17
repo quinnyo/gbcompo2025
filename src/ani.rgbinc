@@ -1,18 +1,20 @@
 if !def(Q_ANI_INC_e6pWgwvG)
 def Q_ANI_INC_e6pWgwvG equ 1
 
+include "st.rgbinc"
 
-rsreset
-;; Frame timer
-def Ani_timer rb 1
-;; ROM bank containing Ani frame data.
-def Ani_bank rb 1
-;; Pointer to current frame data (data?) (sprx?)
-def Ani_frame rb 2
-;; Pointer to next frame
-def Ani_next rb 2
-;; Size of Ani state struct
-def szAni rb 0
+
+;; Ani instance struct
+st Ani
+	;; Frame timer
+	stf Ani_timer, 1
+	;; ROM bank containing Ani frame data.
+	stf Ani_bank, 1
+	;; Pointer to current frame data
+	stf Ani_frame, 2
+	;; Pointer to next frame
+	stf Ani_next, 2
+st
 
 
 ;; ani_frame DURATION, NEXT
