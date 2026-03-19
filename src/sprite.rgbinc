@@ -1,9 +1,42 @@
 if !def(Q_SPRITE_INC_3dMG2Z3W)
 def Q_SPRITE_INC_3dMG2Z3W equ 1
 
+include "st.rgbinc"
+include "ani.rgbinc"
 
-def bSprite_ESC equ 7
-def Sprite_END equ $80
+
+rsreset
+;; Slot is empty
+def bSpriteInst_EMPTY rb 1
+;; Enable rendering
+def bSpriteInst_VISIBLE rb 1
+
+def SpriteInst_EMPTY equ 1 << bSpriteInst_EMPTY
+def SpriteInst_VISIBLE equ 1 << bSpriteInst_VISIBLE
+
+
+;; Animated sprite instance
+st SpriteInst
+	stf flags, 1
+	;; Y position in world dots
+	stf posy, 2
+	;; X position in world dots
+	stf posx, 2
+	;; base CHRI index
+	stf chri, 1
+	;; base ATRB, PAL index
+	stf atrb, 1
+	;; Ani instance
+	stf ani, szAni
+	stf _pad, 3
+st
+assert szSpriteInst == 16
+
+
+;; Sprob escape code
+def bSprob_ESC equ 7
+;; Terminates sprite descriptor
+def Sprob_END equ $80
 
 ;; Sprob coordinates are unsigned values in range [0..64)
 def SprobCoordMax equ 64
@@ -91,7 +124,7 @@ endm
 
 macro sprob_end
 	assert fail, _NARG == 0
-	db Sprite_END
+	db Sprob_END
 endm
 
 

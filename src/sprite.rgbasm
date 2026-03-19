@@ -15,7 +15,7 @@ SprxRender::
 
 :
 	; peek the first sprob byte
-	bit bSprite_ESC, [hl]
+	bit bSprob_ESC, [hl]
 	jr nz, .proc_esc
 	ldh a, [hObModY] :: ld b, a
 	ldh a, [hObModX] :: ld c, a
@@ -47,7 +47,7 @@ SprxRenderMod_ObMod::
 	call ObdoCustomStartDE
 .loop
 	; peek the first sprob byte
-	bit bSprite_ESC, [hl]
+	bit bSprob_ESC, [hl]
 	jr nz, .proc_esc
 
 	ldh a, [hObModAtrb] :: ld c, a
@@ -154,22 +154,22 @@ SprobRender:
 /*
 section "SprxTestSprxs", rom0
 sprNil:
-	db Sprite_END
+	db Sprob_END
 spr1:
 	; <0, 0> should be RenderPos - <32, 32>
 	db 0, 0, 0, 1
 	db 0, 63, 2, 2
 	db 63, 63, 4, 3
 	db 63, 0, 6, 4
-	db Sprite_END
+	db Sprob_END
 spr2:
 	db 24 + 16, 24 + 8, 16, 0
 	db 24 + 16, 32 + 8, 18, 0
-	db Sprite_END
+	db Sprob_END
 spr3:
 	db 24 + 16, 24 + 8, 16, 1
 	db 24 + 16, 32 + 8, 18, 2
-	db Sprite_END
+	db Sprob_END
 sprV:
 	sprob_opts_reset sy:8, sx:1, si:1
 	sprob_seq 8, -32, 0, 0, 0

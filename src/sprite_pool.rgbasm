@@ -1,0 +1,127 @@
+include "hardware.inc"
+include "banker.rgbinc"
+include "sprite.rgbinc"
+
+
+;; Maximum number of sprite instances
+def SPRITE_POOL_CAPACITY equ 20
+;; Size of sprite pool in bytes
+def SPRITE_POOL_SIZE equ SPRITE_POOL_CAPACITY * szSpriteInst
+
+
+pushs "wSpritePool", wramx
+wSpritePool: ds SPRITE_POOL_SIZE
+
+pops ; wSpritePool
+
+
+pushs "SpritePoolInit", rom0
+SpritePoolInit::
+		wrambpush bank(wSpritePool)
+	ld a, SpriteInst_EMPTY
+	ld bc, SPRITE_POOL_SIZE
+	ld hl, wSpritePool
+	call MemFillLarge
+		wrambpop
+	ret
+
+pops ; SpritePoolInit
+
+
+pushs "SpritePoolGetEmpty", rom0
+;; Search the pool for an unoccupied slot.
+;; @ret HL: pointer to empty slot SpriteInst
+;; @ret F.C: success
+;; @mut AF, HL
+SpritePoolGetEmpty::
+		push de
+		wrambpush bank(wSpritePool)
+
+	ld hl, wSpritePool
+	ld de, szSpriteInst
+	ld a, SPRITE_POOL_CAPACITY
+.loop
+	bit bSpriteInst_EMPTY, [hl]
+	jr nz, .found_empty
+	add hl, de
+	dec a
+	jr nz, .loop
+		wrambpop ; wSpritePool
+		pop de
+	and a ; return F.NC
+	ret
+
+.found_empty
+		wrambpop ; wSpritePool
+		pop de
+	scf ; return F.C
+	ret
+
+pops ; SpritePoolGetEmpty
+
+
+pushs "SpritePoolUpdate", rom0
+SpritePoolUpdate::
+		rombpush
+		wrambpush bank(wSpritePool)
+	ld hl, wSpritePool
+	ld bc, SPRITE_POOL_CAPACITY
+.loop
+	ld a, SPRITE_POOL_CAPACITY :: sub c
+	ld hl, wSpritePool / szSpriteInst
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+	assert szSpriteInst == 16
+	rept 4
+		add hl, hl
+	endr
+
+	bit bSpriteInst_EMPTY, [hl]
+	jr nz, .next
+
+	; do something with / hold on to flags?
+	ld a, [hl+]
+
+		push bc
+	; Y
+	ld a, [wScroll.y + 0] :: ld c, a
+	ld a, [wScroll.y + 1] :: ld b, a
+	ld a, [hl+] :: sub c :: ld c, a
+	ld a, [hl+] :: sbc b :: ld b, a
+
+	; X
+	ld a, [wScroll.x + 0] :: ld e, a
+	ld a, [wScroll.x + 1] :: ld d, a
+	ld a, [hl+] :: sub e :: ld e, a
+	ld a, [hl+] :: sbc d :: ld d, a
+
+	call SprxTestVisibility
+	jr nc, .next_pop_bc
+
+	; set render position
+	ld a, b :: ldh [hObModY], a
+	ld a, c :: ldh [hObModX], a
+
+	; chri
+	ld a, [hl+] :: ldh [hObModChri], a
+	; atrb
+	ld a, [hl+] :: ldh [hObModAtrb], a
+
+	ld d, 1
+	call AniUpdate
+		rombsel b ; select bank of ani frame drawable
+	call SprxRenderMod_ObMod
+
+.next_pop_bc
+		pop bc
+.next
+	dec c
+	jr nz, .loop
+
+		wrambpop
+		rombpop
+
+	ret
+
+pops ; SpritePoolUpdate
+

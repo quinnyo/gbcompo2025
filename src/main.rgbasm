@@ -113,12 +113,14 @@ Main::
 	call CurtainInit
 	call CurtainForceClose
 	call MapInit
+	call ScrollInit
 	call VramxInit
 	call ChrmanInit
 	call audio_init
 	call MusInit
 	call OptInit
 	call QmenuInit
+	call SpritePoolInit
 	call ModeInit
 	ld de, rModes_modeTitle
 	;ld de, rModes_modeSoundTest
@@ -147,6 +149,7 @@ Main::
 	call VramxSync
 	call QmenuUpdate
 	call ModeUpdate
+	call SpritePoolUpdate
 	call ObdoFinaliseFrame
 
 .vsync
