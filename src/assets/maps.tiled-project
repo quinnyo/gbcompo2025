@@ -42,33 +42,10 @@
             ]
         },
         {
-            "color": "#ffc1b1a3",
-            "drawFill": true,
-            "id": 1,
-            "members": [
-            ],
-            "name": "ViewRect",
-            "type": "class",
-            "useAs": [
-                "object",
-                "project"
-            ]
-        },
-        {
             "color": "#ffe8e6a8",
             "drawFill": true,
             "id": 13,
             "members": [
-                {
-                    "name": "modulate",
-                    "type": "float",
-                    "value": 1
-                },
-                {
-                    "name": "rules",
-                    "type": "object",
-                    "value": 0
-                }
             ],
             "name": "ZArea",
             "type": "class",
@@ -81,6 +58,11 @@
             "drawFill": true,
             "id": 15,
             "members": [
+                {
+                    "name": "from",
+                    "type": "object",
+                    "value": 0
+                },
                 {
                     "name": "sequence",
                     "type": "string",
@@ -100,7 +82,7 @@
             "name": "ZFlow",
             "type": "class",
             "useAs": [
-                "object"
+                "layer"
             ]
         }
     ]

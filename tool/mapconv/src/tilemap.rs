@@ -1,3 +1,4 @@
+#[derive(Debug, PartialEq)]
 pub struct Tilemap<T, const DIM_X: usize, const DIM_Y: usize> {
     cells: Vec<T>,
 }

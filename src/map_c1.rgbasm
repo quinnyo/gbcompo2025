@@ -5,23 +5,23 @@ map_c1::
 
 .resources:
 	db 6
-.EidSrc_f:
+.XidObject_f:
 	dw $00
-	dw 63, 144
-.EidSrc_10:
+	dw 104, 212
+.XidObject_10:
 	dw $01
-	dw 60, 240
-.EidSrc_11:
+	dw 265, 224
+.XidObject_11:
 	dw $02
 	dw 80, 296
-.EidSrc_9:
+.XidObject_9:
 	dw $40
 	dw 16, 16
-.EidSrc_3a:
+.XidLayer_f:
 	dw $41
 	dw $D000
-	db $02, $04, $08, $01, $03, $02, $04, $10, $20, $00, $20
-.EidSrc_4d:
+	db $02, $04, $08, $01, $02, $02, $04, $10, $21, $00, $20
+.XidLayer_13:
 	dw $41
 	dw $D008
 	db $02, $06, $0E, $02, $01, $00, $02, $00, $08, $10, $21, $00, $21, $11, $21, $00, $21
@@ -33,21 +33,26 @@ map_c1::
 .chunk_0_0_br1:
 	db $01,$FF,$00,$00
 .chunk_0_0_elems:
-	db 3
-.EidSrc_2b:
+	db 4
+.XidObject_55:
 	dw $42
-	db 0, 56
-	db 0, 40
+	db 0, 64
+	db 0, 54
 	dw $D000
-.EidSrc_4a:
+.XidObject_56:
 	dw $42
-	db 16, 24
-	db 40, 32
+	db 16, 30
+	db 48, 24
 	dw $D000
-.EidSrc_4c:
+.XidObject_58:
 	dw $42
-	db 40, 32
-	db 40, 72
+	db 46, 26
+	db 54, 18
+	dw $D008
+.XidObject_5b:
+	dw $42
+	db 16, 64
+	db 72, 56
 	dw $D008
 .chunk_1_0:
 	dw .chunk_1_0_br0, .chunk_1_0_br1, .chunk_1_0_elems

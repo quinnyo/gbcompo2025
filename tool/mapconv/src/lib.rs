@@ -1,13 +1,13 @@
 use std::io;
 
 pub mod brush;
-pub mod builder;
 pub mod chunk;
+pub mod convert;
 pub mod elem;
+pub mod extract;
 pub mod flow;
 pub mod geometry;
 pub mod out;
-pub mod placement;
 pub mod tiled_ext;
 pub mod tilemap;
 pub mod tsr;
@@ -17,9 +17,6 @@ pub mod coord {
 }
 
 pub use tiled::Map as Tmx;
-// pub use tsr::Tilesetter;
-
-use builder::Builder;
 
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -42,17 +39,16 @@ impl From<io::Error> for Error {
     }
 }
 
-pub const PROP_EDITOR_ONLY: &str = "editor_only";
-
-pub fn process_tmx(builder: &mut Builder, tmx: Tmx) {
+pub fn process_tmx(tmx: Tmx) -> out::Map {
     let map_name = tmx.source.file_stem().unwrap().to_str().unwrap();
-
     eprintln!("Building map '{map_name}' from tmx file {:?}", tmx.source);
-    builder.name = map_name.to_string();
 
-    for layer in tmx.layers() {
-        if !tiled_ext::properties_get(&layer.properties, PROP_EDITOR_ONLY).unwrap_or(false) {
-            builder.extract_layer(&layer);
-        }
-    }
+    let extract = extract::Extract::extract_tmx(&tmx);
+    // for (id, node) in &extract.nodes {
+    //     eprintln!("{id:?}: {node:?}");
+    // }
+    let mut conversion = convert::Conversion::from_extract(extract);
+    convert::these_converters::submit(&mut conversion);
+    let converted = conversion.convert();
+    out::Map::new(map_name.to_string(), converted.resources, converted.chunks)
 }

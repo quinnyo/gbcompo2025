@@ -1,4 +1,3 @@
-use mapconv::builder::Builder;
 use std::path::Path;
 use std::{env, io};
 use tiled::Loader;
@@ -34,9 +33,8 @@ fn main() -> Result<(), Error> {
     }
     let mut loader = Loader::new();
     let tmx = loader.load_tmx_map(path).unwrap();
-    let mut builder = Builder::new();
-    mapconv::process_tmx(&mut builder, tmx);
-    let result = builder.build();
+
+    let result = mapconv::process_tmx(tmx);
     result.rgbasm_write(std::io::stdout())?;
     Ok(())
 }

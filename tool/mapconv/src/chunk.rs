@@ -3,6 +3,7 @@ use crate::{coord::*, tsr};
 
 pub type ChunkTilemap = Tilemap<Option<tsr::TileId>, 16, 16>;
 
+#[derive(Debug, PartialEq)]
 pub struct Chunk {
     /// Position of chunk in chunk coords
     pub position: IVec2,

@@ -8,7 +8,7 @@ use std::{
 pub type TileId = Id<TileSpec>;
 pub type TileSourceId = Id<TileSource>;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct Tilesetter {
     sources: Register<TileSource>,
     tiles: Register<TileSpec>,
@@ -128,7 +128,7 @@ impl TileAtrb {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Register<T: RegisterItem> {
     items: HashMap<Id<T>, T>,
     order: Vec<Id<T>>,
@@ -214,7 +214,7 @@ where
     fn new() -> Self;
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct HashIdScheme<T>(PhantomData<T>);
 
 impl<T: Clone> IdScheme<T> for HashIdScheme<T>
