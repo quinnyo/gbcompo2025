@@ -13,9 +13,10 @@ pub mod these_converters {
         coord::IVec2,
         elem::ElemId,
         extract::ExtractNodeId,
+        flow::FlowRules,
         flow::FlowSeqCom,
         geometry::Shape,
-        out::{Chunk, Element, ElementType, FlowRules},
+        out::{Chunk, Element, ElementType},
         tiled_ext,
     };
 

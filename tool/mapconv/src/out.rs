@@ -1,5 +1,5 @@
-use crate::{brush::Brushes, coord::*, elem::ElemId, flow};
-use std::{collections::HashMap, mem};
+use crate::{brush::Brushes, coord::*, elem::ElemId, flow::FlowRules};
+use std::collections::HashMap;
 
 #[derive(Debug, Default)]
 pub struct Map {
@@ -221,105 +221,6 @@ pub mod code {
     impl From<std::num::TryFromIntError> for Error {
         fn from(v: std::num::TryFromIntError) -> Self {
             Self::TryFromIntError(v)
-        }
-    }
-}
-
-use code::Code;
-
-/// Flow zone rules / configuration
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct FlowRules {
-    /// Precomputed/prescaled set of possible flow vectors.
-    vecs: Vec<I8Vec2>,
-    /// Flow vector selection program -- each value is an index in `vecs`
-    sequence: Vec<flow::FlowSeqCom>,
-}
-
-impl FlowRules {
-    /// Generate code for an array with its length (number of items) prepended.
-    fn encode_array<T, U, F>(it: impl ExactSizeIterator<Item = T>, f: F) -> code::Result<Code>
-    where
-        U: IntoIterator<Item = u8>,
-        F: Fn(T) -> U,
-    {
-        let n = u8::try_from(it.len())?;
-        Ok(Code::Db(
-            vec![n].into_iter().chain(it.flat_map(f)).collect(),
-        ))
-    }
-
-    pub fn encode(&self) -> code::Result<Code> {
-        assert!(!self.vecs.is_empty());
-        assert!(!self.sequence.is_empty());
-        assert!(self
-            .sequence
-            .iter()
-            .filter_map(|com| match com {
-                flow::FlowSeqCom::On => None,
-                flow::FlowSeqCom::Off => None,
-                flow::FlowSeqCom::VecIndex(i) => Some(i),
-                flow::FlowSeqCom::Delay(_) => None,
-            })
-            .all(|i| (*i as usize) < self.vecs.len()));
-        let vecs_code = Self::encode_array(self.vecs.iter(), |v| vec![v.x as u8, v.y as u8])?;
-        let sequence_code =
-            Self::encode_array(self.sequence.iter().map(flow::FlowSeqCom::encode_a), |a| {
-                [a]
-            })?;
-        let mut offset_table = OffsetTable::default();
-        offset_table.push_target(vecs_code.sizeof());
-        offset_table.push_target(sequence_code.sizeof());
-        offset_table.push_target(0);
-
-        if let Some(offsets) = offset_table.build() {
-            Ok(Code::Block(vec![
-                Code::Db(offsets),
-                vecs_code,
-                sequence_code,
-            ]))
-        } else {
-            Err("Building offset table failed".into())
-        }
-    }
-
-    pub fn new(vecs: Vec<I8Vec2>, sequence: Vec<flow::FlowSeqCom>) -> Self {
-        Self { vecs, sequence }
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct OffsetTable {
-    /// Target fields (sizes)
-    targets: Vec<usize>,
-}
-
-impl OffsetTable {
-    /// push a new target of size `sz_target` to the end of the table.
-    pub fn push_target(&mut self, sz_target: usize) {
-        self.targets.push(sz_target);
-    }
-
-    pub fn build<T>(&self) -> Option<Vec<T>>
-    where
-        T: Sized + TryFrom<usize>,
-    {
-        let sz_offset = mem::size_of::<T>();
-        let result: Vec<T> = self
-            .targets
-            .iter()
-            .enumerate()
-            .scan(sz_offset * self.targets.len(), |addr, (i, &sz_target)| {
-                let offset = *addr - (i + 1) * sz_offset;
-                *addr += sz_target;
-                // terminates iterator if None
-                T::try_from(offset).ok()
-            })
-            .collect();
-        if result.len() == self.targets.len() {
-            Some(result)
-        } else {
-            None
         }
     }
 }
