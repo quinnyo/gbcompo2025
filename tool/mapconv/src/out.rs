@@ -170,10 +170,13 @@ impl ChunkTableRow {
 pub mod code {
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum Code {
-        /// Raw bytes
+        /// An array of 8 bit bytes. Equivalent to `DB` in rgbasm.
         Db(Vec<u8>),
-        /// Block of Code
+        /// An array of 16 bit words. Equivalent to `DW` in rgbasm.
+        Dw(Vec<u16>),
+        /// A block of Code
         Block(Vec<Code>),
+        Pin,
         /// No-op
         Nil,
     }
@@ -183,7 +186,9 @@ pub mod code {
         pub fn sizeof(&self) -> usize {
             match self {
                 Code::Db(items) => items.len(),
+                Code::Dw(items) => items.len() * 2,
                 Code::Block(codes) => codes.iter().map(|code| code.sizeof()).sum(),
+                Code::Pin => 0,
                 Code::Nil => 0,
             }
         }
@@ -191,7 +196,9 @@ pub mod code {
         pub fn bytes(&self) -> Vec<u8> {
             match self {
                 Code::Db(items) => items.clone(),
+                Code::Dw(items) => items.iter().flat_map(|x| x.to_le_bytes()).collect(),
                 Code::Block(codes) => codes.iter().flat_map(|code| code.bytes()).collect(),
+                Code::Pin => vec![],
                 Code::Nil => vec![],
             }
         }
@@ -200,6 +207,24 @@ pub mod code {
     impl From<u8> for Code {
         fn from(value: u8) -> Self {
             Code::Db(vec![value])
+        }
+    }
+
+    impl From<u16> for Code {
+        fn from(value: u16) -> Self {
+            Code::Dw(vec![value])
+        }
+    }
+
+    impl From<&[u8]> for Code {
+        fn from(value: &[u8]) -> Self {
+            Code::Db(value.into())
+        }
+    }
+
+    impl From<&[u16]> for Code {
+        fn from(value: &[u16]) -> Self {
+            Code::Dw(value.into())
         }
     }
 
@@ -247,8 +272,23 @@ impl ElementType {
     pub const TYPEID_FLOW_RULES: u16 = 0x41;
     pub const TYPEID_ZONE: u16 = 0x42;
 
-    /// FlowState { type: db, timer: db, flow_def: dw, iseq: db, effect: db, vx: db, vy: db }
-    pub const FLOW_STATE_SIZE: u16 = 1 + 1 + 2 + 1 + 1 + 1 + 1;
+    /**
+    FlowState {
+        +1 | type: db,
+        +1 | timer: db,
+        +2 | flow_def: dw,
+    =    4
+        +1 | iseq: db,
+        +1 | effect: db,
+        +1 | vx: db,
+        +1 | vy: db,
+    =    8
+        +1 | sprite_count: db,
+        +2 | sprite: dw,
+    =   11
+    }
+    **/
+    pub const FLOW_STATE_SIZE: u16 = 11;
 
     /// Get the element's ("MapObject") typeid, use to identify the object in the map loader.
     pub fn typeid(&self) -> u16 {

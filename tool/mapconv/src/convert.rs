@@ -11,10 +11,10 @@ pub mod these_converters {
         brush::{Brush, Brushes},
         convert::{Conversion, ConvertNodeResult, Importance, ProcessResult, SelectNode},
         coord::IVec2,
+        doodad::DoodadPlace,
         elem::ElemId,
         extract::ExtractNodeId,
-        flow::FlowRules,
-        flow::FlowSeqCom,
+        flow::{FlowRules, FlowSeqCom},
         geometry::Shape,
         out::{Chunk, Element, ElementType},
         tiled_ext,
@@ -127,10 +127,6 @@ pub mod these_converters {
                     .map(|m| (m * dir).round().as_i8vec2())
                     .collect();
                 let rules_id = ElemId::ExtractId(layer.id);
-                partial.add_map_element(Element::new(
-                    rules_id,
-                    ElementType::FlowRules(FlowRules::new(vecs, sequence.clone())),
-                ));
 
                 // collect ZArea objects on the ZFlow layer
                 for object in layer
@@ -167,6 +163,27 @@ pub mod these_converters {
                     );
                 }
 
+                // collect effect display points
+                let mut doodads: Vec<DoodadPlace> = vec![];
+                for object in layer
+                    .objects()
+                    .filter(|o| SelectNode::UserType("DoodadPlace").selects(o))
+                {
+                    doodads.push(DoodadPlace::at_point(
+                        tiled_ext::properties_get(&object.properties, "doodad").unwrap(),
+                        partial.extract_global_position_to_world_dots(object.global_position()),
+                    ));
+                }
+
+                // compile FlowRules element
+                partial.add_map_element(Element::new(
+                    rules_id,
+                    ElementType::FlowRules(FlowRules {
+                        vecs,
+                        sequence: sequence.clone(),
+                        doodads,
+                    }),
+                ));
                 ConvertNodeResult::ConsumeBranch
             },
         );

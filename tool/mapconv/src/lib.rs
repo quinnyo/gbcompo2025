@@ -3,6 +3,7 @@ use std::io;
 pub mod brush;
 pub mod chunk;
 pub mod convert;
+pub mod doodad;
 pub mod elem;
 pub mod extract;
 pub mod flow;

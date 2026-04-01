@@ -1,5 +1,6 @@
 use crate::{
     coord::*,
+    doodad::DoodadPlace,
     out::code::{self, Code},
 };
 use std::mem;
@@ -9,9 +10,11 @@ use std::str::FromStr;
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FlowRules {
     /// Precomputed/prescaled set of possible flow vectors.
-    vecs: Vec<I8Vec2>,
+    pub vecs: Vec<I8Vec2>,
     /// Flow vector selection program -- each value is an index in `vecs`
-    sequence: Vec<FlowSeqCom>,
+    pub sequence: Vec<FlowSeqCom>,
+    /// Visual effect activity indicators
+    pub doodads: Vec<DoodadPlace>,
 }
 
 impl FlowRules {
@@ -43,9 +46,14 @@ impl FlowRules {
         let vecs_code = Self::encode_array(self.vecs.iter(), |v| vec![v.x as u8, v.y as u8])?;
         let sequence_code =
             Self::encode_array(self.sequence.iter().map(FlowSeqCom::encode_a), |a| [a])?;
+        let doodads_code = Code::Block(vec![
+            Code::from(u8::try_from(self.doodads.len())?),
+            Code::Block(self.doodads.iter().map(Code::from).collect()),
+        ]);
         let mut offset_table = OffsetTable::default();
         offset_table.push_target(vecs_code.sizeof());
         offset_table.push_target(sequence_code.sizeof());
+        offset_table.push_target(doodads_code.sizeof());
         offset_table.push_target(0);
 
         if let Some(offsets) = offset_table.build() {
@@ -53,14 +61,11 @@ impl FlowRules {
                 Code::Db(offsets),
                 vecs_code,
                 sequence_code,
+                doodads_code,
             ]))
         } else {
             Err("Building offset table failed".into())
         }
-    }
-
-    pub fn new(vecs: Vec<I8Vec2>, sequence: Vec<FlowSeqCom>) -> Self {
-        Self { vecs, sequence }
     }
 }
 
