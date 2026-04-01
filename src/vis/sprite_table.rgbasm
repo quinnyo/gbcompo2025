@@ -1,0 +1,52 @@
+include "sprite.rgbinc"
+include "banker.rgbinc"
+include "hardware.inc"
+include "rsc.rgbinc"
+
+
+def SPRTAB_BANK equ 99
+
+
+pushs "RscTable", romx, bank[SPRTAB_BANK]
+	rsc RSC_TYPE_CHR|RSC_USAGE_OB, RscWaterFlow45_chrs
+		rsc load, WaterEffects_chr, 0, 6
+		rsc end
+	rsc RSC_TYPE_PAL|RSC_USAGE_OB, RscWater_pals
+		rsc load, WaterEffects_pal, 0, 1
+		rsc end
+
+RscTable::
+	rsc_gentab
+
+pops ; RscTable
+
+
+pushs "SpriteTable", romx, bank[SPRTAB_BANK]
+	sprtab_add2 sprWaterFlow45, WaterFlow45.f1, RscWaterFlow45_chrs, RscWater_pals
+
+SpriteTable::
+	sprtab_done2
+
+pops ; SpriteTable
+
+
+pushs "SprtabIndex", romx, bank[SPRTAB_BANK]
+;; NOTE: Expects sprite table bank to be active.
+;; @param E: Index of sprite in sprite table
+;; @ret HL: pointer to sprite definition
+;; @ret F.C: set on success
+;; @mut: AF, DE, HL
+SprtabIndex::
+	; sprtab index to pointer
+	ld hl, SpriteTable.size
+	ld a, [hl+] :: ld d, a
+	ld a, e :: cp d
+	ret nc
+	ld d, 0
+	add hl, de :: add hl, de ; add index * 2
+	ld a, [hl+] :: ld h, [hl] :: ld l, a ; read sprtab item
+	scf ; ret F.C on success
+	ret
+
+pops ; SprtabIndex
+

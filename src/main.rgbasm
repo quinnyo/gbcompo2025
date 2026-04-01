@@ -116,6 +116,7 @@ Main::
 	call ScrollInit
 	call VramxInit
 	call ChrmanInit
+	call RscStatInit
 	call audio_init
 	call MusInit
 	call OptInit

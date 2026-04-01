@@ -9,7 +9,8 @@ def SPRITE_POOL_CAPACITY equ 20
 def SPRITE_POOL_SIZE equ SPRITE_POOL_CAPACITY * szSpriteInst
 
 
-pushs "wSpritePool", wramx
+pushs "wSpritePool", wramx, align[8]
+wSpritePoolMeta: ds SPRITE_POOL_CAPACITY
 wSpritePool: ds SPRITE_POOL_SIZE
 
 pops ; wSpritePool
@@ -18,71 +19,103 @@ pops ; wSpritePool
 pushs "SpritePoolInit", rom0
 SpritePoolInit::
 		wrambpush bank(wSpritePool)
-	ld a, SpriteInst_EMPTY
+	ld a, SpriteInst_DEFAULT
 	ld bc, SPRITE_POOL_SIZE
 	ld hl, wSpritePool
 	call MemFillLarge
+
+	ld a, SpritePoolSlot_EMPTY
+	ld c, SPRITE_POOL_CAPACITY
+	ld hl, wSpritePoolMeta
+	call MemFillSmall
 		wrambpop
 	ret
 
 pops ; SpritePoolInit
 
 
-pushs "SpritePoolGetEmpty", rom0
-;; Search the pool for an unoccupied slot.
+pushs "SpritePoolAlloc", rom0
+;; Find and allocate a (contiguous) block of empty sprite pool slots.
+;; @param B: Number of slots required
 ;; @ret HL: pointer to empty slot SpriteInst
 ;; @ret F.C: success
-;; @mut AF, HL
-SpritePoolGetEmpty::
-		push de
-		wrambpush bank(wSpritePool)
+;; @mut AF, BC, HL
+SpritePoolAlloc::
+	ld a, b
+	and a
+	ret z
 
-	ld hl, wSpritePool
-	ld de, szSpriteInst
-	ld a, SPRITE_POOL_CAPACITY
+		wrambpush bank(wSpritePool)
+	ld hl, wSpritePoolMeta + SPRITE_POOL_CAPACITY
+	ld c, SPRITE_POOL_CAPACITY
+	; contiguous empty slots count
+	ld a, b
 .loop
-	bit bSpriteInst_EMPTY, [hl]
-	jr nz, .found_empty
-	add hl, de
+	dec hl ; started at end (excl.) so decrement before access
+	bit bSpritePoolSlot_EMPTY, [hl]
+	jr nz, :+
+	; reset counter
+	ld a, b
+	jr .continue
+:
+	; decrement counter, if reach zero: success
 	dec a
+	jr z, .found
+.continue
+	dec c
 	jr nz, .loop
+	; failed
 		wrambpop ; wSpritePool
-		pop de
 	and a ; return F.NC
 	ret
 
-.found_empty
+.found
+	dec c ; index at start of block
+
+	; mark slots as occupied
+:
+	res bSpritePoolSlot_EMPTY, [hl]
+	inc hl
+	dec b
+	jr nz, :-
+
+	; calculate address of first allocated
+	assert szSpriteInst == 16
+	assert low(wSpritePoolMeta) == 0 ; meta array is aligned: address low byte == index.
+	; index * 16
+	ld l, c :: ld h, 0
+	rept 4
+		add hl, hl
+	endr
+	; ... + wSpritePool
+	ld bc, wSpritePool
+	add hl, bc
+
 		wrambpop ; wSpritePool
-		pop de
 	scf ; return F.C
 	ret
 
-pops ; SpritePoolGetEmpty
+pops ; SpritePoolAlloc
 
 
 pushs "SpritePoolUpdate", rom0
 SpritePoolUpdate::
 		rombpush
 		wrambpush bank(wSpritePool)
+
+	ld bc, wSpritePoolMeta
 	ld hl, wSpritePool
-	ld bc, SPRITE_POOL_CAPACITY
-.loop
-	ld a, SPRITE_POOL_CAPACITY :: sub c
-	ld hl, wSpritePool / szSpriteInst
-	add l :: ld l, a
-	adc h :: sub l :: ld h, a
-	assert szSpriteInst == 16
-	rept 4
-		add hl, hl
-	endr
+	ld de, szSpriteInst
+.loop:
+	ld a, [bc]
+	bit bSpritePoolSlot_EMPTY, a
+	jr nz, .continue
 
-	bit bSpriteInst_EMPTY, [hl]
-	jr nz, .next
+		push bc :: push hl
 
-	; do something with / hold on to flags?
-	ld a, [hl+]
+	; TODO: do something with flags?
+	ld a, [hl+] ; .flags
 
-		push bc
 	; Y
 	ld a, [wScroll.y + 0] :: ld c, a
 	ld a, [wScroll.y + 1] :: ld b, a
@@ -96,12 +129,11 @@ SpritePoolUpdate::
 	ld a, [hl+] :: sbc d :: ld d, a
 
 	call SprxTestVisibility
-	jr nc, .next_pop_bc
+	jr nc, .continue_pop
 
 	; set render position
 	ld a, b :: ldh [hObModY], a
 	ld a, c :: ldh [hObModX], a
-
 	; chri
 	ld a, [hl+] :: ldh [hObModChri], a
 	; atrb
@@ -112,11 +144,16 @@ SpritePoolUpdate::
 		rombsel b ; select bank of ani frame drawable
 	call SprxRenderMod_ObMod
 
-.next_pop_bc
-		pop bc
-.next
-	dec c
-	jr nz, .loop
+.continue_pop:
+		pop hl :: pop bc
+	ld de, szSpriteInst
+.continue:
+	inc bc
+	add hl, de
+	assert low(wSpritePoolMeta) + SPRITE_POOL_CAPACITY < 256
+	ld a, c
+	cp SPRITE_POOL_CAPACITY
+	jr c, .loop
 
 		wrambpop
 		rombpop

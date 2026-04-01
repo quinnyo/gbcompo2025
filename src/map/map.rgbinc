@@ -117,6 +117,10 @@ st FlowState
 	stf vx, 1
 	;; Current flow vector, Y component.
 	stf vy, 1
+	;; Number of effect indicator sprites.
+	stf sprite_count, 1
+	;; Pointer to (first) effect indicator sprite.
+	stf sprite, 2
 st
 
 
@@ -138,6 +142,35 @@ def FlowSeq_ENABLE equ $00
 def FlowSeq_VEC equ $10
 ;; Delay sequence for `x * 16 + 15` ticks
 def FlowSeq_DELAY equ $20
+
+
+/***************************************
+******* Doodads (Visual Effects) *******
+***************************************/
+
+;; Places a Doodad in the scene.
+st DoodadPlace
+	;; Select the doodad to place.
+	stf doodad, 1
+	;; Currently unused. Must be zero.
+	stf option, 1
+	;; Y position in world dots
+	stf posy, 2
+	;; X position in world dots
+	stf posx, 2
+st
+
+
+;; Enumerate Doodads
+rsreset
+def Doodad_Flow000 rb 1
+def Doodad_Flow045 rb 1
+def Doodad_Flow090 rb 1
+def Doodad_Flow135 rb 1
+def Doodad_Flow180 rb 1
+def Doodad_Flow225 rb 1
+def Doodad_Flow270 rb 1
+def Doodad_Flow315 rb 1
 
 
 endc ; Q_MAP_INC_rJ398bhW

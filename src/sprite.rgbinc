@@ -7,11 +7,16 @@ include "ani.rgbinc"
 
 rsreset
 ;; Slot is empty
-def bSpriteInst_EMPTY rb 1
+def bSpritePoolSlot_EMPTY rb 1
+
+def SpritePoolSlot_EMPTY equ 1 << bSpritePoolSlot_EMPTY
+
+
+rsreset
 ;; Enable rendering
 def bSpriteInst_VISIBLE rb 1
 
-def SpriteInst_EMPTY equ 1 << bSpriteInst_EMPTY
+def SpriteInst_DEFAULT equ 0
 def SpriteInst_VISIBLE equ 1 << bSpriteInst_VISIBLE
 
 
@@ -125,6 +130,41 @@ endm
 macro sprob_end
 	assert fail, _NARG == 0
 	db Sprob_END
+endm
+
+
+;; sprtab_add2 NAME, SRC, RSC_CHRS, RSC_PALS
+macro sprtab_add2
+	assert def(@)
+
+	if !def(SPRTAB_COUNT)
+		def SPRTAB_COUNT = 0
+	endc
+
+	def SPRTAB_{d:SPRTAB_COUNT}_NAME equs "\1"
+
+	\1::
+		.reserved: db 0
+		.srcbk:: db bank(\2)
+		.src:: dw (\2)
+		.rsc_chrs:: dw \3
+		.rsc_pals:: dw \4
+
+	def SPRTAB_COUNT += 1
+endm
+
+
+;; Generate the table data
+macro sprtab_done2
+	assert def(SPRTAB_COUNT)
+
+	;; Number of entries in the table
+	.size:: db SPRTAB_COUNT
+	;; Array of pointers to entries
+	.items::
+		for I, SPRTAB_COUNT
+			dw {SPRTAB_{d:I}_NAME}
+		endr
 endm
 
 

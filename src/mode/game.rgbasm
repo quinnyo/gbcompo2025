@@ -62,6 +62,7 @@ _done:
 
 modeGamePrep_Enter::
 	call ChrmanResetAll
+	call SpritePoolInit ; clear sprites
 	call VisDiverResourceInit
 	call BudEntResourceInit
 

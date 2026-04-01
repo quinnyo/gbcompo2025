@@ -1,4 +1,5 @@
 include "map.rgbinc"
+include "sprite.rgbinc"
 include "hardware.inc"
 include "banker.rgbinc"
 
@@ -118,6 +119,17 @@ wMapObjectCache::
 	.y:: dw
 	.x:: dw
 assert @ - wMapObjectCache == szMapObject
+
+union
+wFlowRulesCache:
+	; Calculated pointers to FlowRules fields.
+	.vecs: dw
+	.sequence: dw
+	.doodads: dw
+	.end: dw
+nextu
+endu
+
 
 
 section "wMapChunkHeader", wram0
@@ -295,13 +307,17 @@ _DoObject:
 		typeid: dw,
 		runtime_addr: dw,
 		FlowDef {
+			// Set of offsets to navigate to the variable length fields.
+			// `target_offset = *target - (*target_offset + 1)`
 			OffsetTable {
 				vecs_offset: db,
 				sequence_offset: db,
+				doodads_offset: db,
 				end_offset: db,
 			},
 			vecs: { len: db, * },
 			sequence: { len: db, * },
+			doodads: { len: db, * },
 			end: {}
 		}
 	}
@@ -322,29 +338,123 @@ _DoObject:
 	ld a, h :: ld [de], a :: inc de ; .flow_def.1
 	xor a :: ld [de], a :: inc de ; .iseq
 	ld a, EffectType_FLOW :: ld [de], a :: inc de ; .effect
-	; get .vecs_offset and calc @vecs (BC)
-	ld a, [hl+]
-	add l :: ld c, a
-	adc h :: sub c :: ld b, a
-	; get .sequence_offset and calc @sequence (HL)
-	ld a, [hl+]
-		push hl ; @end_offset
-	add l :: ld l, a
-	adc h :: sub l :: ld h, a
+
+	; read offsets, calc target addresses, cache results
+		push de
+	ld d, h :: ld e, l
+	ld hl, wFlowRulesCache.vecs
+rept 4
+	ld a, [de] :: inc de
+	add e :: ld c, a :: ld [hl+], a
+	adc d :: sub c :: ld [hl+], a
+endr
+		pop de
+
+	; initialise flow vec / sequence
+	ld hl, wFlowRulesCache.vecs
+	ld a, [hl+] :: ld c, a :: ld a, [hl+] :: ld b, a ; @vecs (BC)
+	ld a, [bc] :: inc bc ; vecs.len
+	; TODO: check vecs.len?
+	ld a, [hl+] :: ld h, [hl] :: ld l, a ; @sequence (HL)
 	; get first index in sequence & index .vecs
-		; TODO: Be aware of sequence.len
-	ld l, [hl] :: ld h, 0
+	ld a, [hl+] ; sequence.len
+	; TODO: check sequence.len?
+	ld l, [hl] :: ld h, 0 ; sequence[0]
 	add hl, bc
 	; copy initial flow vec to FlowState
-		; TODO: Be aware of vecs.len
 	ld a, [hl+] :: ld [de], a :: inc de ; .vx
 	ld a, [hl+] :: ld [de], a :: inc de ; .vy
-		pop hl ; @end_offset
-	; get .end_offset and calc @end (HL)
-	ld a, [hl+]
-	add l :: ld l, a
-	adc h :: sub l :: ld h, a
+
+	; initialise effect activity indicators
+	ld hl, wFlowRulesCache.doodads
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+		push hl ; @doodads.len
+	; store doodads.len in FlowState
+	ld a, [hl] :: ld [de], a :: inc de ; .sprite_count
+	ld b, a ; request N sprites
+	call SpritePoolAlloc
+	ld c, l :: ld b, h ; sprite pointer
+		pop hl ; @doodads.len
+	jr nc, .err_sprite_pool_alloc_failed
+	; store sprite pointer in FlowState
+	ld a, c :: ld [de], a :: inc de
+	ld a, b :: ld [de], a :: inc de
+
+		wrambpush bank("wSpritePool")
+	ld a, [hl+] :: ld e, a
+:
+		push bc :: push de
+	call _DoDoodadPlace
+		pop de :: pop bc
+	; advance sprite pointer
+	ld a, szSpriteInst
+	add c :: ld c, a
+	adc b :: sub c :: ld b, a
+
+	dec e
+	jr nz, :-
+		wrambpop ; wSpritePool
+
+	; return @end (HL)
+	ld hl, wFlowRulesCache.end
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
 		wrambpop ; wMapState
+	ret
+
+.err_sprite_pool_alloc_failed:
+	ld b, b
+	jr @-3
+
+
+;; @param BC: sprite pointer
+;; @param HL: source pointer (DoodadPlace)
+;; @mut: AF, BC, DE, HL
+_DoDoodadPlace:
+	ld a, SpriteInst_VISIBLE :: ld [bc], a :: inc bc ; .flags
+
+	ld a, [hl+] ; .doodad
+	; HACK: Everything is Flow45!
+	; (TODOODAD)
+
+	; load resources
+	; TODOODAD: load the correct resources
+		push bc :: push hl
+	ld de, RscWaterFlow45_chrs
+	call RscLoad
+		pop hl :: pop bc
+
+	ld a, [hl+] ; .option
+
+	; .posy
+	ld a, [hl+] :: ld [bc], a :: inc bc
+	ld a, [hl+] :: ld [bc], a :: inc bc
+
+	; .posx
+	ld a, [hl+] :: ld [bc], a :: inc bc
+	ld a, [hl+] :: ld [bc], a :: inc bc
+
+	; Get CHR and palette indices from rsc
+		wrambpush bank("wRscStat")
+	ld a, [wRscWaterFlow45_chrs + 0] :: ld e, a ; CHR vram bank, ...
+	ld a, [wRscWaterFlow45_chrs + 1] :: ld d, a ; chri
+	; TODOODAD: get rsc palette index
+	; ld a, [wRscWater_pals]
+		wrambpop ; wRscStat
+
+	; .chri
+	ld a, d :: ld [bc], a :: inc bc
+
+	; .atrb
+	; TODOODAD: use actual values ... (chr vram bank | rsc palette index)
+	xor a :: ld [bc], a :: inc bc
+
+	; .ani
+		push hl ; next doodad
+	ld h, b :: ld l, c
+	ld de, WaterFlow45.f1
+	ld b, bank(WaterFlow45)
+	call AniSetup
+		pop hl ; next doodad
 	ret
 
 

@@ -11,6 +11,41 @@
     ],
     "propertyTypes": [
         {
+            "id": 17,
+            "name": "Doodad",
+            "storageType": "int",
+            "type": "enum",
+            "values": [
+                "Flow000",
+                "Flow045",
+                "Flow090",
+                "Flow135",
+                "Flow180",
+                "Flow225",
+                "Flow270",
+                "Flow315"
+            ],
+            "valuesAsFlags": false
+        },
+        {
+            "color": "#ffa0a0a4",
+            "drawFill": true,
+            "id": 16,
+            "members": [
+                {
+                    "name": "doodad",
+                    "propertyType": "Doodad",
+                    "type": "int",
+                    "value": 0
+                }
+            ],
+            "name": "DoodadPlace",
+            "type": "class",
+            "useAs": [
+                "object"
+            ]
+        },
+        {
             "color": "#ffff8258",
             "drawFill": true,
             "id": 3,

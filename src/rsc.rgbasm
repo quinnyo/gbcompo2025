@@ -1,0 +1,203 @@
+include "rsc.rgbinc"
+include "banker.rgbinc"
+include "hardware.inc"
+
+pushs "RscStatInit", rom0
+RscStatInit::
+		wrambpush bank("wRscStat")
+	ld hl, startof("wRscStat")
+	ld bc, sizeof("wRscStat")
+	ld a, $80
+	call MemFillLarge
+		wrambpop ; wRscStat
+	ret
+
+pops ; RscStatInit
+
+
+pushs "RscLoad", rom0
+;; @param DE: Rsc
+;; @mut: AF, BC, DE, HL
+RscLoad::
+		rombpush bank("RscTable")
+		wrambpush bank("wRscStat")
+	ld hl, .tail ; return location
+		push hl
+	ld a, [de] ; .type
+	and RSC_TYPE
+	cp 2
+	jr nc, .err_illegal_type
+	rst RST_SwitchJump
+		dw RscLoadChr
+		dw RscLoadPal
+.err_illegal_type:
+	ld b, b
+	jr @-3
+.tail:
+		wrambpop ; wRscStat
+		rombpop ; RscTable
+	ret
+
+
+;; Standard loader for CHR type RSCs.
+;; @param DE: Rsc
+;; @mut: AF, BC, DE, HL
+RscLoadChr:
+	ld a, [de] :: inc de ; .type
+	and RSC_USAGE
+	ld b, a
+	; stat pointer
+	ld a, [de] :: inc de :: ld l, a
+	ld a, [de] :: inc de :: ld h, a
+
+	; check if loaded (stat)
+	; if bit 7 set, rsc is unloaded
+	bit 7, [hl]
+	jr nz, .unloaded
+	; TODO?
+	ret
+
+.unloaded
+	; unit_len
+	ld a, [de] :: inc de :: ld c, a
+		push de ; @.code
+		ld e, l :: ld d, h ; @.stat
+	call _chr_alloc_usage
+	jr nc, :+
+	ld b, b
+	jr @-3
+:
+	; VRAM bank from address bit 0. OAM atrb bank select in bit 3.
+	ld a, l :: rra :: sbc a :: and $08
+	ld [de], a :: inc de
+	; chri
+	ld a, b :: ld [de], a :: inc de
+	; destination addr cache
+	ld a, l :: ld [_dest + 0], a
+	ld a, h :: ld [_dest + 1], a
+		pop de ; @.code
+
+	ld hl, _code_loc
+	; _code_loc
+	ld a, e :: ld [hl+], a
+	ld a, d :: ld [hl+], a
+	; _units_loaded
+	xor a :: ld [hl+], a
+	; _proc_status
+	ld [hl+], a
+
+.loop:
+	ld a, [_units_loaded]
+	and a
+	jr z, :+
+	; mul 16
+	swap a
+	ld b, a
+	and $F0 :: ld c, a
+	xor b :: ld b, a
+
+	; update dest address
+	ld hl, _dest
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+	add hl, bc
+	ld a, l :: ld [_dest + 0], a
+	ld a, h :: ld [_dest + 1], a
+	xor a :: ld [_units_loaded], a
+:
+	; next code
+	ld hl, _code_loc
+	ld a, [hl+] :: ld e, a
+	ld a, [hl-] :: ld d, a
+	ld a, [de] :: inc de :: ld b, a ; code (B)
+	; store new code pointer
+	ld a, e :: ld [hl+], a :: ld [hl], d
+	ld a, b ; code (A)
+	call _proc_code
+	ld a, [_proc_status]
+	inc a
+	jr nz, .loop
+
+	ret
+
+
+_proc_code:
+	cp RscCode__COUNT
+	jr nc, .err_unknown_code
+	rst RST_SwitchJump
+.code_table
+		dw _code_load
+		dw _code_end
+	assert @ - .code_table == 2 * RscCode__COUNT
+.err_unknown_code:
+	ld b, b
+	jr @-3
+
+_code_load:
+	ld hl, _code_loc
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+	; srcbk
+	ld a, [hl+] :: ld b, a
+	; src
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+	; len - 1
+	ld a, [hl+] :: ld [_units_loaded], a
+	ld c, a :: dec c
+	; store updated code pointer
+	ld a, l :: ld [_code_loc + 0], a
+	ld a, h :: ld [_code_loc + 1], a
+	ld hl, _dest
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+	jp VxLoadRom
+
+_code_end:
+	ld a, $FF
+	ld [_proc_status], a
+	ret
+
+
+;; @param C: alloc length in CHRs
+;; @param B: rsc usage
+_chr_alloc_usage:
+	ld a, b
+	swap a
+	assert RSC_USAGE_BG == 0
+	and a
+	jp z, ChrmanAllocBg_not_impl
+	dec a
+	jp z, ChrmanAllocOb
+.err:
+	ld b, b
+	jr @-3
+
+
+ChrmanAllocBg_not_impl:
+	ld b, b
+	jr @-3
+
+
+pops ; RscLoadChr
+
+
+; ugly code award go to ugly code
+pushs "_hangon", wram0
+_dest: dw
+_code_loc: dw
+_units_loaded: db
+_proc_status: db
+pops
+
+
+pushs "RscLoadPal", rom0
+;; Standard loader for PAL type RSCs.
+;; @param DE: Rsc
+RscLoadPal::
+	ret
+
+	; ld b, bank(WaterEffects_pal)
+	; ld de, WaterEffects_pal
+	; call PalettePalLoadObRomx
+	; ld a, b :: and $07 :: ld [wWaterEffectsPal0], a
+
+pops ; RscLoadPal
+

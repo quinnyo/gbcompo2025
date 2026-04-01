@@ -15,6 +15,7 @@ AniInit::
 ;; @param HL: this Ani
 ;; @param B: frame bank
 ;; @param DE: initial frame address
+;; @mut: AF, DE, HL
 AniSetup::
 	xor a :: ld [hl], a ; .timer
 	jp AniSetFrame

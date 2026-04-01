@@ -1,0 +1,198 @@
+if !def(Q_RSC_INC_c767501f)
+def Q_RSC_INC_c767501f equ 1
+
+/*
+RSC: resource management
+- A RSC is a chunk of imported/asset data that needs to be loaded dynamically at runtime -- CHRs and palettes.
+	- *Loading* a RSC makes its content available for use.
+- Every defined RSC has its runtime load state tracked.
+	- This enables shared access to resources without duplication.
+- Each RSC is composed of a number of *units*:
+	- All units in a single RSC share the same type.
+	- The number of units contained by a RSC is unrestricted.
+- Each RSC has a type, which specifies the underlying data type, as well as hints/options for the loader.
+	- e.g. CHR units with the OB usage flag will be loaded for use by OBJ/sprites at runtime.
+- The loading process is command-based:
+	- Each RSC includes a set of instructions (*RSC code*) to be evaluated by the loader.
+*/
+
+include "st.rgbinc"
+
+
+def RSC_TYPE equ $03
+def RSC_TYPE_CHR equ $00
+def RSC_TYPE_PAL equ $01
+def RSC_USAGE equ $30
+def RSC_USAGE_BG equ $00
+def RSC_USAGE_OB equ $10
+
+
+;; Rsc definition header
+st RscHeader
+	stf type, 1
+	;; Pointer to Rsc stat in WRAM
+	stf stat, 2
+	;; Total number of units in this resource
+	stf unit_len, 1
+	;; Rsc code starts here (length varies)
+	stf code, 1
+st
+
+
+rsreset
+;; Rsc load data block
+def RscCode_LOAD rb 1
+;; Rsc definition terminator
+def RscCode_END rb 1
+def RscCode__COUNT rb 0
+
+
+;; rsc TYPE, NAME
+;; Begin a resource definition
+;; TYPE: RSC_TYPE | RSC_USAGE
+;; NAME: base label/ident of rsc
+;;
+;; rsc load, SRC, START, COUNT
+;; Add a load step to the resource.
+;; SRC: primary address (label) of source data.
+;; START: block start offset in units
+;; COUNT: block length in units
+;;
+;; rsc end
+;; Terminate the resource definition
+macro rsc
+	assert _NARG > 0
+	if def(_RSC_OPEN)
+		; push rsc code
+		def cmd\@ equs strlwr("\1")
+		shift
+		if "{cmd\@}" === "load"
+			assert _NARG == 3
+			def _RSC_UNIT_COUNT += (\3)
+			redef _RSC_CODES equs "{_RSC_CODES},load+++\1+++\2+++\3"
+			def _RSC_CODES_LEN += 1
+		elif "{cmd\@}" === "end"
+			_rsc_end \#
+		else
+			fail fatal "rsc: unexpected CMD '{cmd\@}'"
+		endc
+
+		purge cmd\@
+	else
+		; start rsc definition
+		assert !def(_RSC_OPEN)
+		assert _NARG == 2
+		_rsc_start \#
+	endc
+endm
+
+
+macro rsc_gentab
+	assert def(RSC_LIST)
+	dw {RSC_LIST}
+endm
+
+
+;; _rsc_start TYPE, NAME
+;; Begin RSC definition
+macro _rsc_start
+	assert _NARG == 2
+	assert !def(_RSC_OPEN)
+	if !def(_RSC_COUNT)
+		def _RSC_COUNT equ 0
+	else
+		redef _RSC_COUNT equ _RSC_COUNT + 1
+	endc
+	def _RSC_OPEN_ID equ _RSC_COUNT
+	def _RSC_OPEN equs "\2"
+	def _RSC_TYPE_DECL equs "\1"
+	def _RSC_TYPE equ (\1)
+	def base\@ equ (\1) & RSC_TYPE
+	if base\@ == RSC_TYPE_CHR
+		def _RSC_UNIT_SZ equ 16
+		def _RSC_STAT_SZ equ 2
+	elif base\@ == RSC_TYPE_PAL
+		def _RSC_UNIT_SZ equ 8
+		def _RSC_STAT_SZ equ 1
+	else
+		fail "unexpected rsc base type ({base\@})"
+	endc
+
+	; total number of units in rsc
+	def _RSC_UNIT_COUNT = 0
+	; buffer/queue codes to add
+	def _RSC_CODES equs "start"
+	def _RSC_CODES_LEN = 1
+
+	assert _RSC_STAT_SZ >= 1
+	purge base\@
+endm
+
+
+;; _rsc_end
+;; Terminate RSC definition
+macro _rsc_end
+	assert _NARG == 0
+
+	_rsc_codes_build {_RSC_CODES}
+	db RscCode_END
+
+	if def(RSC_LIST)
+		redef RSC_LIST equs "{RSC_LIST},{_RSC_OPEN}"
+	else
+		def RSC_LIST equs "{_RSC_OPEN}"
+	endc
+
+	; finalise metadata constants
+	; def rscdef_{_RSC_OPEN}_ID equ _RSC_OPEN_ID
+	def pre\@ equs "rscdef_{d:_RSC_OPEN_ID}_"
+	def {pre\@}LABEL equs "{_RSC_OPEN}"
+	def {pre\@}TYPE_DECL equs "{_RSC_TYPE_DECL}"
+	def {pre\@}UNIT_LEN equ {_RSC_UNIT_COUNT}
+	purge pre\@
+
+	purge _RSC_OPEN, _RSC_OPEN_ID, _RSC_TYPE_DECL, _RSC_TYPE, _RSC_UNIT_SZ, _RSC_STAT_SZ, _RSC_UNIT_COUNT, _RSC_CODES, _RSC_CODES_LEN
+endm
+
+
+;; _rsc_codes_build CODES[, ...]
+;; Flush code queue to rsc definition in ROM.
+macro _rsc_codes_build
+	rept _NARG
+		def _asdf\@ equs strrpl("\1", "+++", ",")
+		_rsc_code {_asdf\@}
+		shift
+		purge _asdf\@
+	endr
+endm
+
+
+;; _rsc_code CODE[, ARGS]
+macro _rsc_code
+	def cmd\@ equs strlwr("\1")
+	if "{cmd\@}" === "start"
+		assert def(@), "rsc must be invoked within a ROM(X) section"
+		{_RSC_OPEN}::
+			.type:: db {_RSC_TYPE}
+			.stat:: dw w{_RSC_OPEN}
+			.unit_len:: db _RSC_UNIT_COUNT
+			.code::
+
+		pushs fragment "wRscStat", wramx
+		w{_RSC_OPEN}:: ds _RSC_STAT_SZ
+		pops ; wRscStat
+
+	elif "{cmd\@}" === "load"
+		db RscCode_LOAD
+		db bank(\2)
+		dw (\2) + (\3) * _RSC_UNIT_SZ
+		db (\4)
+	else
+		fail "rsc: unexpected CMD '{cmd\@}'"
+	endc
+
+	purge cmd\@
+endm
+
+endc ; Q_RSC_INC_c767501f
+

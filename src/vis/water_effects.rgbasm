@@ -1,0 +1,51 @@
+include "hardware.inc"
+include "banker.rgbinc"
+include "chrimp.rgbinc"
+include "sprite.rgbinc"
+include "ani.rgbinc"
+
+
+import_chr "assets/water_effects.chr", WaterEffects, pal
+
+
+pushs fragment "SpriteData", romx
+def FLOW45_DT equ 10
+WaterFlow45::
+	.f1::
+		ani_frame FLOW45_DT, .f2
+		sprob -4, -4, 1, 0
+		sprob_end
+	.f2:
+		ani_frame FLOW45_DT, .f3
+		sprob -4, -4, 2, 0
+		sprob 3, 4, 3, 0
+		sprob_end
+	.f3:
+		ani_frame FLOW45_DT, .f4
+		sprob 4, 4, 4, 0
+		sprob_end
+	.f4:
+		ani_frame FLOW45_DT, .f5
+		sprob -4, -4, 3, 0
+		sprob 4, 4, 5, 0
+		sprob_end
+	.f5:
+		ani_frame FLOW45_DT, .f6
+		sprob -4, -4, 4, 0
+		sprob_end
+	.f6:
+		ani_frame FLOW45_DT, .f7
+		sprob -4, -3, 5, 0
+		sprob 4, 3, 0, 0
+		sprob_end
+	.f7:
+		ani_frame FLOW45_DT, .f8
+		sprob 4, 4, 1, 0
+		sprob_end
+	.f8:
+		ani_frame FLOW45_DT, .f1
+		sprob -4, -4, 0, 0
+		sprob 4, 4, 2, 0
+		sprob_end
+pops
+
