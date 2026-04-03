@@ -65,6 +65,9 @@ wRscLoader:
 	.impl_use:
 union
 	.dest: dw
+nextu
+	;; one of the PalettePalLoad* functions
+	.fn_pal_load: dw
 endu
 	def szRscLoader_impl_use equ @ - .impl_use
 
@@ -145,7 +148,17 @@ RscPreload:
 	ret
 
 .impl_pal:
-	; TODOOT DOOT
+	; Select .fn_pal_load function to match the rsc USAGE flags -- OB or BG.
+	ld de, PalettePalLoadBg
+	ld a, [wRscLoader.rsc_type]
+	and RSC_USAGE
+	assert RSC_USAGE_BG == 0
+	jr z, :+
+	ld de, PalettePalLoadOb
+:
+	ld hl, wRscLoader.fn_pal_load
+	ld a, e :: ld [hl+], a
+	ld a, d :: ld [hl+], a
 	ret
 
 
@@ -232,13 +245,26 @@ _do_load:
 	ret
 
 .impl_pal:
-	; TODO!!!
-
-	; ld b, bank(WaterEffects_pal)
-	; ld de, WaterEffects_pal
-	; call PalettePalLoadObRomx
-	; ld a, b :: and $07 :: ld [wWaterEffectsPal0], a
-
+	; the whole rsc code was read above, so we can change bank to the source data safely
+		rombpush b
+	ld hl, wRscLoader.rsc_stat
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+.pal_loop
+		push bc
+		push hl ; stat
+	ld hl, wRscLoader.fn_pal_load
+	rst RST_CallPtrPtr
+		pop hl ; stat
+	; store first palette index
+	bit 7, [hl]
+	jr z, :+
+	ld a, b :: and $07
+	ld [hl], a
+:
+		pop bc
+	dec c
+	jr nz, :-
+		rombpop
 	ret
 
 pops ; RscDoCode

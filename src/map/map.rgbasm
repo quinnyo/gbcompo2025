@@ -417,9 +417,11 @@ _DoDoodadPlace:
 	; (TODOODAD)
 
 	; load resources
-	; TODOODAD: load the correct resources
+	; TODOODAD: load the correct resources (from the sprite)
 		push bc :: push hl
 	ld de, RscWaterFlow45_chrs
+	call RscLoad
+	ld de, RscWater_pals
 	call RscLoad
 		pop hl :: pop bc
 
@@ -435,19 +437,16 @@ _DoDoodadPlace:
 
 	; Get CHR and palette indices from rsc
 		wrambpush bank("wRscStat")
-	ld a, [wRscWaterFlow45_chrs + 0] :: ld e, a ; CHR vram bank, ...
+	ld a, [wRscWaterFlow45_chrs + 0] :: ld e, a ; CHR vram bank, ATRB
 	ld a, [wRscWaterFlow45_chrs + 1] :: ld d, a ; chri
-	; TODOODAD: get rsc palette index
-	; ld a, [wRscWater_pals]
+	; Get palette index and combine with other ATRB
+	ld a, [wRscWater_pals] :: or e :: ld e, a
 		wrambpop ; wRscStat
 
 	; .chri
 	ld a, d :: ld [bc], a :: inc bc
-
 	; .atrb
-	; TODOODAD: use actual values ... (chr vram bank | rsc palette index)
-	xor a :: ld [bc], a :: inc bc
-
+	ld a, e :: ld [bc], a :: inc bc
 	; .ani
 		push hl ; next doodad
 	ld h, b :: ld l, c
