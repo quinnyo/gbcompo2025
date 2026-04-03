@@ -107,6 +107,7 @@ PalettesIndex::
 ;; @param B: destination palette index
 ;; @param C: count -- number of palettes to copy
 ;; @param DE: source
+;; @ret DE: end of source data (source + count * 8)
 ;; @mut: AF, C, DE, HL
 PalettesLoad::
 	ld a, b
@@ -221,17 +222,21 @@ PalettePalInit::
 	ret
 
 
+;; Load a palette from ROMX into the next BG palette slot.
 ;; @param B: source ROM bank
 ;; @param DE: source
 ;; @ret B: BG palette index [0..7]
+;; @ret DE: end of source data (source + 8)
 ;; @mut: AF, BC, DE, HL
 PalettePalLoadBgRomx::
 	rombopen b
 
 	; FALLTHROUGH
 
+;; Load a palette from memory into the next BG palette slot.
 ;; @param DE: source
 ;; @ret B: BG palette index [0..7]
+;; @ret DE: end of source data (source + 8)
 ;; @mut: AF, BC, DE, HL
 PalettePalLoadBg::
 	ld hl, wPalettePal_BgIdx
@@ -242,17 +247,21 @@ PalettePalLoadBg::
 	jp PalettesLoad
 
 
+;; Load a palette from ROMX into the next OBJ palette slot.
 ;; @param B: source ROM bank
 ;; @param DE: source
 ;; @ret B: Palettes OBJ palette index [8..15]
+;; @ret DE: end of source data (source + 8)
 ;; @mut: AF, BC, DE, HL
 PalettePalLoadObRomx::
 	rombopen b
 
 	; FALLTHROUGH
 
+;; Load a palette from memory into the next OBJ palette slot.
 ;; @param DE: source
 ;; @ret B: Palettes OBJ palette index [8..15]
+;; @ret DE: end of source data (source + 8)
 ;; @mut: AF, BC, DE, HL
 PalettePalLoadOb::
 	ld hl, wPalettePal_ObIdx
