@@ -126,7 +126,7 @@ VxLoadWram::
 ;; @param DE: ROM source address.
 ;; @param HL: VRAM destination address. Low byte to include VRAM bank in bit `0`
 ;; @param C: Length / 16 - 1
-;; @mut: AF, DE, HL
+;; @mut: AF, BC, DE, HL
 VxLoadRom::
 	ld a, c
 	cp $40
@@ -234,7 +234,7 @@ VramxBeginUpdate::
 
 
 ;; Block until HBlank jobs are complete.
-;; @mut: AF
+;; @mut: AF, HL
 VramxSync::
 	ldh a, [hVx.status]
 	and a :: jp z, _QueueCheckReset
@@ -341,6 +341,7 @@ _QueueProcess:
 ;; @ret E: new queue .front
 ;; @ret C: HDMA length
 ;; @ret F.C: if successful -- HDMA configured
+;; @mut: AF, BC, DE, HL
 _TaskSwitch:
 	cp TASK_MAX
 	jr nc, .err_unknown
