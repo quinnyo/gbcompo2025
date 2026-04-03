@@ -52,9 +52,11 @@ def RscCode__COUNT rb 0
 ;; TYPE: RSC_TYPE | RSC_USAGE
 ;; NAME: base label/ident of rsc
 ;;
-;; rsc load, SRC, START, COUNT
+;; rsc load, [SRCBK,] SRC, START, COUNT
 ;; Add a load step to the resource.
-;; SRC: primary address (label) of source data.
+;; SRCBK: Manually specify source data bank.
+;;      : Required if `bank(SRC)` will fail.
+;; SRC: primary address of source data.
 ;; START: block start offset in units
 ;; COUNT: block length in units
 ;;
@@ -67,9 +69,9 @@ macro rsc
 		def cmd\@ equs strlwr("\1")
 		shift
 		if "{cmd\@}" === "load"
-			assert _NARG == 3
-			def _RSC_UNIT_COUNT += (\3)
-			redef _RSC_CODES equs "{_RSC_CODES},load+++\1+++\2+++\3"
+			assert _NARG == 3 || _NARG == 4
+			def _RSC_UNIT_COUNT += (\<{d:_NARG}>)
+			redef _RSC_CODES equs "{_RSC_CODES}," ++ strrpl("load,\#", ",", "+++")
 			def _RSC_CODES_LEN += 1
 		elif "{cmd\@}" === "end"
 			_rsc_end \#
@@ -144,7 +146,6 @@ macro _rsc_end
 	endc
 
 	; finalise metadata constants
-	; def rscdef_{_RSC_OPEN}_ID equ _RSC_OPEN_ID
 	def pre\@ equs "rscdef_{d:_RSC_OPEN_ID}_"
 	def {pre\@}LABEL equs "{_RSC_OPEN}"
 	def {pre\@}TYPE_DECL equs "{_RSC_TYPE_DECL}"
@@ -170,6 +171,7 @@ endm
 ;; _rsc_code CODE[, ARGS]
 macro _rsc_code
 	def cmd\@ equs strlwr("\1")
+	shift
 	if "{cmd\@}" === "start"
 		assert def(@), "rsc must be invoked within a ROM(X) section"
 		{_RSC_OPEN}::
@@ -184,9 +186,25 @@ macro _rsc_code
 
 	elif "{cmd\@}" === "load"
 		db RscCode_LOAD
-		db bank(\2)
-		dw (\2) + (\3) * _RSC_UNIT_SZ
-		db (\4)
+		; source bank
+		if _NARG == 3
+			; auto bank from source (label or "section")
+			db bank(\1)
+		elif _NARG == 4
+			; manual bank provided
+			db (\1)
+			shift
+		else
+			fail "expected 3 or 4 args. got {d:_NARG}."
+		endc
+		; source data address
+		if strfind("\1", "\"") == 0
+			; Looks like a (quoted) string -- a section name.
+			dw startof(\1) + (\2) * _RSC_UNIT_SZ
+		else
+			dw (\1) + (\2) * _RSC_UNIT_SZ
+		endc
+		db (\3)
 	else
 		fail "rsc: unexpected CMD '{cmd\@}'"
 	endc

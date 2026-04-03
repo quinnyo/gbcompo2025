@@ -14,6 +14,14 @@ pushs "RscTable", romx, bank[SPRTAB_BANK]
 	rsc RSC_TYPE_PAL|RSC_USAGE_OB, RscWater_pals
 		rsc load, WaterEffects_pal, 0, 1
 		rsc end
+	; rsc RSC_TYPE_CHR|RSC_USAGE_BG, RscBgTest_chrs
+	; 	rsc load, "assets/enviro0.chr", 1, 5
+	; 	rsc load, bank("assets/enviro0.chr"), startof("assets/enviro0.chr"), 9, 5
+	; 	rsc end
+	; rsc RSC_TYPE_PAL|RSC_USAGE_BG, RscBgTest_pals
+	; 	rsc load, WaterEffects_pal, 0, 1
+	; 	rsc load, "assets/enviro0.chr.pal", 0, 1
+	; 	rsc end
 
 RscTable::
 	rsc_gentab

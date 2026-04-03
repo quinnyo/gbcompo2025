@@ -126,7 +126,6 @@ RscPreload:
 
 .impl_chr:
 	; allocate upfront to get a contiguous block
-	ld a, [wRscLoader.rsc_type] :: and RSC_USAGE :: ld b, a
 	ld a, [wRscLoader.rsc_unit_len] :: ld c, a
 	call _chr_alloc_usage
 	jr nc, :+
@@ -162,24 +161,14 @@ RscPreload:
 	ret
 
 
+;; ChrmanAlloc* matching rsc USAGE
 ;; @param C: alloc length in CHRs
-;; @param B: rsc usage
 _chr_alloc_usage:
-	ld a, b
-	swap a
+	ld a, [wRscLoader.rsc_type]
+	and RSC_USAGE
 	assert RSC_USAGE_BG == 0
-	and a
-	jp z, ChrmanAllocBg_not_impl
-	dec a
-	jp z, ChrmanAllocOb
-.err:
-	ld b, b
-	jr @-3
-
-
-ChrmanAllocBg_not_impl:
-	ld b, b
-	jr @-3
+	jp z, ChrmanAllocBg
+	jp ChrmanAllocOb
 
 pops ; RscPreload
 
