@@ -1,6 +1,7 @@
 include "map.rgbinc"
 include "hardware.inc"
 include "banker.rgbinc"
+include "sprite.rgbinc"
 
 
 pushs "MapEntitySlotInitNext", rom0
@@ -138,14 +139,15 @@ _UpdateMapEnt:
 .flow_enable:
 		pop af ; discard @vecs
 	ld l, e :: ld h, d
+	; clear ENABLE (disable!) by default
+	res bEffect_ENABLE, [hl]
 	ld a, c
 	and FlowSeq_VALUE
+	; nonzero command value means ENABLE yes please!
 	jr z, :+
 	set bEffect_ENABLE, [hl]
-	ret
 :
-	res bEffect_ENABLE, [hl]
-	ret
+	jr _flow_update_effect_indicators
 .flow_vec:
 	; get index from seq command
 	ld a, c
@@ -156,6 +158,7 @@ _UpdateMapEnt:
 	inc hl ; vecs.len
 	add hl, bc :: add hl, bc ; double add: multiply by 2 (each element is 2 bytes)
 
+		push de ; @ FlowState.effect
 	; enable effect
 	ld a, [de]
 	set bEffect_ENABLE, a
@@ -163,7 +166,8 @@ _UpdateMapEnt:
 	; load vec
 	ld a, [hl+] :: ld [de], a :: inc de ; .vx
 	ld a, [hl+] :: ld [de], a :: inc de ; .vy
-	ret
+		pop hl ; @ FlowState.effect
+	jr _flow_update_effect_indicators
 .flow_delay:
 		pop af ; discard @vecs
 	; back to .timer ...
@@ -179,6 +183,43 @@ _UpdateMapEnt:
 .flow_nop:
 		pop af ; discard @vecs
 	ret
+
+
+;; Show flow indicators if flow is active (Effect_ENABLE + nonzero flowvec) otherwise stop/hide them.
+;; @param HL: pointer at FlowState.effect
+_flow_update_effect_indicators:
+	ld a, [hl+] ; .effect
+	assert Effect_ENABLE == $80
+	rla :: sbc a :: ld e, a ; if ENABLE, (e) <== $FF
+	ld a, [hl+] :: ld d, a ; .vx
+	ld a, [hl+] ; .vy
+	or d :: ld d, a ; either axis
+
+	ld a, [hl+] :: ld c, a ; .sprite_count
+	ld a, [hl+] :: ld h, [hl] :: ld l, a ; .sprite
+
+		wrambpush bank("wSpritePool")
+	; if flowvec is nonzero on either axis, AND effect ENABLE
+	ld a, d :: and e
+	ld de, szSpriteInst
+	jr z, .hide
+	; TODO: more nicer transition than setting VISIBLE on/off
+	; TODO: more nicer anim sequence thinging -- like start from the start, and stop at the end?
+.show:
+	ld a, [hl] :: or SpriteInst_VISIBLE|SpriteInst_ANIMATE :: ld [hl], a
+	add hl, de
+	dec c
+	jr nz, .show
+		wrambpop ; wSpritePool
+	ret
+.hide:
+	ld a, [hl] :: and ~(SpriteInst_VISIBLE|SpriteInst_ANIMATE) :: ld [hl], a
+	add hl, de
+	dec c
+	jr nz, .hide
+		wrambpop ; wSpritePool
+	ret
+
 
 pops ; MapEntityUpdateAll
 

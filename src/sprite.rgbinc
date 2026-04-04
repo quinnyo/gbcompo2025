@@ -5,6 +5,23 @@ include "st.rgbinc"
 include "ani.rgbinc"
 
 
+/*
+# Managed Sprites: visibility determination, culling
+
+Notes on "visibility" and culling behaviour for SpriteInst/SpritePool.
+Logical overview of managed sprite update logic.
+
+- SprxTestVisibilty is used as view culling.
+	- Determines if a world point could -- when used as a Sprx render
+	  position -- result in any part of the Sprx appearing on the display.
+	- View culling should occur as early as possible, to avoid doing unnecessary work.
+	- SpriteInsts that are culled (i.e. unlikely to actually appear on screen) are not animated.
+- SpriteInst animation should be updated (if enabled) so long as the sprite is not culled.
+- The SpriteInst_VISIBLE flag controls visibility (if the sprite should be displayed) **only**.
+	- This is checked at the latest possible time, to avoid skipping any other logic.
+*/
+
+
 rsreset
 ;; Slot is empty
 def bSpritePoolSlot_EMPTY rb 1
@@ -13,11 +30,16 @@ def SpritePoolSlot_EMPTY equ 1 << bSpritePoolSlot_EMPTY
 
 
 rsreset
-;; Enable rendering
+;; Control sprite visibility. Set to show the sprite, clear to hide the sprite.
 def bSpriteInst_VISIBLE rb 1
+;; Enable animation processing.
+;; If clear, no time will be applied to the animation -- it will be "paused".
+def bSpriteInst_ANIMATE rb 1
 
-def SpriteInst_DEFAULT equ 0
 def SpriteInst_VISIBLE equ 1 << bSpriteInst_VISIBLE
+def SpriteInst_ANIMATE equ 1 << bSpriteInst_ANIMATE
+;; The initial state for all SpriteInst flags.
+def SpriteInst_INIT equ 0
 
 
 ;; Animated sprite instance

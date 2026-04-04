@@ -13,13 +13,16 @@ pushs "wSpritePool", wramx, align[8]
 wSpritePoolMeta: ds SPRITE_POOL_CAPACITY
 wSpritePool: ds SPRITE_POOL_SIZE
 
+wSpritePoolCache:
+	.inst_flags: db
+
 pops ; wSpritePool
 
 
 pushs "SpritePoolInit", rom0
 SpritePoolInit::
 		wrambpush bank(wSpritePool)
-	ld a, SpriteInst_DEFAULT
+	ld a, SpriteInst_INIT
 	ld bc, SPRITE_POOL_SIZE
 	ld hl, wSpritePool
 	call MemFillLarge
@@ -113,8 +116,8 @@ SpritePoolUpdate::
 
 		push bc :: push hl
 
-	; TODO: do something with flags?
-	ld a, [hl+] ; .flags
+	; copy .flags to the cache for easy access later
+	ld a, [hl+] :: ld [wSpritePoolCache.inst_flags], a ; .flags
 
 	; Y
 	ld a, [wScroll.y + 0] :: ld c, a
@@ -139,10 +142,25 @@ SpritePoolUpdate::
 	; atrb
 	ld a, [hl+] :: ldh [hObModAtrb], a
 
+	; retrieve .flags (C)
+	ld a, [wSpritePoolCache.inst_flags] :: ld c, a
+	; Ani timestep if ANIMATE enabled
+.animate:
+	bit bSpriteInst_ANIMATE, c
+	jr z, .render
+	; TODO: configurable timestep
 	ld d, 1
-	call AniUpdate
-		rombsel b ; select bank of ani frame drawable
+		push hl
+	call AniTickD
+		pop hl
+	; Submit drawable for display if VISIBLE
+.render:
+	bit bSpriteInst_VISIBLE, c
+	jr z, :+
+	call AniGetDrawable
+		rombsel b
 	call SprxRenderMod_ObMod
+:
 
 .continue_pop:
 		pop hl :: pop bc

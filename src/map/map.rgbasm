@@ -410,7 +410,8 @@ endr
 ;; @param HL: source pointer (DoodadPlace)
 ;; @mut: AF, BC, DE, HL
 _DoDoodadPlace:
-	ld a, SpriteInst_VISIBLE :: ld [bc], a :: inc bc ; .flags
+	; TODO: Should not be visible by default? Let the effect impl set it.
+	ld a, SpriteInst_VISIBLE|SpriteInst_ANIMATE :: ld [bc], a :: inc bc ; .flags
 
 	ld a, [hl+] ; .doodad
 	; HACK: Everything is Flow45!
