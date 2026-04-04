@@ -21,16 +21,26 @@ AniSetup::
 	jp AniSetFrame
 
 
-;; Update Ani / advance time / submit drawables
+;; Perform animation timestep and change anim frame if appropriate.
+;; Provides access to the drawable of the current frame.
 ;; @param HL: this Ani
 ;; @param D: delta time (ticks)
 ;; @ret B: frame bank
 ;; @ret HL: frame drawable
 ;; @mut: AF, B, DE, HL
 AniUpdate::
-	push hl
+		push hl
 	call AniTickD
-	pop hl
+		pop hl
+
+	; FALLTHROUGH
+
+;; Retrieve the drawable for the current animation state.
+;; @param HL: this Ani
+;; @ret B: frame bank
+;; @ret HL: frame drawable
+;; @mut: AF, B, HL
+AniGetDrawable::
 	inc hl ; ani.timer
 	ld a, [hl+] :: ld b, a ; ani.bank
 	ld a, [hl+] ; ani.frame+0
@@ -90,7 +100,7 @@ AniNextFrame::
 ;; @param B: bank
 ;; @mut: AF, DE, HL
 AniSetFrame::
-	rombpush b
+		rombpush b
 
 	; timer += frame.duration
 	ld a, [de]
@@ -106,6 +116,6 @@ AniSetFrame::
 	inc de
 	ld a, [de] :: ld [hl+], a ; this.next+1
 
-	rombpop
+		rombpop
 	ret
 
