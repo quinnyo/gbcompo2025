@@ -7,6 +7,11 @@ include "ani.rgbinc"
 
 import_chr "assets/water_effects.chr", WaterEffects, pal
 
+rsreset
+export def WaterEffects_FLOW000 rb 8
+export def WaterEffects_FLOW045 rb 6
+export def WaterEffects_FLOW090 rb 6
+
 
 def FLIPH equ $20
 def FLIPV equ $40
@@ -17,35 +22,42 @@ def FLOW000_DT equ 10
 WaterFlow000::
 	.f1::
 		ani_frame FLOW000_DT, .f2
-		sprob -4, -8, 5, 0
-		sprob -4,  0, 0, 0
+		sprob -4, -16, 0, 0
 		sprob_end
 	.f2:
 		ani_frame FLOW000_DT, .f3
-		sprob -4,  0, 1, 0
+		sprob -4, -13, 1, 0
 		sprob_end
 	.f3:
 		ani_frame FLOW000_DT, .f4
-		sprob -2, -8, 3, FLIPV
-		sprob -4,  0, 2, 0
+		sprob -4,  -9, 2, 0
 		sprob_end
 	.f4:
 		ani_frame FLOW000_DT, .f5
-		sprob -2, -8, 4, FLIPV
+		sprob -4,  -5, 3, 0
 		sprob_end
 	.f5:
 		ani_frame FLOW000_DT, .f6
-		sprob -2, -8, 5, FLIPV
-		sprob -2,  0, 0, FLIPV
+		sprob -4,  -3, 4, 0
 		sprob_end
 	.f6:
 		ani_frame FLOW000_DT, .f7
-		sprob -2,  0, 4, 0
+		sprob -4,   1, 5, 0
 		sprob_end
 	.f7:
-		ani_frame FLOW000_DT, .f1
-		sprob -4, -8, 3, 0
-		sprob -1,  0, 2, FLIPV
+		ani_frame FLOW000_DT, .f8
+		sprob -4,   5, 6, 0
+		sprob_end
+	.f8:
+		ani_frame FLOW000_DT, .f9
+		sprob -4,   7, 7, 0
+		sprob_end
+	.f9:
+		ani_frame FLOW000_DT, .f10
+		sprob -5,   8, 0, FLIPV
+		sprob_end
+	.f10:
+		ani_frame FLOW000_DT * 2, .f1
 		sprob_end
 pops
 

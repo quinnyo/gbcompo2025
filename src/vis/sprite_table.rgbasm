@@ -9,10 +9,13 @@ def SPRTAB_BANK equ 99
 
 pushs "RscTable", romx, bank[SPRTAB_BANK]
 	rsc RSC_TYPE_CHR|RSC_USAGE_OB, RscWaterFlow000_chrs
-		rsc load, WaterEffects_chr, 0, 6
+		rsc load, WaterEffects_chr, WaterEffects_FLOW000, 8
 		rsc end
 	rsc RSC_TYPE_CHR|RSC_USAGE_OB, RscWaterFlow045_chrs
-		rsc load, WaterEffects_chr, 6, 6
+		rsc load, WaterEffects_chr, WaterEffects_FLOW045, 6
+		rsc end
+	rsc RSC_TYPE_CHR|RSC_USAGE_OB, RscWaterFlow090_chrs
+		rsc load, WaterEffects_chr, WaterEffects_FLOW090, 6
 		rsc end
 	rsc RSC_TYPE_PAL|RSC_USAGE_OB, RscWater_pals
 		rsc load, WaterEffects_pal, 0, 1
