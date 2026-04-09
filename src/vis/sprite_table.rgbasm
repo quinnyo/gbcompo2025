@@ -8,8 +8,11 @@ def SPRTAB_BANK equ 99
 
 
 pushs "RscTable", romx, bank[SPRTAB_BANK]
-	rsc RSC_TYPE_CHR|RSC_USAGE_OB, RscWaterFlow45_chrs
+	rsc RSC_TYPE_CHR|RSC_USAGE_OB, RscWaterFlow000_chrs
 		rsc load, WaterEffects_chr, 0, 6
+		rsc end
+	rsc RSC_TYPE_CHR|RSC_USAGE_OB, RscWaterFlow045_chrs
+		rsc load, WaterEffects_chr, 6, 6
 		rsc end
 	rsc RSC_TYPE_PAL|RSC_USAGE_OB, RscWater_pals
 		rsc load, WaterEffects_pal, 0, 1
@@ -30,7 +33,8 @@ pops ; RscTable
 
 
 pushs "SpriteTable", romx, bank[SPRTAB_BANK]
-	sprtab_add2 sprWaterFlow45, WaterFlow45.f1, RscWaterFlow45_chrs, RscWater_pals
+	sprtab_add2 sprWaterFlow000, WaterFlow000.f1, RscWaterFlow000_chrs, RscWater_pals
+	sprtab_add2 sprWaterFlow045, WaterFlow045.f1, RscWaterFlow045_chrs, RscWater_pals
 
 SpriteTable::
 	sprtab_done2
@@ -58,3 +62,50 @@ SprtabIndex::
 
 pops ; SprtabIndex
 
+
+pushs "SpriteInstantiate", rom0
+;; Instantiate SpriteInst from SpriteDef.
+;; @param BC: this SpriteInst
+;; @param HL: SpriteDef
+;; @mut: AF, BC, DE, HL
+SpriteInstantiate::
+	inc hl ; def.reserved
+	ld a, [hl+] ; .srcbk
+		push af
+	ld a, [hl+] :: ld e, a :: ld a, [hl+] :: ld d, a ; .src
+		push de
+
+	; load resources (chrs/pals)
+		push bc ; this
+	ld a, [hl+] :: ld e, a :: ld a, [hl+] :: ld d, a ; .rsc_chrs
+		push hl ; @ .rsc_pals
+	call RscLoad
+		wrambpush bank("wRscStat")
+	ld a, [bc] :: inc bc ; CHR vram bank
+	ldh [hObModAtrb], a
+	ld a, [bc] ; chri
+	ldh [hObModChri], a
+		wrambpop ; wRscStat
+		pop hl ; @ .rsc_pals
+	ld a, [hl+] :: ld e, a :: ld a, [hl+] :: ld d, a ; .rsc_pals
+	call RscLoad
+		wrambpush bank("wRscStat")
+	ldh a, [hObModAtrb] :: ld e, a ; CHR vram bank, ATRB
+	ld a, [bc] :: or e :: ldh [hObModAtrb], a ; palette
+		wrambpop ; wRscStat
+		pop hl ; this
+
+	; default flags, position
+	xor a
+	ld [hl+], a ; .flags
+	ld [hl+], a :: ld [hl+], a ; .posy
+	ld [hl+], a :: ld [hl+], a ; .posx
+	; chri, atrb from rsc above
+	ldh a, [hObModChri] :: ld [hl+], a ; .chri
+	ldh a, [hObModAtrb] :: ld [hl+], a ; .atrb
+	; setup ani
+		pop de ; .src
+		pop bc ; .srcbk
+	jp AniSetup
+
+pops ; SpriteInstantiate

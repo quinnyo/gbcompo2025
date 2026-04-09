@@ -77,6 +77,8 @@ pops ; wRscStat
 pushs "RscLoad", rom0
 ;; Make Rsc available for use.
 ;; @param DE: Rsc
+;; @ret BC: pointer to rsc entry in wRscStat.
+;;        : NOTE: User must select WRAMX bank containing wRscStat.
 ;; @mut: AF, BC, DE, HL
 RscLoad::
 		rombpush bank("RscTable")
@@ -97,6 +99,7 @@ RscLoad::
 	bit 7, a
 	jr z, .tail ; early out if already loaded
 
+		push bc ; pointer to entry in wRscStat
 	; initialise code program counter
 	ld a, e :: ld [hl+], a
 	ld a, d :: ld [hl+], a
@@ -111,7 +114,7 @@ RscLoad::
 
 	call RscPreload
 	call RscDoCode
-
+		pop bc ; pointer to entry in wRscStat
 .tail:
 		wrambpop ; wRscStat
 		rombpop ; RscTable

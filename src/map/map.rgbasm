@@ -406,55 +406,29 @@ endr
 	jr @-3
 
 
+;; NOTE: Ensure SpriteInst WRAMX bank is active.
 ;; @param BC: sprite pointer
 ;; @param HL: source pointer (DoodadPlace)
 ;; @mut: AF, BC, DE, HL
 _DoDoodadPlace:
-	; TODO: Should not be visible by default? Let the effect impl set it.
-	ld a, SpriteInst_VISIBLE|SpriteInst_ANIMATE :: ld [bc], a :: inc bc ; .flags
-
-	ld a, [hl+] ; .doodad
-	; HACK: Everything is Flow45!
-	; (TODOODAD)
-
-	; load resources
-	; TODOODAD: load the correct resources (from the sprite)
-		push bc :: push hl
-	ld de, RscWaterFlow45_chrs
-	call RscLoad
-	ld de, RscWater_pals
-	call RscLoad
-		pop hl :: pop bc
-
-	ld a, [hl+] ; .option
-
+	ld a, [hl+] :: ld e, a ; place.doodad
+	ld a, [hl+] ; place.option
+		push hl ; @ place.posy
+		rombpush bank("SpriteTable")
+	; HACK: assuming doodad ID maps to sprite table index
+	call SprtabIndex
+		push bc ; @ sprite.flags
+	call SpriteInstantiate
+		pop bc ; @ sprite.flags
+		rombpop ; SpriteTable
+		pop hl ; @ place.posy
+	inc bc ; .flags
 	; .posy
 	ld a, [hl+] :: ld [bc], a :: inc bc
 	ld a, [hl+] :: ld [bc], a :: inc bc
-
 	; .posx
 	ld a, [hl+] :: ld [bc], a :: inc bc
 	ld a, [hl+] :: ld [bc], a :: inc bc
-
-	; Get CHR and palette indices from rsc
-		wrambpush bank("wRscStat")
-	ld a, [wRscWaterFlow45_chrs + 0] :: ld e, a ; CHR vram bank, ATRB
-	ld a, [wRscWaterFlow45_chrs + 1] :: ld d, a ; chri
-	; Get palette index and combine with other ATRB
-	ld a, [wRscWater_pals] :: or e :: ld e, a
-		wrambpop ; wRscStat
-
-	; .chri
-	ld a, d :: ld [bc], a :: inc bc
-	; .atrb
-	ld a, e :: ld [bc], a :: inc bc
-	; .ani
-		push hl ; next doodad
-	ld h, b :: ld l, c
-	ld de, WaterFlow45.f1
-	ld b, bank(WaterFlow45)
-	call AniSetup
-		pop hl ; next doodad
 	ret
 
 

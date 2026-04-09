@@ -8,42 +8,84 @@ include "ani.rgbinc"
 import_chr "assets/water_effects.chr", WaterEffects, pal
 
 
+def FLIPH equ $20
+def FLIPV equ $40
+
+
 pushs fragment "SpriteData", romx
-def FLOW45_DT equ 10
-WaterFlow45::
+def FLOW000_DT equ 10
+WaterFlow000::
 	.f1::
-		ani_frame FLOW45_DT, .f2
+		ani_frame FLOW000_DT, .f2
+		sprob -4, -8, 5, 0
+		sprob -4,  0, 0, 0
+		sprob_end
+	.f2:
+		ani_frame FLOW000_DT, .f3
+		sprob -4,  0, 1, 0
+		sprob_end
+	.f3:
+		ani_frame FLOW000_DT, .f4
+		sprob -2, -8, 3, FLIPV
+		sprob -4,  0, 2, 0
+		sprob_end
+	.f4:
+		ani_frame FLOW000_DT, .f5
+		sprob -2, -8, 4, FLIPV
+		sprob_end
+	.f5:
+		ani_frame FLOW000_DT, .f6
+		sprob -2, -8, 5, FLIPV
+		sprob -2,  0, 0, FLIPV
+		sprob_end
+	.f6:
+		ani_frame FLOW000_DT, .f7
+		sprob -2,  0, 4, 0
+		sprob_end
+	.f7:
+		ani_frame FLOW000_DT, .f1
+		sprob -4, -8, 3, 0
+		sprob -1,  0, 2, FLIPV
+		sprob_end
+pops
+
+
+pushs fragment "SpriteData", romx
+def FLOW045_DT equ 10
+WaterFlow045::
+	.f1::
+		ani_frame FLOW045_DT, .f2
 		sprob -4, -4, 1, 0
 		sprob_end
 	.f2:
-		ani_frame FLOW45_DT, .f3
+		ani_frame FLOW045_DT, .f3
 		sprob -4, -4, 2, 0
 		sprob 3, 4, 3, 0
 		sprob_end
 	.f3:
-		ani_frame FLOW45_DT, .f4
+		ani_frame FLOW045_DT, .f4
 		sprob 4, 4, 4, 0
 		sprob_end
 	.f4:
-		ani_frame FLOW45_DT, .f5
+		ani_frame FLOW045_DT, .f5
 		sprob -4, -4, 3, 0
 		sprob 4, 4, 5, 0
 		sprob_end
 	.f5:
-		ani_frame FLOW45_DT, .f6
+		ani_frame FLOW045_DT, .f6
 		sprob -4, -4, 4, 0
 		sprob_end
 	.f6:
-		ani_frame FLOW45_DT, .f7
+		ani_frame FLOW045_DT, .f7
 		sprob -4, -3, 5, 0
 		sprob 4, 3, 0, 0
 		sprob_end
 	.f7:
-		ani_frame FLOW45_DT, .f8
+		ani_frame FLOW045_DT, .f8
 		sprob 4, 4, 1, 0
 		sprob_end
 	.f8:
-		ani_frame FLOW45_DT, .f1
+		ani_frame FLOW045_DT, .f1
 		sprob -4, -4, 0, 0
 		sprob 4, 4, 2, 0
 		sprob_end

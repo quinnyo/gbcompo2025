@@ -60,6 +60,15 @@ st
 assert szSpriteInst == 16
 
 
+st SpriteDef
+	stf reserved, 1
+	stf srcbk, 1
+	stf src, 2
+	stf rsc_chrs, 2
+	stf rsc_pals, 2
+st ; SpriteDef
+
+
 ;; Sprob escape code
 def bSprob_ESC equ 7
 ;; Terminates sprite descriptor
