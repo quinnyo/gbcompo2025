@@ -2,6 +2,7 @@ include "sprite.rgbinc"
 include "banker.rgbinc"
 include "hardware.inc"
 include "rsc.rgbinc"
+include "vis/widgets.rgbinc"
 
 
 def SPRTAB_BANK equ 99
@@ -19,6 +20,24 @@ pushs "RscTable", romx, bank[SPRTAB_BANK]
 		rsc end
 	rsc RSC_TYPE_PAL|RSC_USAGE_OB, RscWater_pals
 		rsc load, WaterEffects_pal, 0, 1
+		rsc end
+	rsc RSC_TYPE_CHR|RSC_USAGE_OB, RscWidgetPointer_chrs
+		rsc load, Widgets_chr, WIDGET_POINTER, WIDGET_POINTER_LENGTH
+		rsc end
+	rsc RSC_TYPE_CHR|RSC_USAGE_OB, RscWidgetGrab_chrs
+		rsc load, Widgets_chr, WIDGET_GRAB, WIDGET_GRAB_LENGTH
+		rsc end
+	rsc RSC_TYPE_CHR|RSC_USAGE_OB, RscWidgetDeny_chrs
+		rsc load, Widgets_chr, WIDGET_DENY, WIDGET_DENY_LENGTH
+		rsc end
+	rsc RSC_TYPE_CHR|RSC_USAGE_OB, RscWidgetSpin_chrs
+		rsc load, Widgets_chr, WIDGET_SPIN, WIDGET_SPIN_LENGTH
+		rsc end
+	; rsc RSC_TYPE_CHR|RSC_USAGE_OB, RscWidgetMarker_chrs
+	; 	rsc load, Widgets_chr, WIDGET_MARKER, WIDGET_MARKER_LENGTH
+	; 	rsc end
+	rsc RSC_TYPE_PAL|RSC_USAGE_OB, RscWidget_pals
+		rsc load, Widgets_pal, 0, 1
 		rsc end
 	; rsc RSC_TYPE_CHR|RSC_USAGE_BG, RscBgTest_chrs
 	; 	rsc load, "assets/enviro0.chr", 1, 5
@@ -38,6 +57,12 @@ pops ; RscTable
 pushs "SpriteTable", romx, bank[SPRTAB_BANK]
 	sprtab_add2 sprWaterFlow000, WaterFlow000.f1, RscWaterFlow000_chrs, RscWater_pals
 	sprtab_add2 sprWaterFlow045, WaterFlow045.f1, RscWaterFlow045_chrs, RscWater_pals
+
+	sprtab_add2 sprWidgetPointer, WidgetPointer.f1, RscWidgetPointer_chrs, RscWidget_pals
+	sprtab_add2 sprWidgetGrab, WidgetGrab.f1, RscWidgetGrab_chrs, RscWidget_pals
+	sprtab_add2 sprWidgetDeny, WidgetDeny.f1, RscWidgetDeny_chrs, RscWidget_pals
+	sprtab_add2 sprWidgetSpin, WidgetSpin.f1, RscWidgetSpin_chrs, RscWidget_pals
+
 
 SpriteTable::
 	sprtab_done2

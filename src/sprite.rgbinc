@@ -35,19 +35,27 @@ def bSpriteInst_VISIBLE rb 1
 ;; Enable animation processing.
 ;; If clear, no time will be applied to the animation -- it will be "paused".
 def bSpriteInst_ANIMATE rb 1
+;; Alternative position mode. If clear, sprite position is in world dots.
+;; If set, position includes information on how it should be interpreted.
+def bSpriteInst_POSITION_ALT rb 1
 
 def SpriteInst_VISIBLE equ 1 << bSpriteInst_VISIBLE
 def SpriteInst_ANIMATE equ 1 << bSpriteInst_ANIMATE
+def SpriteInst_POSITION_ALT equ 1 << bSpriteInst_POSITION_ALT
 ;; The initial state for all SpriteInst flags.
 def SpriteInst_INIT equ 0
+
+
+;; Position is in screen space dots.
+def PositionMode_SCREEN equ $00
 
 
 ;; Animated sprite instance
 st SpriteInst
 	stf flags, 1
-	;; Y position in world dots
+	;; Y position in world dots if not ALT position mode
 	stf posy, 2
-	;; X position in world dots
+	;; X position in world dots if not ALT position mode
 	stf posx, 2
 	;; base CHRI index
 	stf chri, 1

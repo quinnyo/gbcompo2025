@@ -119,6 +119,26 @@ SpritePoolUpdate::
 	; copy .flags to the cache for easy access later
 	ld a, [hl+] :: ld [wSpritePoolCache.inst_flags], a ; .flags
 
+	; Position
+	bit bSpriteInst_POSITION_ALT, a
+	jr z, .do_position_default
+
+	; Read position mode
+	ld a, [hl+] ; .position[0]
+	; NOTE: There are no ALT position modes other than SCREEN (0) at the moment.
+	and a
+	jr nz, .continue_pop ; do not render if position mode is unknown
+
+.do_position_screen:
+	; { SCREEN, Y, X, _ }
+	; interpret position as screen/OAM dots
+	ld a, [hl+] :: ld b, a ; .position[1]: Y
+	ld a, [hl+] :: ld c, a ; .position[2]: X
+	inc hl ; .position[3]
+
+	jr .set_render_position_b_c
+
+.do_position_default:
 	; Y
 	ld a, [wScroll.y + 0] :: ld c, a
 	ld a, [wScroll.y + 1] :: ld b, a
@@ -134,6 +154,7 @@ SpritePoolUpdate::
 	call SprxTestVisibility
 	jr nc, .continue_pop
 
+.set_render_position_b_c:
 	; set render position
 	ld a, b :: ldh [hObModY], a
 	ld a, c :: ldh [hObModX], a

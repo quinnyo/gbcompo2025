@@ -2,60 +2,102 @@ include "widgets.rgbinc"
 include "hardware.inc"
 include "banker.rgbinc"
 include "chrimp.rgbinc"
+include "sprite.rgbinc"
 
 
 	import_chr "assets/widgets.chr", Widgets, pal, idx, atrb
 
 
-pushs "wWidgetsRes", wram0
-wWidgetsRes_chri: db
-wWidgetsRes_pal: db
+pushs fragment "SpriteData", romx
+def _DT equ 5
+def _Y equ 0
+def _X equ 0
+WidgetPointer::
+	.f1::
+		ani_frame _DT * 40, .f2
+		sprob _Y + 0, _X + 0, 0, 0
+		sprob_end
+	.f2:
+		ani_frame _DT * 2, .f3
+		sprob _Y - 2, _X - 2, 0, 0
+		sprob_end
+	.f3:
+		ani_frame _DT * 4, .f4
+		sprob _Y - 3, _X - 3, 0, 0
+		sprob_end
+	.f4:
+		ani_frame _DT * 1, .f5
+		sprob _Y - 1, _X - 1, 0, 0
+		sprob_end
+	.f5:
+		ani_frame _DT * 2, .f1
+		sprob _Y + 1, _X + 1, 0, 0
+		sprob_end
 
-pops ; wWidgetsRes
+
+redef _DT equ 2
+redef _Y equ 0
+redef _X equ 0
+WidgetGrab::
+	.f1::
+		ani_frame _DT * 5, .f2
+		sprob _Y - 1, _X - 1, 0, 0
+		sprob_end
+	.f2:
+		ani_frame _DT * 2, .f3
+		sprob _Y + 0, _X + 0, 1, 0
+		sprob_end
+	.f3:
+		ani_frame _DT * 2, .f4
+		sprob _Y + 0, _X + 0, 2, 0
+		sprob_end
+	.f4:
+		ani_frame _DT * 8, .f1
+		sprob _Y + 0, _X + 0, 3, 0
+		sprob_end
 
 
-pushs "WidgetsInit", rom0
-WidgetsInit::
-	; Load widgets resources
-	ld b, bank(Widgets_pal)
-	ld de, Widgets_pal
-	call PalettePalLoadObRomx
-	ld a, b :: and $07 :: ld [wWidgetsRes_pal], a
-
-	ld c, Widgets_CHR_COUNT
-	call ChrmanAllocOb
-	ret c
-	ld a, b :: ld [wWidgetsRes_chri], a
-	ld b, bank(Widgets_chr)
-	ld de, Widgets_chr
-	ld c, Widgets_CHR_COUNT - 1
-	jp VxLoadRom
-
-pops ; WidgetsInit
+redef _DT equ 15
+redef _Y equ -4
+redef _X equ -4
+WidgetDeny::
+	.f1::
+		ani_frame _DT * 2, .f2
+		sprob _Y, _X, 0, 0
+		sprob_end
+	.f2:
+		ani_frame _DT * 1, .f1
+		sprob_end
 
 
-pushs "WidgetRender", rom0
-;; Draw a specific frame of a widget.
-;; @param E: widget frame/ID
-;; @param B,C: Y,X position
-;; @mut: AF, DE, HL
-WidgetRender::
-	ld d, 0
-		rombopen bank(Widgets_idx)
-	ld hl, Widgets_idx
-	add hl, de
-	ld a, [wWidgetsRes_chri]
-	add [hl]
-	; (without changing A) move HL to _atrb now, so we can use D & E for Ob params
-	ld hl, Widgets_atrb
-	add hl, de
-	; now we don't need DE as an offset anymore
-	ld d, a
-		rombsel bank(Widgets_atrb)
-	ld a, [wWidgetsRes_pal]
-	add [hl]
-	ld e, a
-	jp ObdoSingle
+redef _DT equ 7
+redef _Y equ -4
+redef _X equ -4
+WidgetSpin::
+	.f1::
+		ani_frame _DT, .f2
+		sprob _Y + 0, _X + 0, 0, 0
+		sprob_end
+	.f2:
+		ani_frame _DT, .f3
+		sprob _Y + 0, _X + 0, 1, 0
+		sprob_end
+	.f3:
+		ani_frame _DT, .f4
+		sprob _Y + 0, _X + 0, 2, 0
+		sprob_end
+	.f4:
+		ani_frame _DT, .f5
+		sprob _Y + 0, _X + 0, 3, 0
+		sprob_end
+	.f5:
+		ani_frame _DT, .f6
+		sprob _Y + 0, _X + 0, 4, 0
+		sprob_end
+	.f6:
+		ani_frame _DT, .f1
+		sprob _Y + 0, _X + 0, 5, 0
+		sprob_end
 
-pops ; WidgetRender
+pops ; SpriteData
 

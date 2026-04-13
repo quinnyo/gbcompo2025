@@ -5,6 +5,7 @@ include "vis/diver.rgbinc"
 include "banker.rgbinc"
 include "game/action.rgbinc"
 include "vis/widgets.rgbinc"
+include "sprite.rgbinc"
 
 
 def KEY_JET equ PADF_B
@@ -92,6 +93,13 @@ endu
 pops
 
 
+pushs "wPlayerVis", wram0
+wPlayerVis:
+	.spr0: dw
+
+pops ; wPlayerVis
+
+
 section "wPlayer", wram0
 wPlayer::
 	;; Direct directional movement vector, Y axis
@@ -120,7 +128,26 @@ section "Player", rom0
 PlayerInit::
 	ld a, $FF
 	ld [wPlayer.ent], a
+
+	; action vis sprites
+	ld b, 1
+	call SpritePoolAlloc
+	jr nc, .failed_sprite_alloc
+	ld a, l :: ld [wPlayerVis.spr0 + 0], a
+	ld a, h :: ld [wPlayerVis.spr0 + 1], a
+		rombpush bank("SpriteTable")
+		wrambpush bank("wSpritePool")
+	ld c, l :: ld b, h
+	ld hl, sprWidgetGrab
+	call SpriteInstantiate
+		wrambpop ; wSpritePool
+		rombpop ; SpriteTable
+
 	ret
+
+.failed_sprite_alloc:
+	ld b, b
+	jr @ - 3
 
 
 ;; @param A: player entity index
@@ -220,8 +247,10 @@ if def(DEBUG_ANCHOR)
 	add 4 :: ld c, a ; X
 	ld b, h ; Y
 
-	ld e, WIDGET_SPIN
-	call WidgetRender
+	; TODO: use a sprite to display this widget. 
+	warn "Anchor target widget disabled. WidgetRender has been removed. Widgets can be displayed as sprites."
+	; ld e, WIDGET_SPIN
+	; call WidgetRender
 :
 endc ; DEBUG_ANCHOR
 
@@ -788,31 +817,35 @@ _act_anchor:
 	jp nc, _PlayerCancelAction
 
 	; [DEBUG] Show anchor point
-	ld hl, wPlayerAction.anchor_x
-	ld a, [hl+] :: ld c, a
-	ld a, [hl+] :: ld b, a
-	ld a, [wScroll.x + 0] :: ld e, a
-	ld a, [wScroll.x + 1] :: ld d, a
-	ld a, c :: sub e :: ld c, a
-	ld a, b :: sbc d :: ld b, a
-		push bc
-	ld a, [hl+] :: ld c, a
-	ld a, [hl+] :: ld b, a
-	ld a, [wScroll.y + 0] :: ld e, a
-	ld a, [wScroll.y + 1] :: ld d, a
-	ld a, c :: sub e :: ld c, a
-	ld a, b :: sbc d :: ld b, a
-		pop de ; X
-	ld a, c :: add 12 :: ld b, a ; Y
-	ld a, e :: add 4 :: ld c, a ; X
-	ld a, [wVBlankCount]
-	and $F0
-	swap a
-	assert WIDGET_GRAB_LENGTH == (-WIDGET_GRAB_LENGTH) & WIDGET_GRAB_LENGTH
-	and WIDGET_GRAB_LENGTH - 1
-	add WIDGET_GRAB
-	ld e, a
-	jp WidgetRender
+		wrambpush bank("wSpritePool")
+	ld hl, wPlayerVis.spr0
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+	ld a, SpriteInst_VISIBLE | SpriteInst_ANIMATE
+	ld [hl+], a ; .flags
+	ld bc, wPlayerAction.anchor_x
+	; Read anchor X
+	ld a, [bc] :: inc bc
+	add 4 :: ld e, a
+	sbc a :: ld d, a
+	ld a, [bc] :: inc bc
+	sub d ; subtract -1 (F.C) or 0 (F.NC)
+	ld d, a
+
+	; Y
+	ld a, [bc] :: inc bc
+	add 12 :: ld [hl+], a ; .posy[0]
+	ld a, [bc]
+	jr nc, :+
+	inc a ; carry
+:
+	ld [hl+], a ; .posy[1]
+
+	; X
+	ld a, e :: ld [hl+], a ; .posx[0]
+	ld a, d :: ld [hl+], a ; .posx[1]
+		wrambpop ; wSpritePool
+
+	ret
 
 _act_carry:
 	ld a, [de]

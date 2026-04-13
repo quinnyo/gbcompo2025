@@ -15,6 +15,8 @@ modeGamePrep_ExtraFuncs::
 	dw _load0
 	dw _load1
 	dw _load2
+	dw _load3
+	dw _load4
 	dw _done
 
 
@@ -51,6 +53,28 @@ _load2:
 	jp PalettesLoadRomx
 
 
+_load3:
+	call ModeLoadWaitVx :: ret nc
+
+	call PlayerInit
+	call CollideInit
+	call ItemsInit
+	jp TangleInit
+
+
+_load4:
+	call ModeLoadWaitVx :: ret nc
+
+	call MapOpen
+
+	call MapGetPlayerStart
+	coord_from_dots16 bc
+	coord_from_dots16 de
+
+	xor a ; player entity index
+	jp PlayerSpawn
+
+
 _done:
 	call ModeLoadWaitVx :: ret nc
 
@@ -70,18 +94,6 @@ modeGamePrep_Enter::
 	call QuestInit
 	call ScrollInit
 	call EntityInit
-	call PlayerInit
-	call CollideInit
-	call ItemsInit
-	call TangleInit
-	call MapOpen
-
-	call MapGetPlayerStart
-	coord_from_dots16 bc
-	coord_from_dots16 de
-
-	xor a ; player entity index
-	call PlayerSpawn
 
 	ld a, MODE_STATE_EXTRA :: ldh [hModeState], a
 	ret

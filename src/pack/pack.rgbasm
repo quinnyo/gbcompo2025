@@ -2,6 +2,7 @@ include "pack.rgbinc"
 include "hardware.inc"
 include "banker.rgbinc"
 include "vis/widgets.rgbinc"
+include "sprite.rgbinc"
 
 
 pushs "wPack", wram0
@@ -12,6 +13,9 @@ wPackCursorY: db
 wPackCtl:: db
 wPackHoldingItem: db
 wPackPickedItem: db
+
+;; SpriteInst (in SpritePool) used to display cursor.
+wPackCursorSprite: dw
 
 pops ; wPack
 
@@ -45,9 +49,31 @@ PackInit::
 	call MemFillSmall
 		wrambpop
 
-	call WidgetsInit
+	ld b, 1
+	call SpritePoolAlloc
+	jr nc, .failed_sprite_alloc
+	ld a, l :: ld [wPackCursorSprite + 0], a
+	ld a, h :: ld [wPackCursorSprite + 1], a
+		rombpush bank("SpriteTable")
+		wrambpush bank("wSpritePool")
+		push hl
+	ld c, l :: ld b, h
+	ld hl, sprWidgetPointer
+	call SpriteInstantiate
+		pop hl
+	; Set SCREEN position mode
+	ld a, SpriteInst_ANIMATE | SpriteInst_POSITION_ALT
+	ld [hl+], a
+	ld a, PositionMode_SCREEN
+	ld [hl+], a
+		wrambpop ; wSpritePool
+		rombpop ; SpriteTable
 
 	ret
+
+.failed_sprite_alloc:
+	ld b, b
+	jr @ - 3
 
 
 ;; Call before making Pack visible.
@@ -99,6 +125,13 @@ PackDrawerOpen::
 ;; @ret F.C: transition complete
 ;; @mut: AF
 PackDrawerClose::
+	; Hide cursor
+	ld hl, wPackCursorSprite
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+		wrambpush bank("wSpritePool")
+	res bSpriteInst_VISIBLE, [hl]
+		wrambpop ; wSpritePool
+
 	ld a, [wPackCtl]
 	and PackCtl_OPEN
 	jr z, .finish
@@ -123,17 +156,23 @@ PackDrawerClose::
 
 
 PackProcess::
-	; Draw cursor
-	ld a, [wPackCursorX]
-	add a :: add a :: add a ; mul 8
-	add PACK_ORIGIN_X + PACK_CURSOR_OFFSET_X
-	ld c, a
+	; Update cursor sprite
+	ld hl, wPackCursorSprite
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+		wrambpush bank("wSpritePool")
+	set bSpriteInst_VISIBLE, [hl]
+	inc hl :: inc hl
+
 	ld a, [wPackCursorY]
 	add a :: add a :: add a ; mul 8
 	add PACK_ORIGIN_Y + PACK_CURSOR_OFFSET_Y
-	ld b, a
-	ld e, WIDGET_POINTER
-	call WidgetRender
+	ld [hl+], a
+
+	ld a, [wPackCursorX]
+	add a :: add a :: add a ; mul 8
+	add PACK_ORIGIN_X + PACK_CURSOR_OFFSET_X
+	ld [hl+], a
+		wrambpop ; wSpritePool
 
 	ret
 
