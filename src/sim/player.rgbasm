@@ -677,6 +677,13 @@ _PlayerCancelAction:
 	ld [wPlayerAction.state], a
 
 	ld a, ACTION_REQ_LOCKOUT :: ld [wPlayer.action_req_lockout], a
+
+		wrambpush bank("wSpritePool")
+	ld hl, wPlayerVis.spr0
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+	xor a :: ld [hl+], a ; .flags
+		wrambpop ; wSpritePool
+
 	ret
 
 
