@@ -17,6 +17,14 @@ st Ani
 st
 
 
+st AniFrameHeader
+	;; Duration of the frame in ticks.
+	stf duration, 1
+	;; Pointer to next frame.
+	stf next, 2
+st
+
+
 ;; ani_frame DURATION, NEXT
 ;; Create a new frame
 macro ani_frame
