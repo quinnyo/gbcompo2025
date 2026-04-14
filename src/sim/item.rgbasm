@@ -1,58 +1,15 @@
 include "hardware.inc"
 include "coord.rgbinc"
-include "chrimp.rgbinc"
 include "sprite.rgbinc"
 include "banker.rgbinc"
 include "quest/quest.rgbinc"
 include "map/map.rgbinc"
 include "item.rgbinc"
+include "ani.rgbinc"
 
 /*
 Items are pickupable (pickable up) *things*.
 */
-
-
-import_chr "assets/ent/markers.chr", Markers, pal
-
-
-section "ItemSprites", romx
-ItemSprites:
-	dw sprItemBud
-	dw sprItem0
-	dw sprItem1
-	dw sprItem2
-	dw sprItem3
-	dw sprItem4
-
-def ITEM_SPRITES_MAX equ (@ - ItemSprites) / 2
-
-sprItem0:
-	sprob 12, 4, 0, 0
-	sprob_end
-
-sprItem1:
-	sprob 12, 4, 1, 0
-	sprob_end
-
-sprItem2:
-	sprob 12, 4, 2, 0
-	sprob_end
-
-sprItem3:
-	sprob 12, 4, 3, 0
-	sprob_end
-
-sprItem4:
-	sprob 12, 4, 4, 0
-	sprob_end
-
-sprItemBud:
-	sprob 12, 4, $0B, 0
-	sprob_end
-
-sprItemMissing:
-	sprob 12, 4, $0F, 0
-	sprob_end
 
 
 section "wItems", wramx
@@ -66,29 +23,12 @@ wItemsManager:
 	.collideX: db
 
 
-section "wItemsResources", wram0
-wItemsRes_markers_chri: db
-wItemsRes_markers_pal: db
-
-
 section "ItemsInit", rom0
 ItemsInit::
-	ld b, bank(Markers_pal)
-	ld de, Markers_pal
-	call PalettePalLoadObRomx
-	ld a, b :: and $07 :: ld [wItemsRes_markers_pal], a
-
-	; TODO: only load item graphics that are being used
-
-	ld c, Markers_CHR_COUNT
-	call ChrmanAllocOb
-	ret c
-	ld a, b :: ld [wItemsRes_markers_chri], a
-	ld b, bank(Markers_chr)
-	ld de, Markers_chr
-	ld c, Markers_CHR_COUNT - 1
-	call VxLoadRom
-
+	ld de, RscWidgetTarget_chrs
+	call RscLoad
+	ld de, RscWidget_pals
+	call RscLoad
 	jp ItemsReset
 
 
@@ -256,7 +196,6 @@ ItemsSetCollidePoint::
 
 section "ItemsUpdate", rom0
 ItemsUpdate::
-		rombopen bank(ItemSprites)
 		wrambopen bank("wItems")
 	ld hl, wItems
 	ld c, ITEMS_MAX
@@ -276,6 +215,7 @@ ItemsUpdate::
 
 
 ;; @param B,C: Y,X item position
+;; @ret F.C: collision detected
 _collide:
 	xor a ; clear F.C
 	ld a, [wItemsManager.flags]
@@ -297,13 +237,17 @@ _collide:
 
 ;; @param HL: this Item
 _update_item:
+	; nothing to do if picked up
+	bit bItemCtl_TOUCHED, [hl]
+	ret nz
+
 		push hl
 	inc hl :: inc hl :: inc hl ; skip .ctl, .typeid
 	call _get_screen_position ; B,C: Y,X
 		pop hl
+	; if item is not in view, do nothing
 	ret nc
 
-	res bItemCtl_TOUCHED, [hl]
 	call _collide
 	jr nc, .draw_item
 	set bItemCtl_TOUCHED, [hl]
@@ -316,44 +260,22 @@ _update_item:
 		pop hl
 
 .draw_item
-	; Default CHR index & palette offset
-	ld a, [wItemsRes_markers_chri] :: ld d, a
-	ld a, [wItemsRes_markers_pal] :: ld e, a
-
-	ld a, [hl+] ; ctl
-	bit bItemCtl_TOUCHED, a
-	jr z, :+
-	; DEBUG: swap palette to show TOUCHED state
-	dec e
-:
-
-		push de :: push hl
-	ld a, [hl] ; id
-	call FindsQuery
-		pop hl :: pop de
-	jr nz, :+
-	; DEBUG: show 'not collected' with cycling palette
-	ld a, [wVBlankCount]
-	rrca :: rrca
-	add e
-	and $07
-	ld e, a
-:
-
-	ld a, [hl] ; id
-	cp ITEM_SPRITES_MAX
-	jr c, :+
-	ld hl, sprItemMissing
-	jp SprxRenderMod
-:
-	add a ; mul 2
-	ld hl, ItemSprites
-	add l :: ld l, a
-	adc h :: sub l :: ld h, a
-	ld a, [hl+]
-	ld h, [hl]
-	ld l, a
-	jp SprxRenderMod
+	; HACK: Draw broken (single frame without Sprite proper) Target widget for all items.
+		wrambpush bank("wRscStat")
+	ld hl, wRscWidgetTarget_chrs
+	ld a, [hl+] :: ld e, a ; chr vram bank (atrb)
+	ld d, [hl] ; chr index
+	ld hl, wRscWidget_pals
+	ld a, [hl] ; palette index
+	or e :: ld e, a ; combine atrb
+		wrambpop ; wRscStat
+		rombpush bank(WidgetTarget)
+	ld hl, WidgetTarget.f1 + szAniFrameHeader
+	ld a, b :: add 12 :: ld b, a
+	ld a, c :: add 4 :: ld c, a
+	call SprxRenderMod
+		rombpop ; WidgetTarget
+	ret
 
 
 ;; @param HL: pointer to item Y position

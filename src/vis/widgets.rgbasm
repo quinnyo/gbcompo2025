@@ -99,5 +99,27 @@ WidgetSpin::
 		sprob _Y + 0, _X + 0, 5, 0
 		sprob_end
 
+
+redef _DT equ 4
+redef _Y equ 0
+redef _X equ 0
+WidgetTarget::
+	.f1::
+		ani_frame _DT * 3, .f2
+		sprob _Y, _X, 0, 0
+		sprob_end
+	.f2:
+		ani_frame _DT * 1, .f3
+		sprob _Y, _X, 1, 0
+		sprob_end
+	.f3:
+		ani_frame _DT * 1, .f4
+		sprob _Y, _X, 2, 0
+		sprob_end
+	.f4:
+		ani_frame _DT * 1, .f1
+		sprob _Y, _X, 3, 0
+		sprob_end
+
 pops ; SpriteData
 

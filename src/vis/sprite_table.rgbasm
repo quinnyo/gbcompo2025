@@ -33,9 +33,9 @@ pushs "RscTable", romx, bank[SPRTAB_BANK]
 	rsc RSC_TYPE_CHR|RSC_USAGE_OB, RscWidgetSpin_chrs
 		rsc load, Widgets_chr, WIDGET_SPIN, WIDGET_SPIN_LENGTH
 		rsc end
-	; rsc RSC_TYPE_CHR|RSC_USAGE_OB, RscWidgetMarker_chrs
-	; 	rsc load, Widgets_chr, WIDGET_MARKER, WIDGET_MARKER_LENGTH
-	; 	rsc end
+	rsc RSC_TYPE_CHR|RSC_USAGE_OB, RscWidgetTarget_chrs
+		rsc load, Widgets_chr, WIDGET_TARGET, WIDGET_TARGET_LENGTH
+		rsc end
 	rsc RSC_TYPE_PAL|RSC_USAGE_OB, RscWidget_pals
 		rsc load, Widgets_pal, 0, 1
 		rsc end
@@ -62,6 +62,7 @@ pushs "SpriteTable", romx, bank[SPRTAB_BANK]
 	sprtab_add2 sprWidgetGrab, WidgetGrab.f1, RscWidgetGrab_chrs, RscWidget_pals
 	sprtab_add2 sprWidgetDeny, WidgetDeny.f1, RscWidgetDeny_chrs, RscWidget_pals
 	sprtab_add2 sprWidgetSpin, WidgetSpin.f1, RscWidgetSpin_chrs, RscWidget_pals
+	sprtab_add2 sprWidgetTarget, WidgetTarget.f1, RscWidgetTarget_chrs, RscWidget_pals
 
 
 SpriteTable::

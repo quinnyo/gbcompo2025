@@ -20,7 +20,7 @@ endm
 	tagseq WIDGET, GRAB, 4
 	tagseq WIDGET, DENY, 1
 	tagseq WIDGET, SPIN, 6
-	; tagseq WIDGET, MARKER, 16
+	tagseq WIDGET, TARGET, 4
 
 
 endc ; Q_WIDGETS_INC_NS1iqnME
