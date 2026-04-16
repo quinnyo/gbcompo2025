@@ -147,10 +147,6 @@ hMapChunkSlotsScratch: ds 3
 ;; The index of the next chunk slot to update
 hMapSlotIdx: db
 
-; TODO: Remove these. They don't need to be stored & aren't much work to calculate.
-hMapSrcOriginY: db
-hMapSrcOriginX: db
-
 
 section "hMapSynXfer", hram
 _destY: db
@@ -551,7 +547,10 @@ MapSyncFrontRow:
 
 	ld a, e :: and $1F :: ldh [_destY], a
 
-	ldh a, [hMapSrcOriginY] :: ld d, a
+	; get tile row at map view origin
+	ldh a, [hMapViewChunkY]
+	dec a :: swap a :: and $F0 :: ld d, a
+	; relative position of the 'front' (from map view origin) in tile coords
 	ld a, e :: sub d :: ld d, a
 
 	jp MapSyncRow
@@ -568,7 +567,10 @@ MapSyncFrontColumn:
 
 	ld a, e :: and $1F :: ldh [_destX], a
 
-	ldh a, [hMapSrcOriginX] :: ld d, a
+	; get tile column at map view origin
+	ldh a, [hMapViewChunkX]
+	dec a :: swap a :: and $F0 :: ld d, a
+	; relative position of the 'front' (from map view origin) in tile coords
 	ld a, e :: sub d :: ld d, a
 
 	jp MapSyncColumn
@@ -1038,7 +1040,6 @@ MapUpdateViewChunk:
 	ld a, h
 	rla
 	ldh [hMapViewChunkNewY], a
-	dec a :: swap a :: and $F0 :: ldh [hMapSrcOriginY], a
 
 	; X axis view position (world dots) to chunk coords
 	ld hl, wScroll.x
@@ -1055,7 +1056,6 @@ MapUpdateViewChunk:
 	ld a, h
 	rla
 	ldh [hMapViewChunkNewX], a
-	dec a :: swap a :: and $F0 :: ldh [hMapSrcOriginX], a
 
 	call _UpdateSlotsY
 	ldh a, [hMapViewChunkNewY]
@@ -1425,10 +1425,6 @@ MapReset::
 	ldh [c], a :: inc c
 	dec b
 	jr nz, :-
-
-	xor a
-	ldh [hMapSrcOriginX], a
-	ldh [hMapSrcOriginY], a
 
 	; reset MapEntitySlots
 		wrambpush bank(wMapEntitySlots)
