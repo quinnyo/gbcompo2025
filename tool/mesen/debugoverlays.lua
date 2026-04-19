@@ -24,6 +24,8 @@ local function createOverlay(margin, scale)
 		margin = margin or 8,
 		surface = emu.drawSurface.scriptHud,
 	}
+	obj.fg = 0xE7DFC9
+	obj.bg = 0x2D1B33
 	obj.coleru = {
 		0xBF2A7F, 0xE84D5B, 0xF4A854, 0x9A947C, 0xA14016, 0x142026, 0xFF8826, 0xA6E094,
 		0xE7EDEA, 0xFFF8BC, 0x89A194, 0xCC883A, 0xF03813, 0x5B756C, 0xCCAC95, 0x26979F,
@@ -76,6 +78,13 @@ local function createOverlay(margin, scale)
 		local ox, oy = self:getOrigin()
 		return self.scale * x - ox, self.scale * y - oy
 	end
+	obj.getLocalMouse = function(self)
+		local mouse = emu.getMouseState()
+		local x,y = self:oamToOverlay(mouse.x, mouse.y)
+		mouse.localX = x
+		mouse.localY = y
+		return mouse
+	end
 	obj.drawLine = function(self, x, y, x2, y2, color, duration, delay)
 		self:select()
 		local ox, oy = self:getOrigin()
@@ -94,7 +103,7 @@ local function createOverlay(margin, scale)
 	obj.drawString = function(self, x, y, text, textColor, backgroundColor, maxWidth, duration, delay)
 		self:select()
 		local ox, oy = self:getOrigin()
-		emu.drawString(ox + x, oy + y, text, textColor, backgroundColor, maxWidth, duration, delay)
+		emu.drawString(ox + x, oy + y, text, textColor or self.fg, backgroundColor or self.bg, maxWidth, duration, delay)
 	end
 
 	obj.drawLine2 = function(self, x0, y0, x1, y1, color, shadowColor)
@@ -150,6 +159,35 @@ local function createOverlay(margin, scale)
 					self:drawString(px, py, tostring(c))
 				end
 			end
+		end
+	end
+
+	obj.drawTable = function(self, originx, originy, t)
+		local dumpTable = function(t, depth, lines)
+			depth = depth or 0
+			lines = lines or {}
+			local keys = {}
+			for k,_ in pairs(t) do
+				table.insert(keys, k)
+			end
+			table.sort(keys)
+			for _i,k in ipairs(keys) do
+				local v = t[k]
+				if type(v) == "table" then
+					table.insert(lines, { depth = depth, str = k..":" })
+					dumpTable(v, depth + 1, lines)
+				else
+					table.insert(lines, { depth = depth, str = k..": "..tostring(v) })
+				end
+			end
+			return lines
+		end
+		local x = originx
+		local y = originy
+		for _i,line in ipairs(dumpTable(t)) do
+			local sz = emu.measureString(line.str)
+			self:drawString(x + line.depth * 4, y, line.str)
+			y = y + sz.height
 		end
 	end
 
@@ -494,6 +532,36 @@ Emutil.error = function(msg)
 	error("Emutil.error: " .. msg)
 end
 
+--- Wraps emu.isKeyPressed, adding support for modifier keys without a Left/Right specified.
+Emutil.isKeyPressed = function(key)
+	if key == "Shift" or key == "Ctrl" or key == "Alt" then
+		return emu.isKeyPressed("Left "..key) or emu.isKeyPressed("Right "..key)
+	else
+		return emu.isKeyPressed(key)
+	end
+end
+
+--- Check if a key combination is pressed.
+--- chord: a set of key names (via ipairs(chord)) OR a string with key names separated by "+".
+Emutil.isChordPressed = function(chord)
+	if type(chord) == "table" then
+		for _i,key in ipairs(chord) do
+			if Emutil.isKeyPressed(key) == false then
+				return false
+			end
+		end
+		return true
+	elseif type(chord) == "string" then
+		local parts = {}
+		for str in chord:gmatch("([^+]+)") do
+			table.insert(parts, str)
+		end
+		return Emutil.isChordPressed(parts)
+	else
+		Emutil.error("chord should be table (list) or string")
+		return false
+	end
+end
 
 
 -------- Map Buffer Inspector --------
@@ -559,7 +627,7 @@ MapTool.create = function()
 	end
 
 	local inst = {
-		tile_size = 3,
+		tile_size = 4,
 		originX = 0,
 		originY = 0,
 		bufferIdIndex = bufferIdIndex,
@@ -742,16 +810,7 @@ local iAbsMax = function(t, max0)
 end
 
 
-local overlay = createOverlay({ x = 12, y = 12 }, 3)
-
-local config = {
-	showMapSync = false,
-}
-
-local state = {}
-
-
-local function frontThing(viewY, viewX)
+local function frontThing(state, viewY, viewX)
 	local frontN = frontNorth(viewY)
 	local frontS = frontSouth(viewY)
 	local frontW = frontWest(viewX)
@@ -760,14 +819,14 @@ local function frontThing(viewY, viewX)
 	local _, southY = state.mapTool:gridDisplayPos(0, frontS)
 	local westX, yWE = state.mapTool:gridDisplayPos(frontW, 4)
 	local eastX, _ = state.mapTool:gridDisplayPos(frontE, 0)
-	overlay:drawLine(xNS, northY, 128, northY, 0x2080FF00)
-	overlay:drawLine(xNS, southY, 128, southY, 0x2000FF80)
-	overlay:drawLine(westX, yWE, westX, yWE + 128, 0x20FF8000)
-	overlay:drawLine(eastX, yWE, eastX, yWE + 128, 0x20FF0080)
+	Overlay:drawLine(xNS, northY, 128, northY, 0x2080FF00)
+	Overlay:drawLine(xNS, southY, 128, southY, 0x2000FF80)
+	Overlay:drawLine(westX, yWE, westX, yWE + 128, 0x20FF8000)
+	Overlay:drawLine(eastX, yWE, eastX, yWE + 128, 0x20FF0080)
 end
 
 
-local function scrollThing()
+local function scrollThing(state)
 	local scroll = Scroll:readFromLabel("wScroll")
 	if scroll then
 		-- draw view rect on map
@@ -776,12 +835,12 @@ local function scrollThing()
 		local viewX, viewY = state.mapTool:gridDisplayPos(viewCol, viewRow)
 		local viewDispW = 20 * state.mapTool.tile_size
 		local viewDispH = 18 * state.mapTool.tile_size
-		overlay:drawRectangle2(viewX, viewY, viewDispW, viewDispH, 0x30EEEEEE)
+		Overlay:drawRectangle2(viewX, viewY, viewDispW, viewDispH, 0x30EEEEEE)
 		local viewCentreRow = 16 + ((viewRow + 9) & 0x0F)
 		local viewCentreCol = 16 + ((viewCol + 10) & 0x0F)
 		local viewCentreX, viewCentreY = state.mapTool:gridDisplayPos(viewCentreCol, viewCentreRow)
-		overlay:drawRectangle2(viewCentreX - viewDispW / 2, viewCentreY - viewDispH / 2, viewDispW, viewDispH, 0x30B0F030)
-		frontThing(viewRow, viewCol)
+		Overlay:drawRectangle2(viewCentreX - viewDispW / 2, viewCentreY - viewDispH / 2, viewDispW, viewDispH, 0x30B0F030)
+		frontThing(state, viewRow, viewCol)
 
 		local px = 220
 		local py = 0
@@ -795,9 +854,9 @@ local function scrollThing()
 		else
 			state.monScroll = st_monitor(Scroll, scroll._addr, scroll._memType)
 		end
-		overlay:drawString(px, py, s)
+		Overlay:drawString(px, py, s)
 		if dx then
-			overlay:drawVector(px + 16, py + 52 + 16, dx, dy, 15, 16, 0xEE80DD, 0xA0303030)
+			Overlay:drawVector(px + 16, py + 52 + 16, dx, dy, 15, 16, 0xEE80DD, 0xA0303030)
 		end
 	end
 end
@@ -807,7 +866,7 @@ local function mapChunkThing(mapTool)
 	-- draw chunk cache
 	if mapTool.chr_buffers and #mapTool.chr_buffers == 9 then
 		local chunkDispSize = 16 * mapTool.tile_size
-		local _, dispH = overlay:getSize()
+		local _, dispH = Overlay:getSize()
 		mapTool.originX = 0
 		mapTool.originY = dispH - chunkDispSize * 3
 
@@ -820,19 +879,19 @@ local function mapChunkThing(mapTool)
 				local bufferIdx = mapTool.bufferIdIndex[slot.buffer & MapChunkSlot.SLOT_BUFFER]
 				local chrs = mapTool.chr_buffers[bufferIdx]
 				if slot.nochunk then
-					overlay:drawRectangle(px, py, chunkDispSize, chunkDispSize, 0x10603030, true)
-					overlay:drawLine(px, py, px + chunkDispSize, py + chunkDispSize, 0xC09010)
-					overlay:drawLine(px + chunkDispSize, py, px, py + chunkDispSize, 0xC09010)
+					Overlay:drawRectangle(px, py, chunkDispSize, chunkDispSize, 0x10603030, true)
+					Overlay:drawLine(px, py, px + chunkDispSize, py + chunkDispSize, 0xC09010)
+					Overlay:drawLine(px + chunkDispSize, py, px, py + chunkDispSize, 0xC09010)
 				elseif not chrs or #chrs == 0 then
-					overlay:drawRectangle(px, py, chunkDispSize, chunkDispSize, 0x10505020, true)
-					overlay:drawLine(px, py, px + chunkDispSize, py + chunkDispSize, 0xB0B010)
-					overlay:drawLine(px + chunkDispSize, py, px, py + chunkDispSize, 0xB0B010)
+					Overlay:drawRectangle(px, py, chunkDispSize, chunkDispSize, 0x10505020, true)
+					Overlay:drawLine(px, py, px + chunkDispSize, py + chunkDispSize, 0xB0B010)
+					Overlay:drawLine(px + chunkDispSize, py, px, py + chunkDispSize, 0xB0B010)
 				else
-					overlay:drawTilemap(px, py, chrs, 16, 16, mapTool.tile_size)
+					Overlay:drawTilemap(px, py, chrs, 16, 16, mapTool.tile_size)
 				end
 
 				local sflags = slot.rendered and "R" or "..."
-				overlay:drawString(px, py, string.format("%X %s", slot.buffer, sflags))
+				Overlay:drawString(px, py, string.format("%X %s", slot.buffer, sflags))
 			end
 		end
 	end
@@ -846,28 +905,133 @@ local function drawEntityMarker(entidx)
 	end
 	local ent = get_entity(entidx)
 	if ent then
-		local x, y = overlay:oamToOverlay(Coord.units(ent.PosX) - scroll.x, Coord.units(ent.PosY) - scroll.y)
+		local x, y = Overlay:oamToOverlay(Coord.units(ent.PosX) - scroll.x, Coord.units(ent.PosY) - scroll.y)
 		if ent:isAlive() then
-			overlay:drawLine2(x, y, x - 8, y + 8, 0xC0A010)
-			overlay:drawLine2(x, y, x, y + 8, 0xC0A010)
+			Overlay:drawLine2(x, y, x - 8, y + 8, 0xC0A010)
+			Overlay:drawLine2(x, y, x, y + 8, 0xC0A010)
 		else
-			overlay:drawLine2(x - 8, y - 8, x + 8, y + 8, 0xC01010)
-			overlay:drawLine2(x - 8, y + 8, x + 8, y - 8, 0xC01010)
+			Overlay:drawLine2(x - 8, y - 8, x + 8, y + 8, 0xC01010)
+			Overlay:drawLine2(x - 8, y + 8, x + 8, y - 8, 0xC01010)
 		end
-		overlay:drawString(x + 2, y + 2, tostring(entidx))
+		Overlay:drawString(x + 2, y + 2, tostring(entidx))
 	end
 end
 
 
+local function doConfigMenu(state)
+	local pointInRect = function(px, py, rx, ry, rw, rh)
+		if px < rx or px >= rx + rw then
+			return false
+		elseif py < ry or py >= ry + rh then
+			return false
+		else
+			return true
+		end
+	end
+	local x = 0
+	local y = 0
+	local changes = {}
+
+	-- sort config keys
+	local keys = {}
+	for k,_ in pairs(state.config) do
+		table.insert(keys, k)
+	end
+	table.sort(keys)
+
+	-- iter config items
+	for _,k in ipairs(keys) do
+		local v = state.config[k]
+		if type(v) == "boolean" then
+			local line = k..": OFF"
+			local sz = emu.measureString(line)
+			if v then
+				line = k..": ON"
+			end
+			local picked = pointInRect(state.mouse.localX, state.mouse.localY, x, y, sz.width + 4, sz.height)
+			local fg = Overlay.fg
+			local bg = Overlay.bg
+			if picked then
+				fg = Overlay.bg
+				bg = Overlay.fg
+				if state.mouse.leftPressed then
+					changes[k] = not v
+				end
+			end
+			Overlay:drawString(x, y, line, fg, bg)
+			y = y + sz.height
+		end
+	end
+
+	-- apply changes
+	for k,v in pairs(changes) do
+		state.config[k] = v
+	end
+end
+
+
+local function updateMouse(state)
+	local mouse = Overlay:getLocalMouse()
+	local buttons = { "left", "right", "middle" }
+	for _i,k in ipairs(buttons) do
+		local changed = mouse[k] ~= state.mouse[k]
+		mouse[k.."Pressed"] = changed and mouse[k]
+		mouse[k.."Released"] = changed and not mouse[k]
+	end
+	state.mouse = mouse
+end
+
+
 local function onEndFrame()
-	overlay:select()
-	overlay:drawWindow()
+	Overlay:select()
+	Overlay:drawWindow()
 
-	state.mapTool:readState()
-	--mapChunkThing(state.mapTool)
+	updateMouse(State)
+	State.mapTool:readState()
 
-	-- map sync transfers
-	if config.showMapSync then
+	for k,thing in pairs(Things) do
+		if State.config[k] then
+			thing.update(State)
+		elseif State.config[k] == nil then
+			State.config[k] = false
+		end
+	end
+
+	if State.mouse.rightPressed then
+		State.configOpen = not State.configOpen
+	end
+
+	if State.configOpen then
+		doConfigMenu(State)
+	end
+end
+
+
+Things = {}
+--[[
+Things.NEW = {
+	update = function(state)
+	end,
+}
+--]]
+Things.WorldBounds = {
+	update = function(state)
+		local worldBounds = Rect:readFromLabel("wCollideBounds")
+		Overlay:drawString(120, 0, worldBounds and st_fmt(worldBounds, "wCollideBounds") or "noworldBounds!")
+	end,
+}
+Things.Scroll = {
+	update = function(state)
+		scrollThing(state)
+	end,
+}
+Things.MapChunks = {
+	update = function(state)
+		mapChunkThing(state.mapTool)
+	end,
+}
+Things.MapSync = {
+	update = function(state)
 		for i = 0, 2 do
 			local sym = string.format("_Xfer%d", i)
 			local xfer = SynXfer:readFromLabel(sym)
@@ -875,70 +1039,102 @@ local function onEndFrame()
 			if xfer then
 				s = st_fmt(xfer)
 			end
-			overlay:drawString(i * 100, 200, s)
+			Overlay:drawString(i * 100, 200, s)
 		end
-	end
+	end,
+}
+Things.OverlayRuler = {
+	update = function(state)
+		local surfW,surfH = Overlay:getSurfaceSize()
+		for x = 0, surfW, 32 do
+			Overlay:drawString(x+2, 0, tostring(x))
+			Overlay:drawLine(x, -8, x, 8, Overlay.fg)
+		end
+		for y = 0, surfH, 32 do
+			local str = tostring(y)
+			local sz = emu.measureString(str)
+			Overlay:drawString(0, y+2, str)
+			Overlay:drawLine(-8, y, 8, y, Overlay.fg)
+		end
+	end,
+}
+Things.Entity0 = {
+	update = function(state)
+		local ent = get_entity(0)
+		Overlay:drawString(0, 40, ent and st_fmt(ent) or "noent!")
+	end,
+}
+Things.EntityMarkers = {
+	update = function(state)
+		for i = 1, 16 do
+			drawEntityMarker(i - 1)
+		end
+	end,
+}
+Things.Curtain = {
+	update = function(state)
+		local curtain = Curtain.read()
+		if curtain then
+			Overlay:drawString(40, 0, curtain.stateText)
+		end
+	end,
+}
 
---	local surfW = overlay:getSurfaceSize()
---	for x = 0, surfW, 64 do
---		overlay:drawString(x, -8, tostring(x))
---	end
+Overlay = createOverlay({ x = 4, y = 4 }, 2)
 
-	--scrollThing()
+Config = {
+	EntityMarkers = true,
+}
 
-	--local worldBounds = Rect:readFromLabel("wCollideBounds")
-	--overlay:drawString(120, 0, worldBounds and st_fmt(worldBounds, "wCollideBounds") or "noworldBounds!")
+State = {}
 
-	local ent = get_entity(0)
-	overlay:drawString(0, 40, ent and st_fmt(ent) or "noent!")
 
-	--local curtain = Curtain.read()
-	--if curtain then
-	--	overlay:drawString(40, 0, curtain.stateText)
-	--end
-
-	for i = 1, 16 do
-		drawEntityMarker(i - 1)
-	end
+function GetConfig()
+	return Config
 end
 
 
 function Setup()
 	ClearState()
 
-	state.callbacks = {}
-	state.addEventCallback = function(target, eventType)
+	State.configOpen = false
+	State.config = GetConfig()
+
+	State.mouse = Overlay:getLocalMouse()
+
+	State.callbacks = {}
+	State.addEventCallback = function(target, eventType)
 		local evToken = emu.addEventCallback(target, eventType)
-		table.insert(state.callbacks, { evToken = evToken, eventType = eventType, target = target })
+		table.insert(State.callbacks, { evToken = evToken, eventType = eventType, target = target })
 	end
 
-	state.mapTool = MapTool.create()
+	State.mapTool = MapTool.create()
 
 	local wScroll = Scroll:getLabelAddress("wScroll")
 	if wScroll then
-		state.monScroll = st_monitor(Scroll, wScroll.address, wScroll.memType)
+		State.monScroll = st_monitor(Scroll, wScroll.address, wScroll.memType)
 	end
 
-	state.doneSetup = true
+	State.doneSetup = true
 
-	state.addEventCallback(onEndFrame, emu.eventType.endFrame)
-	state.addEventCallback(function()
+	State.addEventCallback(onEndFrame, emu.eventType.endFrame)
+	State.addEventCallback(function()
 		ClearState()
 	end, emu.eventType.reset)
 
-	state.addEventCallback(function()
+	State.addEventCallback(function()
 		ClearState()
 	end, emu.eventType.scriptEnded)
 end
 
 
 function ClearState()
-	if state.callbacks then
-		for _,v in ipairs(state.callbacks) do
+	if State.callbacks then
+		for _,v in ipairs(State.callbacks) do
 			emu.removeEventCallback(v.evToken, v.eventType)
 		end
 	end
-	state = {}
+	State = {}
 end
 
 
