@@ -432,17 +432,10 @@ st_field(Scroll, "column", 2)
 st_field(Scroll, "x_front_dist", 1)
 
 
-local fmt_scroll_pos = function(dot)
-	local grid = dot >> 3
-	local chunk = grid >> 4
-	return string.format("%4d d | %3d g | %d c", dot, grid, chunk)
-end
-
-
 Scroll.fieldfmt = {
-	y = fmt_scroll_pos,
+	y = "%5d d",
 	row = "%d g",
-	x = fmt_scroll_pos,
+	x = "%5d d",
 	column = "%d g",
 }
 
@@ -692,6 +685,18 @@ SynXfer.fieldfmt = {
 
 
 
+-------- MapView --------
+StMapView = st_create("MapView")
+st_field(StMapView, "chunkY", 1)
+st_field(StMapView, "chunkX", 1)
+
+StMapView.fieldfmt = {
+	chunkY = "%3d",
+	chunkX = "%3d",
+}
+
+
+
 -------- Scroll Fronts --------
 
 local function frontNorth(viewY)
@@ -827,9 +832,57 @@ end
 
 
 local function scrollThing(state)
+	for k,v in pairs({ Scroll_showDelta = true, Scroll_showFronts = false }) do
+		if state.config[k] == nil then
+			state.config[k] = v
+		end
+	end
+
+	local mapView = StMapView:readFromLabel("hMapViewChunkY")
+	if not mapView then
+		Emutil.error("no MapView??? big bad sad :(")
+		return
+	end
+
 	local scroll = Scroll:readFromLabel("wScroll")
-	if scroll then
-		-- draw view rect on map
+	if not scroll then
+		Emutil.error("no Scroll??? big bad sad :(")
+		return
+	end
+
+	local originx = 120
+	local originy = 0
+	local px = originx
+	local py = originy
+
+	-- scroll struct
+	local s = st_fmt(scroll, "wScroll")
+	local dy, dx
+	if state.monScroll then
+		dy = iAbsMax(state.monScroll.changes.dy, 0)
+		dx = iAbsMax(state.monScroll.changes.dx, 0)
+		s = s .. string.format(" dx,dy: %3d,%3d", dx, dy)
+		state.monScroll:tick()
+	else
+		state.monScroll = st_monitor(Scroll, scroll._addr, scroll._memType)
+	end
+	local sz = emu.measureString(s)
+	Overlay:drawString(px, py, s)
+	-- draw scroll delta
+	if state.config.Scroll_showDelta and dx then
+		local radius = 24
+		Overlay:drawVector(px - radius - 4, py + sz.height / 2, dx, dy, 3, radius, 0xEE80DD, 0xA0303030)
+	end
+	py = py + sz.height + 4
+
+	-- map view struct
+	local s = st_fmt(mapView, "hMapView")
+	local sz = emu.measureString(s)
+	Overlay:drawString(px, py, s)
+	py = py + sz.height
+
+	-- draw view rect on map
+	if state.config.Scroll_showFronts then
 		local viewRow = math.floor(scroll.y / 8)
 		local viewCol = math.floor(scroll.x / 8)
 		local viewX, viewY = state.mapTool:gridDisplayPos(viewCol, viewRow)
@@ -841,23 +894,6 @@ local function scrollThing(state)
 		local viewCentreX, viewCentreY = state.mapTool:gridDisplayPos(viewCentreCol, viewCentreRow)
 		Overlay:drawRectangle2(viewCentreX - viewDispW / 2, viewCentreY - viewDispH / 2, viewDispW, viewDispH, 0x30B0F030)
 		frontThing(state, viewRow, viewCol)
-
-		local px = 220
-		local py = 0
-		local s = st_fmt(scroll)
-		local dy, dx
-		if state.monScroll then
-			dy = iAbsMax(state.monScroll.changes.dy, 0)
-			dx = iAbsMax(state.monScroll.changes.dx, 0)
-			s = s .. string.format(" dx,dy: %3d,%3d", dx, dy)
-			state.monScroll:tick()
-		else
-			state.monScroll = st_monitor(Scroll, scroll._addr, scroll._memType)
-		end
-		Overlay:drawString(px, py, s)
-		if dx then
-			Overlay:drawVector(px + 16, py + 52 + 16, dx, dy, 15, 16, 0xEE80DD, 0xA0303030)
-		end
 	end
 end
 
