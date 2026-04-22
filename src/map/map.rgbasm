@@ -1073,12 +1073,12 @@ _UpdateSlotsY:
 	; (newY - Y) > 0: scroll down ~~ shift up
 	dec a
 	jp z, _SlotsShiftUp
-	jp _ResetAllSlots
+	jr _ResetAllSlots
 .neg
 	; (newY - Y) < 0: scroll up ~~ shift down
 	inc a
 	jp z, _SlotsShiftDown
-	jp _ResetAllSlots
+	jr _ResetAllSlots
 
 
 ;; @param C: new map view chunk X
@@ -1095,12 +1095,12 @@ _UpdateSlotsX:
 	; (newX - X) > 0: scroll right ~~ shift left
 	dec a
 	jp z, _SlotsShiftLeft
-	jp _ResetAllSlots
+	jr _ResetAllSlots
 .neg
 	; (newX - X) < 0: scroll left ~~ shift right
 	inc a
 	jp z, _SlotsShiftRight
-	jp _ResetAllSlots
+	jr _ResetAllSlots
 
 
 ;; @mut: A
