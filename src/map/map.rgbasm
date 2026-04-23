@@ -397,7 +397,7 @@ endr
 
 .err_sprite_pool_alloc_failed:
 	ld b, b
-	jr @-3
+	jr @-1
 
 
 ;; NOTE: Ensure SpriteInst WRAMX bank is active.
@@ -479,6 +479,8 @@ MapUpdate::
 	call MapSyncFrontColumn
 :
 
+	call MapHelloItems
+
 	assert bank(wMapState) == bank(wMapEntitySlots)
 	wrambsel bank(wMapState)
 	call MapEntityUpdateAll
@@ -486,6 +488,107 @@ MapUpdate::
 		wrambpop
 		rombpop ; hMapSelectBank
 	ret
+
+
+section "MapHelloItems", rom0
+;; Experiment / Proof of concept: render central view chunk's items
+MapHelloItems:
+	ldh a, [hMapViewChunkY] :: ld d, a
+	ldh a, [hMapViewChunkX] :: ld e, a
+	ld hl, hMapSelectAddr
+	ld a, [hl+] :: ld h, [hl] :: ld l, a ; hMapSelectAddr
+	ld a, [hl+] :: ld h, [hl] :: ld l, a ; map.chunk_table
+	call MapChunkLookup
+	ret nc
+
+	; Chunk coord --> Tile origin --> chunk origin (dots)
+	; Y
+	ld a, [wScroll.y + 0] :: ld c, a
+	ld a, [wScroll.y + 1] :: ld b, a
+	ld a, d
+	rrca :: ld l, a
+	and $7F :: ld h, a
+	xor l :: ld l, a ; keep bit 7
+	add 16 ; offset so Y < 0 indicates off-screen
+	; chunk origin - scroll position
+	sub c
+	ld [wItemObBuild.chunk_scr_y + 0], a
+	ld a, h :: sbc b
+	ld [wItemObBuild.chunk_scr_y + 1], a
+
+	; X
+	ld l, e
+	ld a, [wScroll.x + 0] :: ld e, a
+	ld a, [wScroll.x + 1] :: ld d, a
+	ld a, l
+	rrca :: ld l, a
+	and $7F :: ld h, a
+	xor l :: ld l, a
+	add 8 ; offset so X < 0 indicates off-screen
+	sub e
+	ld [wItemObBuild.chunk_scr_x + 0], a
+	ld a, h :: sbc d
+	ld [wItemObBuild.chunk_scr_x + 1], a
+
+	ld hl, wMapChunkHeader.items
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+	ld a, [hl+] ; id_start.0
+	ld a, [hl+] ; id_start.1
+	ld a, [hl+] :: ld c, a ; len
+	and a
+	ret z ; len == 0
+
+	call ObdoCustomStartDE
+.item_draw_loop:
+		push bc
+	; calc item_scr_y = chunk_scr_y + item_local
+	ld a, [wItemObBuild.chunk_scr_y + 0] :: ld c, a
+	ld a, [hl+] :: add c :: ld c, a
+	ld a, [wItemObBuild.chunk_scr_y + 1]
+	adc c :: sub c
+	; if high byte is not zero, ob will not be visible.
+	jr z, :+
+	inc hl :: inc hl ; skip posx, item
+	jr .continue
+:
+	; OAM position is just low byte of 16-bit screen position
+	ld b, c ; Y
+
+	; calc item_scr_x = chunk_scr_x + item_local
+	ld a, [wItemObBuild.chunk_scr_x + 0] :: ld c, a
+	ld a, [hl+] :: add c :: ld c, a
+	ld a, [wItemObBuild.chunk_scr_x + 1]
+	adc c :: sub c
+	; if high byte is not zero, ob will not be visible.
+	jr z, :+
+	inc hl ; skip item
+	jr .continue
+:
+	; OAM X position already in C
+
+	; (close enough to) visible, build ob
+	ld a, b :: ld [de], a :: inc de ; Y
+	ld a, c :: ld [de], a :: inc de ; X
+
+	ld a, [hl+] ; item type
+	add 96 :: ld [de], a :: inc de ; chri
+	ld a, 4 :: ld [de], a :: inc de ; pal/atrb
+.continue
+		pop bc
+	dec c
+	jr nz, .item_draw_loop
+	call ObdoCustomEndDE
+
+	ret
+
+
+pushs "wItemObBuild", wram0
+wItemObBuild::
+	.chunk_scr_y:: dw
+	.chunk_scr_x:: dw
+	; CHUNK_ITEMS_MAX
+
+pops ; wItemObBuild
 
 
 section "MapGetPlayerStart", rom0

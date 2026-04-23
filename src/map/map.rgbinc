@@ -61,6 +61,7 @@ st MapChunkHeader
 	stf brushes0, 2
 	stf brushes1, 2
 	stf elements, 2
+	stf items, 2
 st
 
 
@@ -171,6 +172,32 @@ def Doodad_Flow180 rb 1
 def Doodad_Flow225 rb 1
 def Doodad_Flow270 rb 1
 def Doodad_Flow315 rb 1
+
+
+/***************************************
+************ Item Placement ************
+***************************************/
+
+;; Maximum number of items in a chunk.
+def CHUNK_ITEMS_MAX equ 16
+
+;; Header / metadata for chunk items collection.
+st ChunkItemsHeader
+	;; The start of the ID range allocated to this chunk's items.
+	stf id_start, 2
+	;; Number of items in the collection.
+	stf len, 1
+st
+
+;; Place an instance of an item in the scene from within a Chunk.
+st ItemPlace
+	;; Y position in chunk local dots
+	stf posy, 1
+	;; X position in chunk local dots
+	stf posx, 1
+	;; Type of item to place
+	stf item, 1
+st
 
 
 endc ; Q_MAP_INC_rJ398bhW

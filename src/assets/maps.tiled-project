@@ -46,6 +46,40 @@
             ]
         },
         {
+            "color": "#ffa46ba1",
+            "drawFill": true,
+            "id": 19,
+            "members": [
+                {
+                    "name": "item",
+                    "propertyType": "ItemType",
+                    "type": "string",
+                    "value": "Null"
+                }
+            ],
+            "name": "ItemPlace",
+            "type": "class",
+            "useAs": [
+                "object",
+                "tile"
+            ]
+        },
+        {
+            "id": 18,
+            "name": "ItemType",
+            "storageType": "string",
+            "type": "enum",
+            "values": [
+                "Null",
+                "Trash1",
+                "Trash3",
+                "Chime",
+                "Bud_Afish",
+                "Bud_Squidge"
+            ],
+            "valuesAsFlags": false
+        },
+        {
             "color": "#ffff8258",
             "drawFill": true,
             "id": 3,

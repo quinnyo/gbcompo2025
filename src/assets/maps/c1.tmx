@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" width="30" height="20" tilewidth="8" tileheight="8" infinite="1" nextlayerid="21" nextobjectid="101">
+<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" width="30" height="20" tilewidth="8" tileheight="8" infinite="1" nextlayerid="21" nextobjectid="121">
  <editorsettings>
   <export format="tmx"/>
  </editorsettings>
@@ -729,23 +729,100 @@
   <object id="9" type="PlayerStart" x="16" y="16">
    <point/>
   </object>
-  <object id="15" name="bud_afish" type="Marker" x="212" y="104">
+  <object id="101" type="ItemPlace" x="70" y="85" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="102" type="ItemPlace" x="46" y="111" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="103" type="ItemPlace" x="35" y="118" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="104" type="ItemPlace" x="86" y="84" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="105" type="ItemPlace" x="20" y="165" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="106" type="ItemPlace" x="11" y="156" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="107" type="ItemPlace" x="96" y="174" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="108" type="ItemPlace" x="95" y="140" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="109" type="ItemPlace" x="111" y="142" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="110" type="ItemPlace" x="129" y="131" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="111" type="ItemPlace" x="143" y="132" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="112" type="ItemPlace" x="158" y="133" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="113" type="ItemPlace" x="162" y="119" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="114" type="ItemPlace" x="207" y="141" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="115" type="ItemPlace" x="223" y="144" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="116" type="ItemPlace" x="238" y="133" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="117" type="ItemPlace" x="118" y="127" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="118" name="bud_afish" type="Marker" x="208" y="100" width="8" height="8">
    <properties>
     <property name="id" type="int" value="0"/>
    </properties>
-   <point/>
   </object>
-  <object id="16" name="bud_squidge" type="Marker" x="224" y="265">
+  <object id="120" name="bud_squidge" type="Marker" x="240" y="237" width="8" height="8">
    <properties>
     <property name="id" type="int" value="1"/>
    </properties>
-   <point/>
-  </object>
-  <object id="17" type="Marker" x="296" y="80">
-   <properties>
-    <property name="id" type="int" value="2"/>
-   </properties>
-   <point/>
   </object>
  </objectgroup>
 </map>
