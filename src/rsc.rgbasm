@@ -15,7 +15,7 @@ macro jump_switch
 	endr
 .err_jump_index_out_of_range\@
 	ld b, b
-	jr @-3
+	jr @-1
 endm
 
 
@@ -133,7 +133,7 @@ RscPreload:
 	call _chr_alloc_usage
 	jr nc, :+
 	ld b, b
-	jr @-3
+	jr @-1
 :
 	; cache destination address
 	ld a, h :: ld [wRscLoader.dest + 1], a

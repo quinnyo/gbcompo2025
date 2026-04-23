@@ -147,7 +147,7 @@ PlayerInit::
 
 .failed_sprite_alloc:
 	ld b, b
-	jr @ - 3
+	jr @-1
 
 
 ;; @param A: player entity index
