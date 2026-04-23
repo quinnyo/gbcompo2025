@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::{
     coord::{DVec2, IVec2, U16Vec2, U8Vec2},
     extract::{Extract, ExtractNode, ExtractNodeAccess, ExtractNodeId},
+    item::ItemPlace,
     out::{Chunk, Element},
 };
 
@@ -16,6 +17,7 @@ pub mod these_converters {
         extract::ExtractNodeId,
         flow::{FlowRules, FlowSeqCom},
         geometry::Shape,
+        item::{ItemPlace, ItemType},
         out::{Chunk, Element, ElementType},
         tiled_ext,
     };
@@ -39,7 +41,8 @@ pub mod these_converters {
             // convert chunks
             partial.chunks = chunk_coords
                 .iter()
-                .map(|old_coord| {
+                .enumerate()
+                .map(|(index, old_coord)| {
                     let mut chr_brushes: Brushes<u8> = Default::default();
                     let mut atrb_brushes: Brushes<u8> = Default::default();
                     for (_, _, cell) in conversion
@@ -60,7 +63,11 @@ pub mod these_converters {
                     chr_brushes.push(Brush::Terminator);
                     atrb_brushes.push(Brush::Terminator);
                     let coord = (old_coord - chunk_origin).as_u8vec2();
-                    (coord, Chunk::with_tilemap(coord, chr_brushes, atrb_brushes))
+                    let item_id_start = (index * Chunk::ITEMS_MAX) as u16;
+                    (
+                        coord,
+                        Chunk::with_tilemap(coord, item_id_start, chr_brushes, atrb_brushes),
+                    )
                 })
                 .collect();
 
@@ -187,6 +194,18 @@ pub mod these_converters {
                 ConvertNodeResult::ConsumeBranch
             },
         );
+
+        // ItemPlace
+        conversion.add_node_converter(
+            SelectNode::UserType("ItemPlace"),
+            |object, _conversion, partial| {
+                let item: ItemType = tiled_ext::properties_get(&object.properties, "item").unwrap();
+                let position =
+                    partial.extract_global_position_to_world_dots(object.global_position());
+                partial.add_chunk_item(ItemPlace::new(item, position));
+                ConvertNodeResult::Consume
+            },
+        );
     }
 }
 
@@ -216,10 +235,19 @@ impl Partial {
     }
 
     pub fn add_chunk_element(&mut self, coord: U8Vec2, elem: Element) {
+        self.chunk_mut(coord).push_element(elem)
+    }
+
+    pub fn add_chunk_item(&mut self, itp: ItemPlace) {
+        let coord = (itp.position / 8 / 16).as_u8vec2();
+        self.chunk_mut(coord).push_item(itp);
+    }
+
+    pub fn chunk_mut(&mut self, coord: U8Vec2) -> &mut Chunk {
+        let index = self.chunks.len();
         self.chunks
             .entry(coord)
-            .or_insert_with(|| Chunk::new(coord))
-            .push_element(elem)
+            .or_insert_with(|| Chunk::new(coord, (index * Chunk::ITEMS_MAX) as u16))
     }
 }
 

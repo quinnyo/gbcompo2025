@@ -1,4 +1,4 @@
-use crate::{brush::Brushes, coord::*, elem::ElemId, flow::FlowRules};
+use crate::{brush::Brushes, coord::*, elem::ElemId, flow::FlowRules, item::ItemPlace};
 use std::collections::HashMap;
 
 #[derive(Debug, Default)]
@@ -58,7 +58,7 @@ impl Map {
             .collect();
 
         // Sorting is not strictly required, but doing so keeps the output stable across generations.
-        chunk_table_rows.sort_by(|a, b| a.y.cmp(&b.y));
+        chunk_table_rows.sort_by_key(|a| a.y);
 
         code.append(&mut vec![
             String::default(),
@@ -394,11 +394,31 @@ pub struct Chunk {
     brushes0: Brushes<u8>,
     brushes1: Brushes<u8>,
     elements: Vec<Element>,
+    item_id_start: u16,
+    items: Vec<ItemPlace>,
 }
 
 impl Chunk {
+    /// Maximum number of items in one chunk.
+    pub const ITEMS_MAX: usize = 16;
+
+    /// Chunk origin in world dots.
+    pub fn origin(&self) -> U16Vec2 {
+        self.coord.as_u16vec2() * 8 * 16
+    }
+
     pub fn push_element(&mut self, el: Element) {
         self.elements.push(el);
+    }
+
+    pub fn push_item(&mut self, itp: ItemPlace) {
+        assert!(
+            self.items.len() < Self::ITEMS_MAX,
+            "Cannot add item to Chunk<{}, {}>, items array is full.",
+            self.coord.x,
+            self.coord.y
+        );
+        self.items.push(itp);
     }
 
     pub fn rgbasm(&self, context: &Map, code: &mut Vec<String>) {
@@ -409,14 +429,19 @@ impl Chunk {
         let label_br0 = format!("{}_br0", &label);
         let label_br1 = format!("{}_br1", &label);
         let label_elems = format!("{}_elems", &label);
+        let label_items = format!("{}_items", &label);
         code.append(&mut vec![
             format!("{}:", &label),
-            format!("\tdw {}, {}, {}", &label_br0, &label_br1, &label_elems),
+            format!(
+                "\tdw {}, {}, {}, {}",
+                &label_br0, &label_br1, &label_elems, &label_items
+            ),
         ]);
         code.push(format!("{}:", &label_br0));
         self.brushes0.rgbasm(code);
         code.push(format!("{}:", &label_br1));
         self.brushes1.rgbasm(code);
+        // elements
         code.append(&mut vec![
             format!("{}:", &label_elems),
             format!("\tdb {}", elements.len()),
@@ -424,27 +449,59 @@ impl Chunk {
         for elem in elements.iter() {
             elem.rgbasm(context, code);
         }
+        // items
+        let mut items = self.items.clone();
+        items.sort();
+        code.append(&mut vec![
+            format!("{}:", &label_items),
+            format!("\tdw {} ; item_id_start", self.item_id_start),
+            format!("\tdb {} ; items.len()", items.len()),
+        ]);
+        let chunk_origin = self.origin();
+        for (index, itp) in items.iter().enumerate() {
+            let position = itp.position - chunk_origin;
+            assert!(
+                position.x < 128 && position.y < 128,
+                "Chunk item must be inside chunk"
+            );
+            let x = position.x as u8;
+            let y = position.y as u8;
+            let item_type = itp.item.encode();
+            code.append(&mut vec![format!(
+                "\t\tdb {}, {}, {} ; item {}: {:?}",
+                y, x, item_type, index, itp.item
+            )]);
+        }
     }
 
     pub fn label(&self) -> String {
         Self::coord_label(self.coord.x, self.coord.y)
     }
 
-    pub fn new(coord: U8Vec2) -> Self {
+    pub fn new(coord: U8Vec2, item_id_start: u16) -> Self {
         Self {
             coord,
             brushes0: Default::default(),
             brushes1: Default::default(),
             elements: Default::default(),
+            item_id_start,
+            items: Default::default(),
         }
     }
 
-    pub fn with_tilemap(coord: U8Vec2, brushes0: Brushes<u8>, brushes1: Brushes<u8>) -> Self {
+    pub fn with_tilemap(
+        coord: U8Vec2,
+        item_id_start: u16,
+        brushes0: Brushes<u8>,
+        brushes1: Brushes<u8>,
+    ) -> Self {
         Self {
             coord,
             brushes0,
             brushes1,
             elements: Default::default(),
+            item_id_start,
+            items: Default::default(),
         }
     }
 

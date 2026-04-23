@@ -8,6 +8,7 @@ pub mod elem;
 pub mod extract;
 pub mod flow;
 pub mod geometry;
+pub mod item;
 pub mod out;
 pub mod tiled_ext;
 pub mod tilemap;
