@@ -136,6 +136,20 @@ section "wMapChunkHeader", wram0
 wMapChunkHeader:: stalloc MapChunkHeader
 
 
+section "wActiveChunks", wram0
+wActiveChunks:
+	for Y, 3
+		for X, 3
+			wActiveChunk_{d:Y}_{d:X}:
+				.coord_y: db
+				.coord_x: db
+				.origin_y: dw
+				.origin_x: dw
+				.header: stalloc MapChunkHeader
+		endr
+	endr
+
+
 section "hMapRender", hram
 hMapViewChunkY: db
 hMapViewChunkX: db
@@ -492,55 +506,130 @@ MapUpdate::
 
 section "MapHelloItems", rom0
 ;; Experiment / Proof of concept: render central view chunk's items
+;; BANKNOTE: Caller must ensure selected map data is accessible.
 MapHelloItems:
-	ldh a, [hMapViewChunkY] :: ld d, a
-	ldh a, [hMapViewChunkX] :: ld e, a
-	ld hl, hMapSelectAddr
-	ld a, [hl+] :: ld h, [hl] :: ld l, a ; hMapSelectAddr
-	ld a, [hl+] :: ld h, [hl] :: ld l, a ; map.chunk_table
-	call MapChunkLookup
-	ret nc
+	; big big mega oam share/flicker time party
+	ld a, [wVBlankCount] :: rra :: sbc a
+	xor $AA :: ld d, a
+	ld hl, wActiveChunk_1_1.origin_y :: call MapHelloChunkItems
 
-	; Chunk coord --> tiles --> chunk origin (dots)
-	; Y
+	ld a, [wVBlankCount]
+	rrca
+	jr nc, .half1
+
+.half0:
+	ld a, [wShareOb.minor0] :: rrca :: ld d, a
+	ld hl, wActiveChunk_1_2.origin_y :: call MapHelloChunkItems
+	ld hl, wActiveChunk_2_1.origin_y :: call MapHelloChunkItems
+	ld hl, wActiveChunk_1_0.origin_y :: call MapHelloChunkItems
+	ld hl, wActiveChunk_0_1.origin_y :: call MapHelloChunkItems
+	ld a, d :: ld [wShareOb.minor0], a
+	ret
+.half1:
+	ld a, [wShareOb.minor1] :: rrca :: ld d, a
+	ld hl, wActiveChunk_2_2.origin_y :: call MapHelloChunkItems
+	ld hl, wActiveChunk_2_0.origin_y :: call MapHelloChunkItems
+	ld hl, wActiveChunk_0_0.origin_y :: call MapHelloChunkItems
+	ld hl, wActiveChunk_0_2.origin_y :: call MapHelloChunkItems
+	ld a, d :: ld [wShareOb.minor1], a
+	ret
+
+MapHelloChunkItems:
+	; calc Y screen position
 	ld a, [wScroll.y + 0] :: ld c, a
 	ld a, [wScroll.y + 1] :: ld b, a
-	ld a, d
-	rrca :: ld l, a
-	and $7F :: ld h, a
-	xor l :: ld l, a ; keep bit 7
-	add 16 ; offset so Y < 0 indicates off-screen
-	; chunk origin - scroll position
+	ld a, [hl+]
 	sub c
-	ld [wItemObBuild.chunk_scr_y + 0], a
-	ld a, h :: sbc b
+	ld [wItemObBuild.chunk_scr_y + 0], a :: ld c, a
+	ld a, [hl+]
+	sbc b
 	ld [wItemObBuild.chunk_scr_y + 1], a
+	; need high byte of $00 or $FF for any items to be visible.
+	jr z, .ypositive ; $00?
+	inc a
+	ret nz ; $FF?
+.ynegative:
+	; high byte is $FF (negative), low byte must be greater than 120 for any item to be visible.
+	ld a, 120
+	cp c
+	jr c, .yok
+	ret
+.ypositive:
+	; high byte is $00, low byte must be less than (144+16) for any item to be visible.
+	ld a, c
+	cp 144 + 16
+	ret nc
+.yok:
 
-	; X
-	ld l, e
-	ld a, [wScroll.x + 0] :: ld e, a
-	ld a, [wScroll.x + 1] :: ld d, a
-	ld a, l
-	rrca :: ld l, a
-	and $7F :: ld h, a
-	xor l :: ld l, a
-	add 8 ; offset so X < 0 indicates off-screen
-	sub e
-	ld [wItemObBuild.chunk_scr_x + 0], a
-	ld a, h :: sbc d
+	; calc X screen position
+	ld a, [wScroll.x + 0] :: ld c, a
+	ld a, [wScroll.x + 1] :: ld b, a
+	ld a, [hl+]
+	sub c
+	ld [wItemObBuild.chunk_scr_x + 0], a :: ld c, a
+	ld a, [hl+]
+	sbc b
 	ld [wItemObBuild.chunk_scr_x + 1], a
+	; need high byte of $00 or $FF for any items to be visible.
+	jr z, .xpositive ; $00?
+	inc a
+	ret nz ; $FF?
+.xnegative:
+	; high byte is $FF (negative), low byte must be greater than 120 for any item to be visible.
+	ld a, 120
+	cp c
+	jr c, .xok
+	ret
+.xpositive:
+	; high byte is $00, low byte must be less than (160+8) for any item to be visible.
+	ld a, c
+	cp 160 + 8
+	ret nc
+.xok:
 
-	ld hl, wMapChunkHeader.items
+	; follow items pointer
+	ld bc, wActiveChunk_1_1.items - (wActiveChunk_1_1.origin_x + 2)
+	add hl, bc
 	ld a, [hl+] :: ld h, [hl] :: ld l, a
+	; if .items == $FFFF, this slot is empty.
+	and h :: inc a
+	ret z
+
+
+		;; FALLTHROUGH
+
+
+pushs "wShareOb", wram0
+;; Oam sharing / sprite flicker states -- for chunk items
+wShareOb:
+	.minor0: db
+	.minor1: db
+
+pops ; wShareOb
+
+
+;; @param D: share
+;; @param HL: pointer to items collection in chunk
+;; @param [wItemObBuild.chunk_scr_x]: chunk origin on screen, X axis
+;; @param [wItemObBuild.chunk_scr_y]: chunk origin on screen, Y axis
+_RenderChunkItems:
 	ld a, [hl+] ; id_start.0
 	ld a, [hl+] ; id_start.1
 	ld a, [hl+] :: ld c, a ; len
-	and a
+	ld a, c :: and a
 	ret z ; len == 0
+
+	ld b, d ; Live share ob state in B
 
 	call ObdoCustomStartDE
 .item_draw_loop:
-		push bc
+	; share oam slots
+	rrc b
+	jr c, :+
+	inc hl :: inc hl :: inc hl ; skip posy, posx, item
+	jr .continue2
+:
+		push bc ; loop counter
 	; calc item_scr_y = chunk_scr_y + item_local
 	ld a, [wItemObBuild.chunk_scr_y + 0] :: ld c, a
 	ld a, [hl+] :: add c :: ld c, a
@@ -551,6 +640,14 @@ MapHelloItems:
 	inc hl :: inc hl ; skip posx, item
 	jr .continue
 :
+	; if Y >= 160, no visi
+	ld a, c
+	cp 160
+	jr c, :+
+	inc hl :: inc hl ; skip posx, item
+	jr .continue
+:
+
 	; OAM position is just low byte of 16-bit screen position
 	ld b, c ; Y
 
@@ -564,21 +661,35 @@ MapHelloItems:
 	inc hl ; skip item
 	jr .continue
 :
+	; if X >= 168, no visi
+	ld a, c
+	cp 168
+	jr c, :+
+	inc hl ; skip item
+	jr .continue
+:
+
 	; OAM X position already in C
 
 	; (close enough to) visible, build ob
 	ld a, b :: ld [de], a :: inc de ; Y
 	ld a, c :: ld [de], a :: inc de ; X
 
+	; TESTING: draw items using a variety of CHRs
+	ld a, l :: rrca :: rrca :: and $07
+	add 96 :: ld c, a
 	ld a, [hl+] ; item type
-	add 96 :: ld [de], a :: inc de ; chri
+	add c :: ld [de], a :: inc de ; chri
 	ld a, 4 :: ld [de], a :: inc de ; pal/atrb
 .continue
-		pop bc
+		pop bc ; loop counter
+.continue2
 	dec c
 	jr nz, .item_draw_loop
 	call ObdoCustomEndDE
 
+	; return updated share ob state
+	ld d, b
 	ret
 
 
@@ -1122,11 +1233,98 @@ MapRenderSlot:
 	ret
 
 
+section "MapSlotCoords", rom0
+;; Lookup table for 3x3 chunk slot coords, relative to central "view" chunk.
+;; Each entry contains a signed offset for each axis: `{ dY: db, dX: db }`.
+;; Arranged in row-major order, top-to-bottom, left-to-right.
+MapSlotCoords: align 5
+db -1, -1
+db -1, +0
+db -1, +1
+db +0, -1
+db +0, +0
+db +0, +1
+db +1, -1
+db +1, +0
+db +1, +1
+	.end
+
+
 section "MapUpdateViewChunk", rom0
 ;; Update visible chunks from scroll position.
-;; @ret D,E: Y,X chunk view coord delta
+;; BANKNOTE: Caller must ensure selected map data is accessible.
 ;; @mut: AF, BC, DE, HL
 MapUpdateViewChunk:
+	call _UpdateViewChunk
+	ld a, b :: or c
+	ret z ; no change
+
+	; update wActiveChunk cache/info
+	ld hl, wActiveChunk_0_0
+	ld bc, MapSlotCoords
+:
+		push de ; view chunk coord (centre)
+	; add slot coord offset
+	assert MapSlotCoords & $1F == 0
+	ld a, [bc] :: inc c
+	add d :: ld d, a
+	ld a, [bc] :: inc c
+	add e :: ld e, a
+		push bc
+	call _UpdateActiveChunkSlot
+		pop bc
+		pop de
+	; end loop when at end of MapSlotCoords
+	ld a, c
+	cp low(MapSlotCoords.end)
+	jr c, :-
+
+	ret
+
+
+;; @param D,E: Y,X chunk coord (in map)
+;; @param HL: pointer to active chunk record
+;; @ret HL: end of active chunk record
+;; @mut: AF, BC, DE, HL
+_UpdateActiveChunkSlot:
+	ld a, d :: ld [hl+], a ; coord Y
+	ld a, e :: ld [hl+], a ; coord X
+
+	; calc origin Y
+	ld a, d :: rrca :: ld c, a
+	and $7F :: ld b, a
+	xor c ; keep bit 7
+	add 16 ; offset so Y < 0 indicates off-screen
+	; store origin Y
+	ld [hl+], a
+	ld a, b :: ld [hl+], a
+
+	; calc origin X
+	ld a, e :: rrca :: ld c, a
+	and $7F :: ld b, a
+	xor c
+	add 8 ; offset so X < 0 indicates off-screen
+	; store origin X
+	ld [hl+], a
+	ld a, b :: ld [hl+], a
+
+		push hl ; @ chunk.header
+	call MapChunkLookup2
+	ld d, h :: ld e, l
+		pop hl ; @ chunk.header
+	; Copy chunk header to cache if lookup succeeded, or fill cache with $FF otherwise.
+	ld c, szMapChunkHeader
+	; NOTE: using F.C from MapChunkLookup2 here!
+	jp c, MemCopySmall
+	ld a, $FF
+	jp MemFillSmall
+
+
+;; Update visible chunks from scroll position.
+;; @ret D,E: Y,X chunk view coord (new)
+;; @ret B,C: Y,X chunk view coord delta
+;; @mut: AF, BC, DE, HL
+_UpdateViewChunk:
 	; Update X axis chunk view position & slots
 	ld c, low(hMapViewChunkX)
 	ldh a, [c] :: ld b, a
@@ -1145,13 +1343,13 @@ MapUpdateViewChunk:
 	ld a, h
 	rla
 
-	ldh [c], a ; save new coord
-	sub b :: ld e, a
+	ldh [c], a ; save newX
+	ld e, a ; return newX
+	sub b :: ld d, a ; temp. hold deltaX in D
 	call nz, _UpdateSlotsX
 
 	; Update Y axis chunk view position & slots
-	dec c
-	ldh a, [c] :: ld b, a
+	dec c :: ldh a, [c] :: ld b, a
 	; Y axis view position (world dots) to chunk coords
 	ld hl, wScroll.y
 	ld a, [hl+]
@@ -1167,8 +1365,10 @@ MapUpdateViewChunk:
 	ld a, h
 	rla
 
-	ldh [c], a
-	sub b :: ld d, a
+	ldh [c], a ; save newY
+	ld c, d ; return deltaX
+	ld d, a ; return newY
+	sub b :: ld b, a ; return deltaY
 	jr nz, _UpdateSlotsY
 	ret
 
@@ -1341,6 +1541,53 @@ Test_map_chunk_render:
 */
 
 
+section "MapChunkLookup2", rom0
+;; Chunk table spatial lookup in the selected map (`hMapSelect...`).
+;; Searches the map's chunk table for a chunk at the given chunk coordinates.
+;; BANKNOTE: Caller must ensure selected map data is accessible.
+;; @param D,E: row,column
+;; @ret HL: pointer to chunk data
+;; @ret F.C: set if successful
+;; @mut: AF, B, HL
+MapChunkLookup2::
+	ld hl, hMapSelectAddr
+	ld a, [hl+] :: ld h, [hl] :: ld l, a ; hMapSelectAddr
+	ld a, [hl+] :: ld h, [hl] :: ld l, a ; map.chunk_table
+	ld a, [hl+]
+	ld b, a
+:
+	ld a, [hl+]
+	cp d
+	jr z, .xtable
+	inc hl :: inc hl
+	dec b
+	jr nz, :-
+	jr .fail
+.xtable:
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a
+	ld a, [hl+]
+	ld b, a
+:
+	ld a, [hl+]
+	cp e
+	jr z, .ok
+	inc hl :: inc hl
+	dec b
+	jr nz, :-
+.fail:
+	xor a ; clear F.C
+	ret
+.ok:
+	ld a, [hl+]
+	ld h, [hl]
+	ld l, a
+
+	scf
+	ret
+
+
 section "MapChunkLookup", rom0
 ;; Chunk table spatial lookup -- get chunk at chunk coordinates location.
 ;; If successful, the chunk's header is copied to wMapChunkHeader.
@@ -1508,6 +1755,11 @@ MapReset::
 	ld a, $FF
 	ldh [hMapViewChunkY], a
 	ldh [hMapViewChunkX], a
+
+	; bit strings used for flickering item sprites
+	ld a, %0101_0101
+	ld [wShareOb.minor0], a
+	ld [wShareOb.minor1], a
 
 	call _ResetAllSlots
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" width="30" height="20" tilewidth="8" tileheight="8" infinite="1" nextlayerid="21" nextobjectid="121">
+<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" width="30" height="20" tilewidth="8" tileheight="8" infinite="1" nextlayerid="21" nextobjectid="142">
  <editorsettings>
   <export format="tmx"/>
  </editorsettings>
@@ -822,6 +822,111 @@
   <object id="120" name="bud_squidge" type="Marker" x="240" y="237" width="8" height="8">
    <properties>
     <property name="id" type="int" value="1"/>
+   </properties>
+  </object>
+  <object id="121" type="ItemPlace" x="90" y="112" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="122" type="ItemPlace" x="74" y="120" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="123" type="ItemPlace" x="58" y="129" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="124" type="ItemPlace" x="48" y="141" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="125" type="ItemPlace" x="138" y="93" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="126" type="ItemPlace" x="144" y="158" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="127" type="ItemPlace" x="130" y="156" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="128" type="ItemPlace" x="179" y="156" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="129" type="ItemPlace" x="161" y="156" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="130" type="ItemPlace" x="227" y="173" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="131" type="ItemPlace" x="209" y="163" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="132" type="ItemPlace" x="89" y="157" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="133" type="ItemPlace" x="21" y="196" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="134" type="ItemPlace" x="21" y="215" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="135" type="ItemPlace" x="13" y="144" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="136" type="ItemPlace" x="3" y="131" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="137" type="ItemPlace" x="2" y="117" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="138" type="ItemPlace" x="22" y="107" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="139" type="ItemPlace" x="31" y="88" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="140" type="ItemPlace" x="39" y="72" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
+   </properties>
+  </object>
+  <object id="141" type="ItemPlace" x="57" y="103" width="7" height="7">
+   <properties>
+    <property name="item" propertytype="ItemType" value="Trash1"/>
    </properties>
   </object>
  </objectgroup>
