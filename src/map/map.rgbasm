@@ -501,7 +501,7 @@ MapHelloItems:
 	call MapChunkLookup
 	ret nc
 
-	; Chunk coord --> Tile origin --> chunk origin (dots)
+	; Chunk coord --> tiles --> chunk origin (dots)
 	; Y
 	ld a, [wScroll.y + 0] :: ld c, a
 	ld a, [wScroll.y + 1] :: ld b, a
@@ -1124,24 +1124,12 @@ MapRenderSlot:
 
 section "MapUpdateViewChunk", rom0
 ;; Update visible chunks from scroll position.
-;; @mut: AF, BC, HL
+;; @ret D,E: Y,X chunk view coord delta
+;; @mut: AF, BC, DE, HL
 MapUpdateViewChunk:
-	; Y axis view position (world dots) to chunk coords
-	ld hl, wScroll.y
-	ld a, [hl+]
-	ld h, [hl]
-	add 72 ; offset to view rect centre
-	ld l, a
-	adc h
-	sub l
-	ld h, a
-	; divide by 128: hi.0 <~~ lo.7
-	ld a, l
-	rla
-	ld a, h
-	rla
-	ld b, a
-
+	; Update X axis chunk view position & slots
+	ld c, low(hMapViewChunkX)
+	ldh a, [c] :: ld b, a
 	; X axis view position (world dots) to chunk coords
 	ld hl, wScroll.x
 	ld a, [hl+]
@@ -1156,54 +1144,33 @@ MapUpdateViewChunk:
 	rla
 	ld a, h
 	rla
-	ld c, a
 
-	call _UpdateSlotsY
-	jr _UpdateSlotsX
+	ldh [c], a ; save new coord
+	sub b :: ld e, a
+	call nz, _UpdateSlotsX
 
-
-;; @param B: new map view chunk Y
-;; @mut: AF, HL
-_UpdateSlotsY:
-	ldh a, [hMapViewChunkY]
+	; Update Y axis chunk view position & slots
+	dec c
+	ldh a, [c] :: ld b, a
+	; Y axis view position (world dots) to chunk coords
+	ld hl, wScroll.y
+	ld a, [hl+]
+	ld h, [hl]
+	add 72 ; offset to view rect centre
 	ld l, a
-	ld a, b
-	ldh [hMapViewChunkY], a
+	adc h
 	sub l
-	ret z
-;	jp _ResetAllSlots
-	jr c, .neg
-	; (newY - Y) > 0: scroll down ~~ shift up
-	dec a
-	jp z, _SlotsShiftUp
-	jr _ResetAllSlots
-.neg
-	; (newY - Y) < 0: scroll up ~~ shift down
-	inc a
-	jp z, _SlotsShiftDown
-	jr _ResetAllSlots
+	ld h, a
+	; divide by 128: hi.0 <~~ lo.7
+	ld a, l
+	rla
+	ld a, h
+	rla
 
-
-;; @param C: new map view chunk X
-;; @mut: AF, B, HL
-_UpdateSlotsX:
-	ldh a, [hMapViewChunkX]
-	ld l, a
-	ld a, c
-	ldh [hMapViewChunkX], a
-	sub l
-	ret z
-;	jp _ResetAllSlots
-	jr c, .neg
-	; (newX - X) > 0: scroll right ~~ shift left
-	dec a
-	jp z, _SlotsShiftLeft
-	jr _ResetAllSlots
-.neg
-	; (newX - X) < 0: scroll left ~~ shift right
-	inc a
-	jp z, _SlotsShiftRight
-	jr _ResetAllSlots
+	ldh [c], a
+	sub b :: ld d, a
+	jr nz, _UpdateSlotsY
+	ret
 
 
 ;; @mut: A
@@ -1214,29 +1181,30 @@ endr
 	ret
 
 
-section "MapSlotsShift", rom0
-;; @mut: AF, HL
-_SlotsShiftUp:
-	ld hl, hMapChunkSlots
-	ld a, [hl+] :: and SLOT_BUFFER :: ldh [hMapChunkSlotsScratch + 0], a
-	ld a, [hl+] :: and SLOT_BUFFER :: ldh [hMapChunkSlotsScratch + 1], a
-	ld a, [hl+] :: and SLOT_BUFFER :: ldh [hMapChunkSlotsScratch + 2], a
-for I, MAP_CHUNK_BUFFER_COUNT
-	ld a, [hl+] :: ldh [hMapChunkSlots + I], a
-endr
-	ret
+;; @param AF: result of newX - oldX
+;; @mut: AF, B, HL
+_UpdateSlotsX:
+	jr c, .neg
+	; (newX - oldX) > 0: scroll right ~~ shift left
+	dec a :: jr z, _SlotsShiftLeft
+	jr _ResetAllSlots
+.neg
+	; (newX - oldX) < 0: scroll left ~~ shift right
+	inc a :: jr z, _SlotsShiftRight
+	jr _ResetAllSlots
 
 
+;; @param AF: result of newY - oldY
 ;; @mut: AF, HL
-_SlotsShiftDown:
-	ld hl, hMapChunkSlotsScratch + 2
-for I, MAP_CHUNK_BUFFER_COUNT
-	ldh a, [hMapChunkSlots + MAP_CHUNK_BUFFER_COUNT - I - 1] :: ld [hl-], a
-endr
-	ldh a, [hMapChunkSlotsScratch + 2] :: and SLOT_BUFFER :: ld [hl-], a
-	ldh a, [hMapChunkSlotsScratch + 1] :: and SLOT_BUFFER :: ld [hl-], a
-	ldh a, [hMapChunkSlotsScratch + 0] :: and SLOT_BUFFER :: ld [hl-], a
-	ret
+_UpdateSlotsY:
+	jr c, .neg
+	; (newY - Y) > 0: scroll down ~~ shift up
+	dec a :: jr z, _SlotsShiftUp
+	jr _ResetAllSlots
+.neg
+	; (newY - Y) < 0: scroll up ~~ shift down
+	inc a :: jr z, _SlotsShiftDown
+	jr _ResetAllSlots
 
 
 ;; @mut: AF, B, HL
@@ -1262,6 +1230,32 @@ for I, 3
 	ld a, b :: ld b, [hl] :: ld [hl+], a
 	ld a, b :: ld [hl+], a
 endr
+	ret
+
+
+;; Shift the chunk slots up (by one row)
+;; @mut: AF, HL
+_SlotsShiftUp:
+	ld hl, hMapChunkSlots
+	ld a, [hl+] :: and SLOT_BUFFER :: ldh [hMapChunkSlotsScratch + 0], a
+	ld a, [hl+] :: and SLOT_BUFFER :: ldh [hMapChunkSlotsScratch + 1], a
+	ld a, [hl+] :: and SLOT_BUFFER :: ldh [hMapChunkSlotsScratch + 2], a
+for I, MAP_CHUNK_BUFFER_COUNT
+	ld a, [hl+] :: ldh [hMapChunkSlots + I], a
+endr
+	ret
+
+
+;; Shift the chunk slots down (by one row)
+;; @mut: AF, HL
+_SlotsShiftDown:
+	ld hl, hMapChunkSlotsScratch + 2
+for I, MAP_CHUNK_BUFFER_COUNT
+	ldh a, [hMapChunkSlots + MAP_CHUNK_BUFFER_COUNT - I - 1] :: ld [hl-], a
+endr
+	ldh a, [hMapChunkSlotsScratch + 2] :: and SLOT_BUFFER :: ld [hl-], a
+	ldh a, [hMapChunkSlotsScratch + 1] :: and SLOT_BUFFER :: ld [hl-], a
+	ldh a, [hMapChunkSlotsScratch + 0] :: and SLOT_BUFFER :: ld [hl-], a
 	ret
 
 
