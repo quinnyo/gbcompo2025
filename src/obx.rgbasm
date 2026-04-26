@@ -2,6 +2,7 @@ include "hardware.inc"
 
 
 def OBUF_SIZE equ OAM_COUNT * sizeof_OAM_ATTRS
+def OBDO_DEBUG equ 1
 
 
 section union "wOAM1", wram0, align[8]
@@ -70,8 +71,22 @@ endm
 ;; _impl_custom_end R16
 macro _impl_custom_end
 	assert _NARG == 1
+if OBDO_DEBUG
+	; assert returned pointer in range
+	ldh a, [hObdoTarget]
+	cp high(\1)
+	jr z, @+3 :: ld b, b
+	ld a, OBUF_SIZE
+	cp low(\1)
+	jr nc, @+3 :: ld b, b
+
+	; assert head is aligned correctly / at multiple of 4 (entry size)
 	ld a, low(\1)
-	; ensure head position is at start of an entry
+	and $03
+	jr z, @+3 :: ld b, b
+endc
+	ld a, low(\1)
+	; ensure we're at the start of an entry (multiple of 4)
 	and $FC
 	ldh [hObdoHead], a
 	ret
@@ -114,26 +129,21 @@ ObdoCustomEndDE::
 
 section "ObdoFinaliseFrame", rom0
 ;; Clear unused OAM slots
+;; @mut: AF, BC, HL
 ObdoFinaliseFrame::
 	ldh a, [hObdoTarget] :: ld h, a
 	ldh a, [hObdoHead]
-	; ensure we're at the start of an entry (multiple of 4)
+	cp OBUF_SIZE
+	ret nc ; nothing to do (no unused slots)
 	and $FC :: ld l, a
-	; unused bytes: rem = size - pos
 	ld a, OBUF_SIZE :: sub l
-	ret z ; zero unused, nothing to do.
-	; Using `rrca` like this is OK: we just forced the value to be a multiple of 4,
-	; so the two bits that rotate around (0,1 ~~> 6,7) are zero.
-	; Unused entry count, loop iters: N = rem / 4
-	rrca :: rrca :: ld c, a
+	rrca :: rrca :: ld c, a ; loop counter
 	xor a
 :
 	ld [hl+], a
 	inc l :: inc l :: inc l
 	dec c
 	jr nz, :-
-
-	ld a, l :: ldh [hObdoHead], a
 	ret
 
 
@@ -141,7 +151,6 @@ section "ObdoRewind", rom0
 ;; Move the write head to back to the start of the Obdo OAM region.
 ObdoRewind::
 	ldh a, [hObdoReserve]
-	and $FC
 	ldh [hObdoHead], a
 	ret
 
@@ -150,6 +159,11 @@ section "ObdoReserve", rom0
 ;; Reserve part of the OAM buffer for use outside of Obdo.
 ;; @param A: reserve size (bytes)
 ObdoReserve::
+if OBDO_DEBUG
+	; assert reserve does not exceed buffer.
+	cp OBUF_SIZE+1
+	jr c, @+3 :: ld b, b
+endc
 	and $FC
 	ldh [hObdoReserve], a
 	ret
