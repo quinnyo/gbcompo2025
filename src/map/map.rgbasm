@@ -1136,19 +1136,6 @@ _xfer_loop:
 	ret
 
 
-section "MapSlotInfo", rom0
-SlotInfo:
-db -1, -1
-db -1, 0
-db -1, 1
-db 0, -1
-db 0, 0
-db 0, 1
-db 1, -1
-db 1, 0
-db 1, 1
-
-
 section "MapRenderSlot", rom0
 ;; Regular scan and render chunks in view, as needed.
 ;; NOTE: Map data must be accessible.
@@ -1191,9 +1178,9 @@ MapRenderSlot:
 	or SLOT_NOCHUNK
 	ldh [c], a
 
-	ld a, l :: add a ; index * 2
-	add low(SlotInfo) :: ld l, a
-	adc high(SlotInfo) :: sub l :: ld h, a
+	ld a, low(MapSlotCoords) >> 1
+	add l :: add a :: ld l, a ; (base/2 + index) * 2
+	ld h, high(MapSlotCoords)
 
 	ldh a, [hMapViewChunkY]
 	add [hl] :: inc hl
