@@ -1674,9 +1674,9 @@ MapZoneQuery::
 	ldh a, [hMapSelectBank]
 	ld [ROMB_LO], a
 		push de :: push bc
-	; dots to chunk coord
-	rl e :: rl d
-	ld e, b :: rl c :: rl e
+	; dots to chunk coord for MapChunkLookup (D,E: row,column)
+	rl e :: rl d :: ld e, d ; X
+	ld d, b :: rl c :: rl d ; Y
 
 	ld hl, hMapSelectAddr
 	ld a, [hl+] :: ld h, [hl] :: ld l, a ; hMapSelectAddr
