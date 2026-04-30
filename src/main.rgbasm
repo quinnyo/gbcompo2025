@@ -80,27 +80,27 @@ Boot:
 	jp z, MonochromeTears
 
 Main::
-	ld sp, wStack + WSTACK_SIZE
-
 	di
-
-	xor a
-	ldh [rNR52], a
-
+	xor a :: ldh [rIE], a :: ldh [rIF], a
+	; reset stack
+	ld sp, wStack + WSTACK_SIZE
+	; kill audio
+	xor a :: ldh [rNR52], a
+	; turn off LCD
 	vblank_wait
-	xor a
-	ldh [rLCDC], a
+	xor a :: ldh [rLCDC], a
 
 	call BankerInit
 
 	; give in and enable double speed mode!
 	ldh a, [rSPD]
-	and $80
-	jr nz, :+
+	and SPDF_DBLSPEED
+	jr nz, :+ ; if not double speed
+	; request speed change
+	ld a, SPDF_PREPARE :: ldh [rSPD], a
 	; for some reason, clear IE & input select
 	xor a :: ldh [rIE], a
 	ld a, $30 :: ldh [rP1], a
-	ld a, 1 :: ldh [rSPD], a
 	stop
 :
 

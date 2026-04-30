@@ -20,11 +20,30 @@ endc
 def ROMB_COUNT equ ROM_KBYTES >> 4
 
 
-; @mut: A
+;; vblank_wait
+;; Spin until either one is true:
+;; - the LCD is off
+;; - VBlank (specifically: `144 <= [rLY] < 153`)
+;; @mut: A
 macro vblank_wait
+	; create a global label if there is none
+	if !def(.)
+		_vblank_wait\@:
+	endc
+
+.wait\@:
+	; check that LCD is on -- avoid infinite loop if not
+	ldh a, [rLCDC]
+	bit LCDCB_ON, a
+	jr z, .done\@
+
+	; check 144 <= [LY] < 153
 	ldh a, [rLY]
+	cp 153
+	jr nc, .wait\@ ; at end of VBlank, wait for next
 	cp 144
-	jr c, @-6
+	jr c, .wait\@
+.done\@:
 endm
 
 
