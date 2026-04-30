@@ -4,20 +4,34 @@ def STUFF_INC_D8F7D3C1 equ 1
 include "hardware.inc"
 
 if def(BUILD_RAMSIZE)
-	if BUILD_RAMSIZE >= 2 && BUILD_RAMSIZE <= 4
-		def RAM_KBITS equ 16 << (BUILD_RAMSIZE - 1) * 2
+	if BUILD_RAMSIZE == 0
+		def XRAMB_COUNT equ 0
+	elif BUILD_RAMSIZE == 2
+		def XRAMB_COUNT equ 1
+	elif BUILD_RAMSIZE == 3
+		def XRAMB_COUNT equ 4
+	elif BUILD_RAMSIZE == 4
+		def XRAMB_COUNT equ 16
+	elif BUILD_RAMSIZE == 5
+		def XRAMB_COUNT equ 8
+	else
+		fail "invalid BUILD_RAMSIZE ({BUILD_RAMSIZE})"
 	endc
+else
+	def XRAMB_COUNT equ 0
 endc
+
+def XRAM_KBYTES equ XRAMB_COUNT * 8
+
 
 if def(BUILD_ROMSIZE)
-	def ROM_KBYTES equ 256 << BUILD_ROMSIZE
+	assert BUILD_ROMSIZE >= 0 && BUILD_ROMSIZE <= 8, "invalid BUILD_ROMSIZE ({BUILD_ROMSIZE})"
+	def ROMB_COUNT equ 2 << BUILD_ROMSIZE
 else
-	def ROM_KBYTES equ 256
+	def ROMB_COUNT equ 2
 endc
 
-;; Number of 16 KiB ROM banks for the ROM size.
-;; NOTE: Total bank count includes bank 0.
-def ROMB_COUNT equ ROM_KBYTES >> 4
+def ROM_KBYTES equ ROMB_COUNT * 32
 
 
 ;; vblank_wait

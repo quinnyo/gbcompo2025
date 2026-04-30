@@ -5,7 +5,7 @@ include "rsc.rgbinc"
 include "vis/widgets.rgbinc"
 
 
-def SPRTAB_BANK equ 99
+def SPRTAB_BANK equ 15
 
 
 pushs "RscTable", romx, bank[SPRTAB_BANK]
