@@ -52,5 +52,10 @@ pub fn process_tmx(tmx: Tmx) -> out::Map {
     let mut conversion = convert::Conversion::from_extract(extract);
     convert::these_converters::submit(&mut conversion);
     let converted = conversion.convert();
-    out::Map::new(map_name.to_string(), converted.resources, converted.chunks)
+    out::Map::new(
+        map_name.to_string(),
+        converted.resources,
+        converted.chunks,
+        converted.info,
+    )
 }

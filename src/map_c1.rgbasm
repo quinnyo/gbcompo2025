@@ -1,7 +1,11 @@
 section "map_c1", romx
 map_c1::
+	dw .info
 	dw .chunk_table
 	dw .resources
+
+.info:
+	db 22
 
 .resources:
 	db 5
@@ -42,20 +46,13 @@ map_c1::
 	db 68, 60
 	dw $D00B
 .chunk_0_0_items:
-	dw 0 ; item_id_start
-	db 12 ; items.len()
-		db 72, 39, 1 ; item 0: Trash1
-		db 84, 86, 1 ; item 1: Trash1
-		db 85, 70, 1 ; item 2: Trash1
-		db 88, 31, 1 ; item 3: Trash1
-		db 103, 57, 1 ; item 4: Trash1
-		db 107, 22, 1 ; item 5: Trash1
-		db 111, 46, 1 ; item 6: Trash1
-		db 112, 90, 1 ; item 7: Trash1
-		db 117, 2, 1 ; item 8: Trash1
-		db 118, 35, 1 ; item 9: Trash1
-		db 120, 74, 1 ; item 10: Trash1
-		db 127, 118, 1 ; item 11: Trash1
+	db 6 ; items.len()
+		db 14, 72, 39, 1 ; item 14: Trash1
+		db 16, 88, 31, 1 ; item 16: Trash1
+		db 18, 107, 22, 1 ; item 18: Trash1
+		db 3, 108, 98, 1 ; item 3: Trash1
+		db 6, 116, 82, 1 ; item 6: Trash1
+		db 21, 117, 2, 1 ; item 21: Trash1
 .chunk_1_0:
 	dw .chunk_1_0_br0, .chunk_1_0_br1, .chunk_1_0_elems, .chunk_1_0_items
 .chunk_1_0_br0:
@@ -70,10 +67,10 @@ map_c1::
 	db 8, 112
 	dw $D00B
 .chunk_1_0_items:
-	dw 16 ; item_id_start
-	db 2 ; items.len()
-		db 93, 10, 1 ; item 0: Trash1
-		db 119, 34, 1 ; item 1: Trash1
+	db 3 ; items.len()
+		db 8, 77, 58, 1 ; item 8: Trash1
+		db 9, 84, 34, 1 ; item 9: Trash1
+		db 0, 100, 2, 1 ; item 0: Trash1
 .chunk_2_0:
 	dw .chunk_2_0_br0, .chunk_2_0_br1, .chunk_2_0_elems, .chunk_2_0_items
 .chunk_2_0_br0:
@@ -83,7 +80,6 @@ map_c1::
 .chunk_2_0_elems:
 	db 0
 .chunk_2_0_items:
-	dw 32 ; item_id_start
 	db 0 ; items.len()
 .chunk_3_0:
 	dw .chunk_3_0_br0, .chunk_3_0_br1, .chunk_3_0_elems, .chunk_3_0_items
@@ -94,7 +90,6 @@ map_c1::
 .chunk_3_0_elems:
 	db 0
 .chunk_3_0_items:
-	dw 48 ; item_id_start
 	db 0 ; items.len()
 .chunk_4_0:
 	dw .chunk_4_0_br0, .chunk_4_0_br1, .chunk_4_0_elems, .chunk_4_0_items
@@ -105,7 +100,6 @@ map_c1::
 .chunk_4_0_elems:
 	db 0
 .chunk_4_0_items:
-	dw 64 ; item_id_start
 	db 0 ; items.len()
 .chunk_5_0:
 	dw .chunk_5_0_br0, .chunk_5_0_br1, .chunk_5_0_elems, .chunk_5_0_items
@@ -116,7 +110,6 @@ map_c1::
 .chunk_5_0_elems:
 	db 0
 .chunk_5_0_items:
-	dw 80 ; item_id_start
 	db 0 ; items.len()
 .chunk_0_1:
 	dw .chunk_0_1_br0, .chunk_0_1_br1, .chunk_0_1_elems, .chunk_0_1_items
@@ -127,20 +120,15 @@ map_c1::
 .chunk_0_1_elems:
 	db 0
 .chunk_0_1_items:
-	dw 96 ; item_id_start
-	db 12 ; items.len()
-		db 1, 58, 1 ; item 0: Trash1
-		db 3, 3, 1 ; item 1: Trash1
-		db 12, 95, 1 ; item 2: Trash1
-		db 13, 48, 1 ; item 3: Trash1
-		db 14, 111, 1 ; item 4: Trash1
-		db 16, 13, 1 ; item 5: Trash1
-		db 28, 11, 1 ; item 6: Trash1
-		db 29, 89, 1 ; item 7: Trash1
-		db 37, 20, 1 ; item 8: Trash1
-		db 46, 96, 1 ; item 9: Trash1
-		db 68, 21, 1 ; item 10: Trash1
-		db 87, 21, 1 ; item 11: Trash1
+	db 8 ; items.len()
+		db 7, 1, 58, 1 ; item 7: Trash1
+		db 19, 6, 3, 1 ; item 19: Trash1
+		db 17, 28, 11, 1 ; item 17: Trash1
+		db 13, 28, 123, 1 ; item 13: Trash1
+		db 10, 45, 107, 1 ; item 10: Trash1
+		db 2, 68, 21, 1 ; item 2: Trash1
+		db 1, 87, 21, 1 ; item 1: Trash1
+		db 5, 110, 11, 1 ; item 5: Trash1
 .chunk_1_1:
 	dw .chunk_1_1_br0, .chunk_1_1_br1, .chunk_1_1_elems, .chunk_1_1_items
 .chunk_1_1_br0:
@@ -150,20 +138,12 @@ map_c1::
 .chunk_1_1_elems:
 	db 0
 .chunk_1_1_items:
-	dw 112 ; item_id_start
-	db 12 ; items.len()
-		db 3, 1, 1 ; item 0: Trash1
-		db 4, 15, 1 ; item 1: Trash1
-		db 5, 30, 1 ; item 2: Trash1
-		db 5, 110, 1 ; item 3: Trash1
-		db 13, 79, 1 ; item 4: Trash1
-		db 16, 95, 1 ; item 5: Trash1
-		db 28, 2, 1 ; item 6: Trash1
-		db 28, 33, 1 ; item 7: Trash1
-		db 28, 51, 1 ; item 8: Trash1
-		db 30, 16, 1 ; item 9: Trash1
-		db 35, 81, 1 ; item 10: Trash1
-		db 45, 99, 1 ; item 11: Trash1
+	db 5 ; items.len()
+		db 12, 29, 27, 1 ; item 12: Trash1
+		db 20, 30, 42, 1 ; item 20: Trash1
+		db 15, 31, 10, 1 ; item 15: Trash1
+		db 11, 42, 96, 1 ; item 11: Trash1
+		db 4, 44, 107, 1 ; item 4: Trash1
 .chunk_2_1:
 	dw .chunk_2_1_br0, .chunk_2_1_br1, .chunk_2_1_elems, .chunk_2_1_items
 .chunk_2_1_br0:
@@ -173,7 +153,6 @@ map_c1::
 .chunk_2_1_elems:
 	db 0
 .chunk_2_1_items:
-	dw 128 ; item_id_start
 	db 0 ; items.len()
 .chunk_3_1:
 	dw .chunk_3_1_br0, .chunk_3_1_br1, .chunk_3_1_elems, .chunk_3_1_items
@@ -184,7 +163,6 @@ map_c1::
 .chunk_3_1_elems:
 	db 0
 .chunk_3_1_items:
-	dw 144 ; item_id_start
 	db 0 ; items.len()
 .chunk_4_1:
 	dw .chunk_4_1_br0, .chunk_4_1_br1, .chunk_4_1_elems, .chunk_4_1_items
@@ -195,7 +173,6 @@ map_c1::
 .chunk_4_1_elems:
 	db 0
 .chunk_4_1_items:
-	dw 160 ; item_id_start
 	db 0 ; items.len()
 .chunk_5_1:
 	dw .chunk_5_1_br0, .chunk_5_1_br1, .chunk_5_1_elems, .chunk_5_1_items
@@ -206,7 +183,6 @@ map_c1::
 .chunk_5_1_elems:
 	db 0
 .chunk_5_1_items:
-	dw 176 ; item_id_start
 	db 0 ; items.len()
 .chunk_0_2:
 	dw .chunk_0_2_br0, .chunk_0_2_br1, .chunk_0_2_elems, .chunk_0_2_items
@@ -217,7 +193,6 @@ map_c1::
 .chunk_0_2_elems:
 	db 0
 .chunk_0_2_items:
-	dw 192 ; item_id_start
 	db 0 ; items.len()
 .chunk_1_2:
 	dw .chunk_1_2_br0, .chunk_1_2_br1, .chunk_1_2_elems, .chunk_1_2_items
@@ -228,7 +203,6 @@ map_c1::
 .chunk_1_2_elems:
 	db 0
 .chunk_1_2_items:
-	dw 208 ; item_id_start
 	db 0 ; items.len()
 .chunk_2_2:
 	dw .chunk_2_2_br0, .chunk_2_2_br1, .chunk_2_2_elems, .chunk_2_2_items
@@ -239,7 +213,6 @@ map_c1::
 .chunk_2_2_elems:
 	db 0
 .chunk_2_2_items:
-	dw 224 ; item_id_start
 	db 0 ; items.len()
 .chunk_3_2:
 	dw .chunk_3_2_br0, .chunk_3_2_br1, .chunk_3_2_elems, .chunk_3_2_items
@@ -250,7 +223,6 @@ map_c1::
 .chunk_3_2_elems:
 	db 0
 .chunk_3_2_items:
-	dw 240 ; item_id_start
 	db 0 ; items.len()
 .chunk_4_2:
 	dw .chunk_4_2_br0, .chunk_4_2_br1, .chunk_4_2_elems, .chunk_4_2_items
@@ -261,7 +233,6 @@ map_c1::
 .chunk_4_2_elems:
 	db 0
 .chunk_4_2_items:
-	dw 256 ; item_id_start
 	db 0 ; items.len()
 .chunk_5_2:
 	dw .chunk_5_2_br0, .chunk_5_2_br1, .chunk_5_2_elems, .chunk_5_2_items
@@ -272,7 +243,6 @@ map_c1::
 .chunk_5_2_elems:
 	db 0
 .chunk_5_2_items:
-	dw 272 ; item_id_start
 	db 0 ; items.len()
 .chunk_0_3:
 	dw .chunk_0_3_br0, .chunk_0_3_br1, .chunk_0_3_elems, .chunk_0_3_items
@@ -283,7 +253,6 @@ map_c1::
 .chunk_0_3_elems:
 	db 0
 .chunk_0_3_items:
-	dw 288 ; item_id_start
 	db 0 ; items.len()
 .chunk_1_3:
 	dw .chunk_1_3_br0, .chunk_1_3_br1, .chunk_1_3_elems, .chunk_1_3_items
@@ -294,7 +263,6 @@ map_c1::
 .chunk_1_3_elems:
 	db 0
 .chunk_1_3_items:
-	dw 304 ; item_id_start
 	db 0 ; items.len()
 .chunk_2_3:
 	dw .chunk_2_3_br0, .chunk_2_3_br1, .chunk_2_3_elems, .chunk_2_3_items
@@ -305,7 +273,6 @@ map_c1::
 .chunk_2_3_elems:
 	db 0
 .chunk_2_3_items:
-	dw 320 ; item_id_start
 	db 0 ; items.len()
 .chunk_3_3:
 	dw .chunk_3_3_br0, .chunk_3_3_br1, .chunk_3_3_elems, .chunk_3_3_items
@@ -316,7 +283,6 @@ map_c1::
 .chunk_3_3_elems:
 	db 0
 .chunk_3_3_items:
-	dw 336 ; item_id_start
 	db 0 ; items.len()
 .chunk_4_3:
 	dw .chunk_4_3_br0, .chunk_4_3_br1, .chunk_4_3_elems, .chunk_4_3_items
@@ -327,7 +293,6 @@ map_c1::
 .chunk_4_3_elems:
 	db 0
 .chunk_4_3_items:
-	dw 352 ; item_id_start
 	db 0 ; items.len()
 .chunk_5_3:
 	dw .chunk_5_3_br0, .chunk_5_3_br1, .chunk_5_3_elems, .chunk_5_3_items
@@ -338,7 +303,6 @@ map_c1::
 .chunk_5_3_elems:
 	db 0
 .chunk_5_3_items:
-	dw 368 ; item_id_start
 	db 0 ; items.len()
 .chunk_0_4:
 	dw .chunk_0_4_br0, .chunk_0_4_br1, .chunk_0_4_elems, .chunk_0_4_items
@@ -349,7 +313,6 @@ map_c1::
 .chunk_0_4_elems:
 	db 0
 .chunk_0_4_items:
-	dw 384 ; item_id_start
 	db 0 ; items.len()
 .chunk_1_4:
 	dw .chunk_1_4_br0, .chunk_1_4_br1, .chunk_1_4_elems, .chunk_1_4_items
@@ -360,7 +323,6 @@ map_c1::
 .chunk_1_4_elems:
 	db 0
 .chunk_1_4_items:
-	dw 400 ; item_id_start
 	db 0 ; items.len()
 .chunk_2_4:
 	dw .chunk_2_4_br0, .chunk_2_4_br1, .chunk_2_4_elems, .chunk_2_4_items
@@ -371,7 +333,6 @@ map_c1::
 .chunk_2_4_elems:
 	db 0
 .chunk_2_4_items:
-	dw 416 ; item_id_start
 	db 0 ; items.len()
 .chunk_3_4:
 	dw .chunk_3_4_br0, .chunk_3_4_br1, .chunk_3_4_elems, .chunk_3_4_items
@@ -382,7 +343,6 @@ map_c1::
 .chunk_3_4_elems:
 	db 0
 .chunk_3_4_items:
-	dw 432 ; item_id_start
 	db 0 ; items.len()
 .chunk_4_4:
 	dw .chunk_4_4_br0, .chunk_4_4_br1, .chunk_4_4_elems, .chunk_4_4_items
@@ -393,7 +353,6 @@ map_c1::
 .chunk_4_4_elems:
 	db 0
 .chunk_4_4_items:
-	dw 448 ; item_id_start
 	db 0 ; items.len()
 .chunk_5_4:
 	dw .chunk_5_4_br0, .chunk_5_4_br1, .chunk_5_4_elems, .chunk_5_4_items
@@ -404,7 +363,6 @@ map_c1::
 .chunk_5_4_elems:
 	db 0
 .chunk_5_4_items:
-	dw 464 ; item_id_start
 	db 0 ; items.len()
 .chunk_0_5:
 	dw .chunk_0_5_br0, .chunk_0_5_br1, .chunk_0_5_elems, .chunk_0_5_items
@@ -415,7 +373,6 @@ map_c1::
 .chunk_0_5_elems:
 	db 0
 .chunk_0_5_items:
-	dw 480 ; item_id_start
 	db 0 ; items.len()
 .chunk_1_5:
 	dw .chunk_1_5_br0, .chunk_1_5_br1, .chunk_1_5_elems, .chunk_1_5_items
@@ -426,7 +383,6 @@ map_c1::
 .chunk_1_5_elems:
 	db 0
 .chunk_1_5_items:
-	dw 496 ; item_id_start
 	db 0 ; items.len()
 .chunk_2_5:
 	dw .chunk_2_5_br0, .chunk_2_5_br1, .chunk_2_5_elems, .chunk_2_5_items
@@ -437,7 +393,6 @@ map_c1::
 .chunk_2_5_elems:
 	db 0
 .chunk_2_5_items:
-	dw 512 ; item_id_start
 	db 0 ; items.len()
 .chunk_3_5:
 	dw .chunk_3_5_br0, .chunk_3_5_br1, .chunk_3_5_elems, .chunk_3_5_items
@@ -448,7 +403,6 @@ map_c1::
 .chunk_3_5_elems:
 	db 0
 .chunk_3_5_items:
-	dw 528 ; item_id_start
 	db 0 ; items.len()
 .chunk_4_5:
 	dw .chunk_4_5_br0, .chunk_4_5_br1, .chunk_4_5_elems, .chunk_4_5_items
@@ -459,7 +413,6 @@ map_c1::
 .chunk_4_5_elems:
 	db 0
 .chunk_4_5_items:
-	dw 544 ; item_id_start
 	db 0 ; items.len()
 .chunk_5_5:
 	dw .chunk_5_5_br0, .chunk_5_5_br1, .chunk_5_5_elems, .chunk_5_5_items
@@ -470,7 +423,6 @@ map_c1::
 .chunk_5_5_elems:
 	db 0
 .chunk_5_5_items:
-	dw 560 ; item_id_start
 	db 0 ; items.len()
 
 .chunk_table:

@@ -20,6 +20,17 @@ impl ItemType {
     pub fn encode(&self) -> u8 {
         *self as u8
     }
+
+    pub fn is_trash(&self) -> bool {
+        match self {
+            ItemType::Null => false,
+            ItemType::Trash1 => true,
+            ItemType::Trash3 => true,
+            ItemType::Chime => false,
+            ItemType::BudAfish => false,
+            ItemType::BudSquidge => false,
+        }
+    }
 }
 
 impl From<&ItemType> for Code {
@@ -62,6 +73,8 @@ impl ConvertProperty for ItemType {
 /// Places an instance of an item in the map.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemPlace {
+    /// Item ID
+    pub id: u8,
     /// Placement position in world dots
     pub position: U16Vec2,
     /// The type of item to place
@@ -69,8 +82,8 @@ pub struct ItemPlace {
 }
 
 impl ItemPlace {
-    pub fn new(item: ItemType, position: U16Vec2) -> Self {
-        Self { position, item }
+    pub fn new(id: u8, item: ItemType, position: U16Vec2) -> Self {
+        Self { id, position, item }
     }
 }
 

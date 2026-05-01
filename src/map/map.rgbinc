@@ -15,10 +15,21 @@ def BR_SOLID rb 1
 def BR__MAX rb 0
 def BR__TYPE equ (1 << bitwidth(BR__MAX)) - 1
 
-rsreset
-def MapHeader_chunk_table rb 2
-def MapHeader_objects rb 2
-def szMapHeader rb 0
+
+st MapInfo
+	;; Number of trash items placed in the map.
+	stf trash_item_count, 1
+st
+
+
+st MapHeader
+	;; Pointer to MapInfo
+	stf info, 2
+	;; Pointer to chunk coord lookup table
+	stf chunk_table, 2
+	;; Pointer to resources/objects
+	stf resources, 2
+st
 
 
 rsreset
@@ -183,8 +194,6 @@ def CHUNK_ITEMS_MAX equ 16
 
 ;; Header / metadata for chunk items collection.
 st ChunkItemsHeader
-	;; The start of the ID range allocated to this chunk's items.
-	stf id_start, 2
 	;; Number of items in the collection.
 	stf len, 1
 st

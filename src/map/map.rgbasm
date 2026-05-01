@@ -98,9 +98,8 @@ wMapPlayerStartY:: dw
 wMapPlayerStartX:: dw
 
 ;; Copy of open map header
-wMapHeader::
-	.chunk_table:: dw
-	.objects:: dw
+wMapHeader:: stalloc MapHeader
+wMapInfo:: stalloc MapInfo
 
 
 section union "wMapState", wramx[MAP_RUNTIME_STATE_ADDRESS]
@@ -237,6 +236,12 @@ MapOpen::
 	ld hl, wMapHeader
 	call MemCopySmall
 
+	; Copy map info
+	ld hl, wMapHeader.info
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+	ld c, szMapInfo
+	call MemCopySmall
+
 	; Process map objects
 	call _SetupObjects
 
@@ -253,7 +258,7 @@ _SetupObjects:
 	;     : generally a bit confusing.
 	;     : - Item is more like "(Item)Spawner"
 	;     : - SpawnMapObject is more like "SpawnItem"
-	ld hl, wMapHeader.objects
+	ld hl, wMapHeader.resources
 	ld a, [hl+]
 	ld h, [hl]
 	ld l, a
@@ -509,8 +514,7 @@ section "MapHelloItems", rom0
 ;; BANKNOTE: Caller must ensure selected map data is accessible.
 MapHelloItems:
 	; big big mega oam share/flicker time party
-	ld a, [wVBlankCount] :: rra :: sbc a
-	xor $AA :: ld d, a
+	ld d, 0 ; always show centre chunk
 	ld hl, wActiveChunk_1_1.origin_y :: call MapHelloChunkItems
 
 	ld a, [wVBlankCount]
@@ -518,20 +522,22 @@ MapHelloItems:
 	jr nc, .half1
 
 .half0:
-	ld a, [wShareOb.minor0] :: rrca :: ld d, a
+	ld a, [wShareOb.minor0]
+	ld d, a
+	rrca :: ld [wShareOb.minor0], a
 	ld hl, wActiveChunk_1_2.origin_y :: call MapHelloChunkItems
 	ld hl, wActiveChunk_2_1.origin_y :: call MapHelloChunkItems
 	ld hl, wActiveChunk_1_0.origin_y :: call MapHelloChunkItems
 	ld hl, wActiveChunk_0_1.origin_y :: call MapHelloChunkItems
-	ld a, d :: ld [wShareOb.minor0], a
 	ret
 .half1:
-	ld a, [wShareOb.minor1] :: rrca :: ld d, a
+	ld a, [wShareOb.minor1]
+	ld d, a
+	rrca :: ld [wShareOb.minor1], a
 	ld hl, wActiveChunk_2_2.origin_y :: call MapHelloChunkItems
 	ld hl, wActiveChunk_2_0.origin_y :: call MapHelloChunkItems
 	ld hl, wActiveChunk_0_0.origin_y :: call MapHelloChunkItems
 	ld hl, wActiveChunk_0_2.origin_y :: call MapHelloChunkItems
-	ld a, d :: ld [wShareOb.minor1], a
 	ret
 
 MapHelloChunkItems:
@@ -613,8 +619,6 @@ pops ; wShareOb
 ;; @param [wItemObBuild.chunk_scr_x]: chunk origin on screen, X axis
 ;; @param [wItemObBuild.chunk_scr_y]: chunk origin on screen, Y axis
 _RenderChunkItems:
-	ld a, [hl+] ; id_start.0
-	ld a, [hl+] ; id_start.1
 	ld a, [hl+] :: ld c, a ; len
 	ld a, c :: and a
 	ret z ; len == 0
@@ -623,9 +627,15 @@ _RenderChunkItems:
 
 	call ObdoCustomStartDE
 .item_draw_loop:
+	ld a, [hl+] ; item.id
+
 	; share oam slots
-	rrc b
-	jr c, :+
+	ld a, b
+	and a
+	jr z, :+
+	xor c
+	rrca
+	jr nc, :+
 	inc hl :: inc hl :: inc hl ; skip posy, posx, item
 	jr .continue2
 :
@@ -1191,9 +1201,8 @@ MapRenderSlot:
 	ld e, a
 
 	; Chunk lookup
-	ld hl, hMapSelectAddr
-	ld a, [hl+] :: ld h, [hl] :: ld l, a ; hMapSelectAddr
-	ld a, [hl+] :: ld h, [hl] :: ld l, a ; map.chunk_table
+	ld hl, wMapHeader.chunk_table
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
 	call MapChunkLookup
 	ret nc
 
@@ -1529,7 +1538,7 @@ Test_map_chunk_render:
 
 
 section "MapChunkLookup2", rom0
-;; Chunk table spatial lookup in the selected map (`hMapSelect...`).
+;; Chunk table spatial lookup in the open map.
 ;; Searches the map's chunk table for a chunk at the given chunk coordinates.
 ;; BANKNOTE: Caller must ensure selected map data is accessible.
 ;; @param D,E: row,column
@@ -1537,9 +1546,8 @@ section "MapChunkLookup2", rom0
 ;; @ret F.C: set if successful
 ;; @mut: AF, B, HL
 MapChunkLookup2::
-	ld hl, hMapSelectAddr
-	ld a, [hl+] :: ld h, [hl] :: ld l, a ; hMapSelectAddr
-	ld a, [hl+] :: ld h, [hl] :: ld l, a ; map.chunk_table
+	ld hl, wMapHeader.chunk_table
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
 	ld a, [hl+]
 	ld b, a
 :
@@ -1665,9 +1673,8 @@ MapZoneQuery::
 	rl e :: rl d :: ld e, d ; X
 	ld d, b :: rl c :: rl d ; Y
 
-	ld hl, hMapSelectAddr
-	ld a, [hl+] :: ld h, [hl] :: ld l, a ; hMapSelectAddr
-	ld a, [hl+] :: ld h, [hl] :: ld l, a ; map.chunk_table
+	ld hl, wMapHeader.chunk_table
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
 	call MapChunkLookup
 		pop bc :: pop de
 	jr nc, .exit_miss

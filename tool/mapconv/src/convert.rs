@@ -3,8 +3,8 @@ use std::collections::{HashMap, HashSet};
 use crate::{
     coord::{DVec2, IVec2, U16Vec2, U8Vec2},
     extract::{Extract, ExtractNode, ExtractNodeAccess, ExtractNodeId},
-    item::ItemPlace,
-    out::{Chunk, Element},
+    item::{ItemPlace, ItemType},
+    out::{Chunk, Element, MapInfo},
 };
 
 pub mod these_converters {
@@ -41,8 +41,7 @@ pub mod these_converters {
             // convert chunks
             partial.chunks = chunk_coords
                 .iter()
-                .enumerate()
-                .map(|(index, old_coord)| {
+                .map(|old_coord| {
                     let mut chr_brushes: Brushes<u8> = Default::default();
                     let mut atrb_brushes: Brushes<u8> = Default::default();
                     for (_, _, cell) in conversion
@@ -63,11 +62,7 @@ pub mod these_converters {
                     chr_brushes.push(Brush::Terminator);
                     atrb_brushes.push(Brush::Terminator);
                     let coord = (old_coord - chunk_origin).as_u8vec2();
-                    let item_id_start = (index * Chunk::ITEMS_MAX) as u16;
-                    (
-                        coord,
-                        Chunk::with_tilemap(coord, item_id_start, chr_brushes, atrb_brushes),
-                    )
+                    (coord, Chunk::with_tilemap(coord, chr_brushes, atrb_brushes))
                 })
                 .collect();
 
@@ -202,7 +197,8 @@ pub mod these_converters {
                 let item: ItemType = tiled_ext::properties_get(&object.properties, "item").unwrap();
                 let position =
                     partial.extract_global_position_to_world_dots(object.global_position());
-                partial.add_chunk_item(ItemPlace::new(item, position));
+                let id = partial.take_next_item_id(item);
+                partial.add_chunk_item(ItemPlace::new(id, item, position));
                 ConvertNodeResult::Consume
             },
         );
@@ -217,6 +213,8 @@ pub struct Partial {
     chunks: HashMap<U8Vec2, Chunk>,
     /// The tilemap origin from the source (i.e. before correction) in chunk coords.
     chunk_origin: Option<IVec2>,
+    /// Number of trash items placed
+    trash_item_count: u8,
 }
 
 impl Partial {
@@ -228,6 +226,14 @@ impl Partial {
                 * 16
                 * 8)
         .as_u16vec2()
+    }
+
+    pub fn take_next_item_id(&mut self, item_type: ItemType) -> u8 {
+        assert!(item_type.is_trash());
+        assert!(self.trash_item_count < 255);
+        let id = self.trash_item_count;
+        self.trash_item_count += 1;
+        id
     }
 
     pub fn add_map_element(&mut self, elem: Element) {
@@ -244,10 +250,9 @@ impl Partial {
     }
 
     pub fn chunk_mut(&mut self, coord: U8Vec2) -> &mut Chunk {
-        let index = self.chunks.len();
         self.chunks
             .entry(coord)
-            .or_insert_with(|| Chunk::new(coord, (index * Chunk::ITEMS_MAX) as u16))
+            .or_insert_with(|| Chunk::new(coord))
     }
 }
 
@@ -256,6 +261,7 @@ impl Partial {
 pub struct Converted {
     pub resources: Vec<Element>,
     pub chunks: Vec<Chunk>,
+    pub info: MapInfo,
 }
 
 /// Conversion configuration context
@@ -363,7 +369,14 @@ impl Conversion {
         // finalise output
         let resources = partial.map_elements;
         let chunks: Vec<Chunk> = partial.chunks.drain().map(|(_, chunk)| chunk).collect();
-        Converted { resources, chunks }
+        let info = MapInfo {
+            trash_item_count: partial.trash_item_count,
+        };
+        Converted {
+            resources,
+            chunks,
+            info,
+        }
     }
 }
 

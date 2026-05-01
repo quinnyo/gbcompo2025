@@ -6,6 +6,7 @@ pub struct Map {
     name: String,
     resources: Vec<Element>,
     chunks: Vec<Chunk>,
+    info: MapInfo,
     /// Runtime map state allocation table.
     runtime_allocs: HashMap<ElemId, u16>,
 }
@@ -28,12 +29,23 @@ impl Map {
             format!("section \"map_{}\", romx", self.name),
             format!("map_{}::", self.name),
         ]);
+        let label_info = ".info";
         let label_chunk_table = ".chunk_table";
         let label_resources = ".resources";
         code.append(&mut vec![
+            format!("\tdw {}", label_info),
             format!("\tdw {}", label_chunk_table),
             format!("\tdw {}", label_resources),
         ]);
+
+        // info
+        code.append(&mut vec![
+            String::default(),
+            format!("{}:", label_info),
+            format!("\tdb {}", self.info.trash_item_count),
+        ]);
+
+        // resources
         code.append(&mut vec![
             String::default(),
             format!("{}:", label_resources),
@@ -42,6 +54,8 @@ impl Map {
         for res in self.resources.iter() {
             res.rgbasm(self, code);
         }
+
+        // chunks
         code.push(String::default());
         let mut chunk_table: HashMap<u8, Vec<u8>> = HashMap::new();
         for chunk in self.chunks.iter() {
@@ -52,6 +66,7 @@ impl Map {
                 .push(chunk.coord.x);
         }
 
+        // chunk table
         let mut chunk_table_rows: Vec<ChunkTableRow> = chunk_table
             .drain()
             .map(|(y, columns)| ChunkTableRow::from_y_columns(y, columns))
@@ -86,11 +101,12 @@ impl Map {
         self.runtime_allocs.get(&id).copied()
     }
 
-    pub fn new(name: String, resources: Vec<Element>, chunks: Vec<Chunk>) -> Self {
+    pub fn new(name: String, resources: Vec<Element>, chunks: Vec<Chunk>, info: MapInfo) -> Self {
         let mut map = Self {
             name,
             resources,
             chunks,
+            info,
             runtime_allocs: HashMap::new(),
         };
         map.sort();
@@ -115,6 +131,12 @@ impl Map {
         self.chunks
             .sort_by(|a, b| a.coord.y.cmp(&b.coord.y).then(a.coord.x.cmp(&b.coord.x)));
     }
+}
+
+#[derive(Debug, Default)]
+pub struct MapInfo {
+    /// Number of trash items placed in the map.
+    pub trash_item_count: u8,
 }
 
 struct AllocItem {
@@ -394,7 +416,6 @@ pub struct Chunk {
     brushes0: Brushes<u8>,
     brushes1: Brushes<u8>,
     elements: Vec<Element>,
-    item_id_start: u16,
     items: Vec<ItemPlace>,
 }
 
@@ -454,11 +475,10 @@ impl Chunk {
         items.sort();
         code.append(&mut vec![
             format!("{}:", &label_items),
-            format!("\tdw {} ; item_id_start", self.item_id_start),
             format!("\tdb {} ; items.len()", items.len()),
         ]);
         let chunk_origin = self.origin();
-        for (index, itp) in items.iter().enumerate() {
+        for itp in items.iter() {
             let position = itp.position - chunk_origin;
             assert!(
                 position.x < 128 && position.y < 128,
@@ -468,8 +488,8 @@ impl Chunk {
             let y = position.y as u8;
             let item_type = itp.item.encode();
             code.append(&mut vec![format!(
-                "\t\tdb {}, {}, {} ; item {}: {:?}",
-                y, x, item_type, index, itp.item
+                "\t\tdb {}, {}, {}, {} ; item {}: {:?}",
+                itp.id, y, x, item_type, itp.id, itp.item
             )]);
         }
     }
@@ -478,29 +498,22 @@ impl Chunk {
         Self::coord_label(self.coord.x, self.coord.y)
     }
 
-    pub fn new(coord: U8Vec2, item_id_start: u16) -> Self {
+    pub fn new(coord: U8Vec2) -> Self {
         Self {
             coord,
             brushes0: Default::default(),
             brushes1: Default::default(),
             elements: Default::default(),
-            item_id_start,
             items: Default::default(),
         }
     }
 
-    pub fn with_tilemap(
-        coord: U8Vec2,
-        item_id_start: u16,
-        brushes0: Brushes<u8>,
-        brushes1: Brushes<u8>,
-    ) -> Self {
+    pub fn with_tilemap(coord: U8Vec2, brushes0: Brushes<u8>, brushes1: Brushes<u8>) -> Self {
         Self {
             coord,
             brushes0,
             brushes1,
             elements: Default::default(),
-            item_id_start,
             items: Default::default(),
         }
     }
