@@ -16,6 +16,19 @@ def BR__MAX rb 0
 def BR__TYPE equ (1 << bitwidth(BR__MAX)) - 1
 
 
+;; Maximum number of trash items in one map.
+def MapCollection_TRASH_ITEM_COUNT_MAX equ 200
+;; Size of map trash item collection state in bytes
+def szMapCollection_TRASH_ITEMS equ MapCollection_TRASH_ITEM_COUNT_MAX / 8
+
+st MapCollection
+	;; Number of trash items placed in the map.
+	stf trash_items_placed, 1
+	;; Collection state of each trash item.
+	stf trash_items, szMapCollection_TRASH_ITEMS
+st
+
+
 st MapInfo
 	;; Number of trash items placed in the map.
 	stf trash_item_count, 1

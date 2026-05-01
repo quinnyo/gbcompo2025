@@ -16,6 +16,10 @@ impl Map {
     pub const RUNTIME_STATE_ADDRESS: u16 = 0xD000;
     /// Size in bytes of `wMapState` section.
     pub const RUNTIME_STATE_SIZE: u16 = 0x400;
+    /// Maximum number of trash items that can be placed in a map.
+    pub const TRASH_ITEMS_COUNT_MAX: u8 = 200;
+    /// Size of trash item collection state in bytes.
+    pub const TRASH_ITEMS_BYTES: u8 = Self::TRASH_ITEMS_COUNT_MAX.div_ceil(8);
 
     pub fn rgbasm_write(&self, mut w: impl std::io::Write) -> crate::Result<()> {
         let mut code = vec![];
@@ -222,6 +226,38 @@ pub mod code {
                 Code::Block(codes) => codes.iter().flat_map(|code| code.bytes()).collect(),
                 Code::Pin => vec![],
                 Code::Nil => vec![],
+            }
+        }
+
+        pub fn rgbasm(&self, lines: &mut Vec<String>) {
+            match self {
+                Code::Db(items) => {
+                    lines.push(format!(
+                        "\tdb {}",
+                        items
+                            .iter()
+                            .map(|x| format!("${:02X}", *x))
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    ));
+                }
+                Code::Dw(items) => {
+                    lines.push(format!(
+                        "\tdw {}",
+                        items
+                            .iter()
+                            .map(|x| format!("${:04X}", *x))
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    ));
+                }
+                Code::Block(codes) => {
+                    for code in codes.iter() {
+                        code.rgbasm(lines);
+                    }
+                }
+                Code::Pin => todo!(),
+                Code::Nil => todo!(),
             }
         }
     }

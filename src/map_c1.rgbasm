@@ -47,12 +47,12 @@ map_c1::
 	dw $D00B
 .chunk_0_0_items:
 	db 6 ; items.len()
-		db 14, 72, 39, 1 ; item 14: Trash1
-		db 16, 88, 31, 1 ; item 16: Trash1
-		db 18, 107, 22, 1 ; item 18: Trash1
-		db 3, 108, 98, 1 ; item 3: Trash1
-		db 6, 116, 82, 1 ; item 6: Trash1
-		db 21, 117, 2, 1 ; item 21: Trash1
+		db 0, 72, 39, 1 ; item 0: Trash1
+		db 3, 88, 31, 1 ; item 3: Trash1
+		db 5, 107, 22, 1 ; item 5: Trash1
+		db 6, 108, 98, 1 ; item 6: Trash1
+		db 7, 116, 82, 1 ; item 7: Trash1
+		db 8, 117, 2, 1 ; item 8: Trash1
 .chunk_1_0:
 	dw .chunk_1_0_br0, .chunk_1_0_br1, .chunk_1_0_elems, .chunk_1_0_items
 .chunk_1_0_br0:
@@ -68,9 +68,9 @@ map_c1::
 	dw $D00B
 .chunk_1_0_items:
 	db 3 ; items.len()
-		db 8, 77, 58, 1 ; item 8: Trash1
-		db 9, 84, 34, 1 ; item 9: Trash1
-		db 0, 100, 2, 1 ; item 0: Trash1
+		db 1, 77, 58, 1 ; item 1: Trash1
+		db 2, 84, 34, 1 ; item 2: Trash1
+		db 4, 100, 2, 1 ; item 4: Trash1
 .chunk_2_0:
 	dw .chunk_2_0_br0, .chunk_2_0_br1, .chunk_2_0_elems, .chunk_2_0_items
 .chunk_2_0_br0:
@@ -121,14 +121,14 @@ map_c1::
 	db 0
 .chunk_0_1_items:
 	db 8 ; items.len()
-		db 7, 1, 58, 1 ; item 7: Trash1
-		db 19, 6, 3, 1 ; item 19: Trash1
-		db 17, 28, 11, 1 ; item 17: Trash1
-		db 13, 28, 123, 1 ; item 13: Trash1
-		db 10, 45, 107, 1 ; item 10: Trash1
-		db 2, 68, 21, 1 ; item 2: Trash1
-		db 1, 87, 21, 1 ; item 1: Trash1
-		db 5, 110, 11, 1 ; item 5: Trash1
+		db 9, 1, 58, 1 ; item 9: Trash1
+		db 10, 6, 3, 1 ; item 10: Trash1
+		db 11, 28, 11, 1 ; item 11: Trash1
+		db 12, 28, 123, 1 ; item 12: Trash1
+		db 18, 45, 107, 1 ; item 18: Trash1
+		db 19, 68, 21, 1 ; item 19: Trash1
+		db 20, 87, 21, 1 ; item 20: Trash1
+		db 21, 110, 11, 1 ; item 21: Trash1
 .chunk_1_1:
 	dw .chunk_1_1_br0, .chunk_1_1_br1, .chunk_1_1_elems, .chunk_1_1_items
 .chunk_1_1_br0:
@@ -139,11 +139,11 @@ map_c1::
 	db 0
 .chunk_1_1_items:
 	db 5 ; items.len()
-		db 12, 29, 27, 1 ; item 12: Trash1
-		db 20, 30, 42, 1 ; item 20: Trash1
+		db 13, 29, 27, 1 ; item 13: Trash1
+		db 14, 30, 42, 1 ; item 14: Trash1
 		db 15, 31, 10, 1 ; item 15: Trash1
-		db 11, 42, 96, 1 ; item 11: Trash1
-		db 4, 44, 107, 1 ; item 4: Trash1
+		db 16, 42, 96, 1 ; item 16: Trash1
+		db 17, 44, 107, 1 ; item 17: Trash1
 .chunk_2_1:
 	dw .chunk_2_1_br0, .chunk_2_1_br1, .chunk_2_1_elems, .chunk_2_1_items
 .chunk_2_1_br0:

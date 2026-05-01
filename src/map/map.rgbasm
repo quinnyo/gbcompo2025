@@ -242,6 +242,11 @@ MapOpen::
 	ld c, szMapInfo
 	call MemCopySmall
 
+	; Initialise map collection
+	ldh a, [hMapSelectAddr + 0] :: ld l, a
+	ldh a, [hMapSelectAddr + 1] :: ld h, a
+	call MapCollectionOpen
+
 	; Process map objects
 	call _SetupObjects
 
@@ -628,6 +633,16 @@ _RenderChunkItems:
 	call ObdoCustomStartDE
 .item_draw_loop:
 	ld a, [hl+] ; item.id
+		push bc :: push de :: push hl
+	ld b, a ; query item id
+	call MapCollectionTrashQuery
+		pop hl :: pop de :: pop bc
+	jr c, :+
+.err_collection_query_failed
+	ld b, b
+	jr .err_collection_query_failed
+:
+	jr nz, .skip
 
 	; share oam slots
 	ld a, b
@@ -636,6 +651,7 @@ _RenderChunkItems:
 	xor c
 	rrca
 	jr nc, :+
+.skip:
 	inc hl :: inc hl :: inc hl ; skip posy, posx, item
 	jr .continue2
 :

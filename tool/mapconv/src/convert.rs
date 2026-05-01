@@ -190,18 +190,38 @@ pub mod these_converters {
             },
         );
 
-        // ItemPlace
+        // ItemPlace (proto items)
         conversion.add_node_converter(
             SelectNode::UserType("ItemPlace"),
             |object, _conversion, partial| {
-                let item: ItemType = tiled_ext::properties_get(&object.properties, "item").unwrap();
+                let item_type: ItemType =
+                    tiled_ext::properties_get(&object.properties, "item").unwrap();
                 let position =
                     partial.extract_global_position_to_world_dots(object.global_position());
-                let id = partial.take_next_item_id(item);
-                partial.add_chunk_item(ItemPlace::new(id, item, position));
+                partial.add_proto_item(position, item_type);
                 ConvertNodeResult::Consume
             },
         );
+
+        // Finalise proto items ~~> ItemPlace
+        conversion.add_processor(Importance::Critical, |_conversion, partial| {
+            partial.proto_items.sort_by(|a, b| {
+                a.0.y
+                    .cmp(&b.0.y)
+                    .then(a.0.x.cmp(&b.0.x))
+                    .then(a.1.cmp(&b.1))
+            });
+            let mut items: Vec<ItemPlace> = partial
+                .proto_items
+                .drain(..)
+                .enumerate()
+                .map(|(i, (position, item_type))| ItemPlace::new(i as u8, item_type, position))
+                .collect();
+            for itp in items.drain(..) {
+                partial.add_chunk_item(itp);
+            }
+            ProcessResult::Success
+        });
     }
 }
 
@@ -213,6 +233,8 @@ pub struct Partial {
     chunks: HashMap<U8Vec2, Chunk>,
     /// The tilemap origin from the source (i.e. before correction) in chunk coords.
     chunk_origin: Option<IVec2>,
+    /// Collect all trash items
+    proto_items: Vec<(U16Vec2, ItemType)>,
     /// Number of trash items placed
     trash_item_count: u8,
 }
@@ -228,14 +250,6 @@ impl Partial {
         .as_u16vec2()
     }
 
-    pub fn take_next_item_id(&mut self, item_type: ItemType) -> u8 {
-        assert!(item_type.is_trash());
-        assert!(self.trash_item_count < 255);
-        let id = self.trash_item_count;
-        self.trash_item_count += 1;
-        id
-    }
-
     pub fn add_map_element(&mut self, elem: Element) {
         self.map_elements.push(elem)
     }
@@ -245,8 +259,14 @@ impl Partial {
     }
 
     pub fn add_chunk_item(&mut self, itp: ItemPlace) {
+        assert!(self.trash_item_count < 255);
+        self.trash_item_count += 1;
         let coord = (itp.position / 8 / 16).as_u8vec2();
         self.chunk_mut(coord).push_item(itp);
+    }
+
+    pub fn add_proto_item(&mut self, position: U16Vec2, item_type: ItemType) {
+        self.proto_items.push((position, item_type));
     }
 
     pub fn chunk_mut(&mut self, coord: U8Vec2) -> &mut Chunk {
@@ -367,6 +387,7 @@ impl Conversion {
         );
 
         // finalise output
+        assert!(partial.proto_items.is_empty());
         let resources = partial.map_elements;
         let chunks: Vec<Chunk> = partial.chunks.drain().map(|(_, chunk)| chunk).collect();
         let info = MapInfo {
