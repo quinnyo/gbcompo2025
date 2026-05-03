@@ -25,36 +25,42 @@ The front is intended to be used as a 'loading seam'.
 When scrolling results in the position of a front changing, a ScrollStat flag will be set (until the next update).
 */
 
+
 rsreset
-;; Set to request 'Reset' status.
-export def bScrollStat_RequestReset rb 1
-;; Set if scroll position has been (re)set directly.
-;; i.e. the current view rect has no relation to the previous one.
-export def bScrollStat_Reset rb 1
-;; Set if hScrollFrontY was changed in the most recent update.
-export def bScrollStat_ChangeFrontY rb 1
-;; Set if hScrollFrontX was changed in the most recent update.
+;; Set to request scroll state clear and reinitialise.
+export def bScrollCtl_RequestReset rb 1
+
+export def ScrollCtl_RequestReset equ 1 << bScrollCtl_RequestReset
+
+
+; X axis flags in low nybble
+rsreset
+; Update changed front of X axis.
 export def bScrollStat_ChangeFrontX rb 1
+;; Update changed chunk of X axis.
+export def bScrollStat_ChangeChunkX rb 1
 
-export def ScrollStat_RequestReset equ 1 << bScrollStat_RequestReset
-export def ScrollStat_Reset equ 1 << bScrollStat_Reset
-export def ScrollStat_ChangeFrontY equ 1 << bScrollStat_ChangeFrontY
-export def ScrollStat_ChangeFrontX equ 1 << bScrollStat_ChangeFrontX
+; Y axis flags in high nybble
+rsset 4
+; Update changed front of Y axis.
+export def bScrollStat_ChangeFrontY rb 1
+;; Update changed chunk of Y axis.
+export def bScrollStat_ChangeChunkY rb 1
 
-;; Mask off all transient (set every frame) status flags.
-def ScrollStat_Transient equ ScrollStat_Reset | ScrollStat_ChangeFrontY | ScrollStat_ChangeFrontX
+; Generic axis flags, to be shifted/swapped as appropriate.
+def bScrollStat_ChangeFront equ bScrollStat_ChangeFrontX
+def bScrollStat_ChangeChunk equ bScrollStat_ChangeChunkX
 
 
 def VIEW_COLUMNS equ 20
 def VIEW_ROWS equ 18
+def VIEW_CHUNK_RX equ 80
+def VIEW_CHUNK_RY equ 72
 
 
 section "hScroll", hram
+hScrollCtl:: db
 hScrollStat:: db
-hScrollFrontY:: db
-hScrollFrontX:: db
-hScrollAppliedY:: db
-hScrollAppliedX:: db
 
 
 section "wScroll", wram0
@@ -63,163 +69,113 @@ wScroll::
 	.dy:: db
 	;; View scroll position in dots (Y axis)
 	.y:: dw
+	;; Effective delta (Y axis) from last update
+	.applied_dy:: db
 	;; View scroll grid row
 	.row:: dw
 	.y_front_dist: db
+	.front_y:: db
+	;; Offset to view chunk dot (Y axis)
+	.chunk_point_yrel: db
+	;; Map chunk in view centre (Y coord)
+	.chunk_y:: dw
 
 	;; Pending view position delta (X axis)
 	.dx:: db
 	;; View scroll position in dots (X axis)
 	.x:: dw
+	;; Effective delta (X axis) from last update
+	.applied_dx:: db
 	;; View scroll grid column
 	.column:: dw
 	.x_front_dist: db
+	.front_x:: db
+	;; Offset to view chunk dot (X axis)
+	.chunk_point_xrel: db
+	;; Map chunk in view centre (X coord)
+	.chunk_x:: dw
 
 
 section "Scroll", rom0
 ScrollInit::
+	xor a :: ldh [hScrollCtl], a
+	ld a, $FF :: ldh [hScrollStat], a
+
 	ld hl, startof("wScroll")
 	ld c, sizeof("wScroll")
 	xor a
 	call MemFillSmall
-	ld a, ScrollStat_RequestReset :: ldh [hScrollStat], a
-	xor a
-	ldh [hScrollFrontY], a
-	ldh [hScrollFrontX], a
-	ldh [hScrollAppliedY], a
-	ldh [hScrollAppliedX], a
-	ld a, VIEW_ROWS + 1
-	ld [wScroll.y_front_dist], a
-	ld a, VIEW_COLUMNS + 1
-	ld [wScroll.x_front_dist], a
-	ret
 
-
-;; @ret DE: Tile grid row containing the top edge of the view rect.
-;; @mut: AF, DE
-ScrollGetViewRow::
-	ld a, [wScroll.y + 1] :: ld d, a
-	ld a, [wScroll.y + 0]
-	; dots / 8
-	srl d :: rra
-	srl d :: rra
-	srl d :: rra
-	ld e, a
-	ret
-
-
-;; @ret DE: Tile grid column containing the left edge of the view rect.
-;; @mut: AF, DE
-ScrollGetViewColumn::
-	ld a, [wScroll.x + 1] :: ld d, a
-	ld a, [wScroll.x + 0]
-	; dots / 8
-	srl d :: rra
-	srl d :: rra
-	srl d :: rra
-	ld e, a
+	ld a, VIEW_ROWS + 1 :: ld [wScroll.y_front_dist], a
+	ld a, VIEW_COLUMNS + 1 :: ld [wScroll.x_front_dist], a
+	ld a, VIEW_CHUNK_RY :: ld [wScroll.chunk_point_yrel], a
+	ld a, VIEW_CHUNK_RX :: ld [wScroll.chunk_point_xrel], a
 	ret
 
 
 ;; @mut: AF, BC, DE, HL
 ScrollUpdate::
-	ldh a, [hScrollStat]
-	and ~(ScrollStat_Transient)
-	ld b, a ; B will be the new value for hScrollStat
+	ldh a, [hScrollCtl]
+	bit bScrollCtl_RequestReset, a
+	jr nz, ScrollInit
 
+	ld b, 0 ; B will be the new value for hScrollStat
 	ld hl, wScroll.dy
-	call .UpdateAxis
-	ld a, c :: ldh [hScrollAppliedY], a
-	jr nc, :+
-	; Store updated front & set changed flag if it actually changed.
-	ldh a, [hScrollFrontY]
-	cp d
-	jr z, :+
-	ld a, d :: ldh [hScrollFrontY], a
-	set bScrollStat_ChangeFrontY, b
-:
+	call ScrollUpdateAxis
 
+	swap b
 	ld hl, wScroll.dx
-	call .UpdateAxis
-	ld a, c :: ldh [hScrollAppliedX], a
-	jr nc, :+
-	; Store updated front & set changed flag if it actually changed.
-	ldh a, [hScrollFrontX]
-	cp d
-	jr z, :+
-	ld a, d :: ldh [hScrollFrontX], a
-	set bScrollStat_ChangeFrontX, b
-:
+	call ScrollUpdateAxis
 
-	; Update status
-	ld a, b
-	and ScrollStat_RequestReset
-	jr nz, .set_reset
-	ld a, b
-.store_stat
-	ldh [hScrollStat], a
+	ld a, b :: ldh [hScrollStat], a
 	ret
-.set_reset
-	xor b ; clear request flag
-	or ScrollStat_Reset
-	jr .store_stat
 
 
 ;; @param HL: pointer to scroll axis state
-;; @ret D: new front position (only valid with F.C)
-;; @ret C: effective delta
-;; @ret F.C: set to indicate success
-;; @ret F.Z: set if zero delta
-;; @mut: AF, C, DE, HL
-.UpdateAxis:
+;; @inout B: ScrollStat flags
+;; @mut: AF, BC, DE, HL
+ScrollUpdateAxis:
 	; Load delta & clear the accumulator
 	ld c, [hl]
 	xor a :: ld [hl+], a
-	or c :: ret z ; delta is zero, nothing to do.
 
-	; Apply delta
-	ld a, [hl+] :: ld e, a
-	ld a, [hl-] :: ld d, a
+	; Get scroll position
+	ld a, [hl+] :: ld e, a ; pos.0
+	ld a, [hl-] :: ld d, a ; pos.1
 
-	; clamp delta if pos < 256
-	and a
+	; If delta is zero, skip calculation
+	ld a, c :: and a :: jr z, .delta_applied
+
+	; Maybe handle upper bound
+	rlca
+	jr c, :+ ; if delta is negative, skip upper bound
+	ld a, d :: inc a
 	jr nz, :+
-	; if delta < 0
-	bit 7, c
-	jr z, :+
-	xor a :: sub c
-	cp e
-	jr c, :+
-	; clamp delta to -position
-	xor a :: sub e :: ld c, a
-	ret z ; effective delta is zero, nothing to do
-	ld e, 0
-	jr .delta_applied
+	; D == $FF
+	sub e :: dec a :: ld c, a ; force delta = -(position + 1)
 :
 
 	inc d ; work on pos.hi + 1 to handle underflow
 	; signed addition ~~ if delta < 0, dec D to emulate delta having high byte of $FF
-	ld a, c
-	rlca
-	jr nc, :+
-	dec d
-:
-	ld a, e
-	add c
-	ld e, a
-	adc d
-	sub e
-	ld d, a
+	ld a, c :: rlca :: sbc a :: add d :: ld d, a ; dec D if delta is negative
+	ld a, e :: add c :: ld e, a
+	adc d :: sub e :: ld d, a
 	; if D (pos.hi + 1) is zero, it underflowed. Clamp to zero.
-	and a
 	jr nz, :+
 	ld de, $0100
 :
 	dec d ; undo the inc from before applying the delta, D = pos.hi
-.delta_applied
 
+.delta_applied:
+	; Calculate effective delta
+	ld a, e :: sub [hl] :: ld c, a
+	; Store updated position
 	ld a, e :: ld [hl+], a
 	ld a, d :: ld [hl+], a
+	; Store effective delta
+	ld a, c :: ld [hl+], a
+
+		push de ; position
 
 	; dot to grid
 	ld a, e
@@ -227,17 +183,48 @@ ScrollUpdate::
 	srl d :: rra
 	srl d :: rra
 	ld e, a
-
 	; store grid position
 	ld a, e :: ld [hl+], a
 	ld a, d :: ld [hl+], a
 
-	; Advance front
-	; add -1 if delta is negative or +FRONT offset if positive
+	; update front: add -1 if delta is negative or +FRONT offset if positive
 	ld a, c :: rlca :: sbc a
 	or [hl] ; front_dist
 	add e
+	inc hl
+	cp [hl]
+	jr z, :+
+	set bScrollStat_ChangeFront, b
+:
+	ld [hl+], a
+
+		pop de ; position
+
+	; chunk view coord (map chunk in view centre)
+	; offset to view centre
+	ld a, [hl+] ; chunk_point_rel
+	add e :: ld e, a
+	adc d :: sub e :: ld d, a
+
+	; div 128 via bit shift left by 7 bits
+	; except impl 7 bit shift left by rotating DE left one bit and swapping D & E
+	; (and masking off the low 7 bits)
+	xor a ; need a zero for the result high byte
+	rl e
+	rl d
+	ld e, d
+	rla
 	ld d, a
-	scf ; F.C for success
+
+	; Compare & store chunk coord
+	ld c, [hl]
+	ld a, e :: ld [hl+], a
+	sub c :: ld e, a
+	ld c, [hl]
+	ld a, d :: ld [hl+], a
+	sub c :: or e
+	jr z, :+
+	set bScrollStat_ChangeChunk, b
+:
 	ret
 

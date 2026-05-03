@@ -490,16 +490,14 @@ MapUpdate::
 	ldh a, [hScrollStat]
 	bit bScrollStat_ChangeFrontY, a
 	jr z, :+
-	ldh a, [hScrollFrontY]
-	ld e, a
+	ld a, [wScroll.front_y] :: ld e, a
 	call MapSyncFrontRow
 :
 
 	ldh a, [hScrollStat]
 	bit bScrollStat_ChangeFrontX, a
 	jr z, :+
-	ldh a, [hScrollFrontX]
-	ld e, a
+	ld a, [wScroll.front_x] :: ld e, a
 	call MapSyncFrontColumn
 :
 
@@ -755,7 +753,7 @@ MapSyncVisible::
 	call MapRenderScan
 	call MapRenderScan
 	ld d, 20
-	ld a, [wScroll.row]
+	ld a, [wScroll.row + 0]
 	dec a
 :
 	ld a, e
@@ -1337,47 +1335,24 @@ _UpdateActiveChunkSlot:
 ;; @ret B,C: Y,X chunk view coord delta
 ;; @mut: AF, BC, DE, HL
 _UpdateViewChunk:
+	ldh a, [hScrollStat] :: ld c, a
+	bit bScrollStat_ChangeChunkX, c
+	jr z, :+
 	; Update X axis chunk view position & slots
-	ld c, low(hMapViewChunkX)
-	ldh a, [c] :: ld b, a
-	; X axis view position (world dots) to chunk coords
-	ld hl, wScroll.x
-	ld a, [hl+]
-	ld h, [hl]
-	add 80 ; offset to view rect centre
-	ld l, a
-	adc h
-	sub l
-	ld h, a
-	; divide by 128: hi.0 <~~ lo.7
-	ld a, l
-	rla
-	ld a, h
-	rla
-
-	ldh [c], a ; save newX
+	ldh a, [hMapViewChunkX] :: ld b, a
+	ld a, [wScroll.chunk_x + 0]
+	ldh [hMapViewChunkX], a ; save newX
 	ld e, a ; return newX
 	sub b :: ld d, a ; temp. hold deltaX in D
 	call nz, _UpdateSlotsX
+:
 
+	bit bScrollStat_ChangeChunkY, c
+	ret z
 	; Update Y axis chunk view position & slots
-	dec c :: ldh a, [c] :: ld b, a
-	; Y axis view position (world dots) to chunk coords
-	ld hl, wScroll.y
-	ld a, [hl+]
-	ld h, [hl]
-	add 72 ; offset to view rect centre
-	ld l, a
-	adc h
-	sub l
-	ld h, a
-	; divide by 128: hi.0 <~~ lo.7
-	ld a, l
-	rla
-	ld a, h
-	rla
-
-	ldh [c], a ; save newY
+	ldh a, [hMapViewChunkY] :: ld b, a
+	ld a, [wScroll.chunk_y + 0]
+	ldh [hMapViewChunkY], a ; save newY
 	ld c, d ; return deltaX
 	ld d, a ; return newY
 	sub b :: ld b, a ; return deltaY
