@@ -424,12 +424,20 @@ end
 Scroll = st_create("Scroll")
 st_field(Scroll, "dy", 1, true)
 st_field(Scroll, "y", 2)
+st_field(Scroll, "applied_dy", 1, true)
 st_field(Scroll, "row", 2)
 st_field(Scroll, "y_front_dist", 1)
+st_field(Scroll, "front_y", 1)
+st_field(Scroll, "chunk_point_yrel", 1)
+st_field(Scroll, "chunk_y", 2)
 st_field(Scroll, "dx", 1, true)
 st_field(Scroll, "x", 2)
+st_field(Scroll, "applied_dx", 1, true)
 st_field(Scroll, "column", 2)
 st_field(Scroll, "x_front_dist", 1)
+st_field(Scroll, "front_x", 1)
+st_field(Scroll, "chunk_point_xrel", 1)
+st_field(Scroll, "chunk_x", 2)
 
 
 Scroll.fieldfmt = {
