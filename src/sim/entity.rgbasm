@@ -457,7 +457,7 @@ EntityFnUpdateMoveCollide::
 	set ENTINFOB_INVIEW, [hl]
 	entity_index Entity_DispX
 	ld a, c :: ld [hl+], a
-	ld a, e :: ld [hl+], a
+	ld a, b :: ld [hl+], a
 :
 
 	ldh a, [hCollide.result]
