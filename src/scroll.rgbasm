@@ -35,21 +35,36 @@ export def ScrollCtl_RequestReset equ 1 << bScrollCtl_RequestReset
 
 ; X axis flags in low nybble
 rsreset
-; Update changed front of X axis.
+;; Scroll resulted in changed front on X axis.
 export def bScrollStat_ChangeFrontX rb 1
-;; Update changed chunk of X axis.
+;; Scroll resulted in changed view chunk on X axis.
 export def bScrollStat_ChangeChunkX rb 1
 
 ; Y axis flags in high nybble
 rsset 4
-; Update changed front of Y axis.
+;; Scroll resulted in changed front on Y axis.
 export def bScrollStat_ChangeFrontY rb 1
-;; Update changed chunk of Y axis.
+;; Scroll resulted in changed view chunk on Y axis.
 export def bScrollStat_ChangeChunkY rb 1
+
+;; Set when scroll state was reset. This indicates that the scroll state has changed without scrolling.
+export def bScrollStat_Reset equ 7
+
+
+export def ScrollStat_ChangeFrontX equ 1 << bScrollStat_ChangeFrontX
+export def ScrollStat_ChangeChunkX equ 1 << bScrollStat_ChangeChunkX
+export def ScrollStat_ChangeFrontY equ 1 << bScrollStat_ChangeFrontY
+export def ScrollStat_ChangeChunkY equ 1 << bScrollStat_ChangeChunkY
+export def ScrollStat_Reset equ 1 << bScrollStat_Reset
+
 
 ; Generic axis flags, to be shifted/swapped as appropriate.
 def bScrollStat_ChangeFront equ bScrollStat_ChangeFrontX
 def bScrollStat_ChangeChunk equ bScrollStat_ChangeChunkX
+
+
+;; Maximum scroll step in a single update/tick.
+def SCROLL_DELTA_STEP_MAX equ 8
 
 
 def VIEW_COLUMNS equ 20
@@ -113,11 +128,30 @@ ScrollInit::
 	ret
 
 
+;; Reset scroll state (next Update) and set the scroll position manually.
+;; @param BC: Y position
+;; @param DE: X position
+;; @mut: AF, HL
+ScrollReset::
+	ld hl, wScroll.y
+	ld a, c :: ld [hl+], a
+	ld a, b :: ld [hl+], a
+
+	ld hl, wScroll.x
+	ld a, e :: ld [hl+], a
+	ld a, d :: ld [hl+], a
+
+	ldh a, [hScrollCtl]
+	set bScrollCtl_RequestReset, a
+	ldh [hScrollCtl], a
+	ret
+
+
 ;; @mut: AF, BC, DE, HL
 ScrollUpdate::
 	ldh a, [hScrollCtl]
 	bit bScrollCtl_RequestReset, a
-	jr nz, ScrollInit
+	jr nz, ScrollDoReset
 
 	ld b, 0 ; B will be the new value for hScrollStat
 	ld hl, wScroll.dy
@@ -131,21 +165,43 @@ ScrollUpdate::
 	ret
 
 
+ScrollDoReset:
+	ld hl, wScroll.dy
+	xor a :: ld [hl+], a
+	ld c, a ; zero effective delta
+	ld b, a ; ScrollStat
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+	call ScrollFinaliseAxis
+
+	swap b
+	ld hl, wScroll.dx
+	xor a :: ld [hl+], a
+	ld c, a ; zero effective delta
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+	call ScrollFinaliseAxis
+
+	ld a, b :: or ScrollStat_Reset :: ldh [hScrollStat], a
+	ldh a, [hScrollCtl] :: and ~ScrollCtl_RequestReset :: ldh [hScrollCtl], a
+	ret
+
+
 ;; @param HL: pointer to scroll axis state
 ;; @inout B: ScrollStat flags
 ;; @mut: AF, BC, DE, HL
 ScrollUpdateAxis:
-	; Load delta & clear the accumulator
-	ld c, [hl]
-	xor a :: ld [hl+], a
+	ld a, [hl]
+	and a
+	ret z
+	call _GetScrollDeltaStep
+	ld [hl+], a
 
 	; Get scroll position
 	ld a, [hl+] :: ld e, a ; pos.0
 	ld a, [hl-] :: ld d, a ; pos.1
 
-	; If delta is zero, skip calculation
 	ld a, c :: and a :: jr z, .delta_applied
-
 	; Maybe handle upper bound
 	rlca
 	jr c, :+ ; if delta is negative, skip upper bound
@@ -153,11 +209,13 @@ ScrollUpdateAxis:
 	jr nz, :+
 	; D == $FF
 	sub e :: dec a :: ld c, a ; force delta = -(position + 1)
+	jr z, .delta_applied ; early out if new delta is zero
 :
 
 	inc d ; work on pos.hi + 1 to handle underflow
 	; signed addition ~~ if delta < 0, dec D to emulate delta having high byte of $FF
 	ld a, c :: rlca :: sbc a :: add d :: ld d, a ; dec D if delta is negative
+	; Add delta to position.
 	ld a, e :: add c :: ld e, a
 	adc d :: sub e :: ld d, a
 	; if D (pos.hi + 1) is zero, it underflowed. Clamp to zero.
@@ -169,6 +227,18 @@ ScrollUpdateAxis:
 .delta_applied:
 	; Calculate effective delta
 	ld a, e :: sub [hl] :: ld c, a
+
+
+	; FALLTHROUGH
+
+
+;; Set scroll axis position and state.
+;; @param HL: pointer to scroll axis @ applied_{y|x}
+;; @param DE: position
+;; @param C: effective scroll delta
+;; @inout B: ScrollStat flags
+;; @mut: AF, BC, DE, HL
+ScrollFinaliseAxis:
 	; Store updated position
 	ld a, e :: ld [hl+], a
 	ld a, d :: ld [hl+], a
@@ -226,5 +296,32 @@ ScrollUpdateAxis:
 	jr z, :+
 	set bScrollStat_ChangeChunk, b
 :
+	ret
+
+
+;; Take scroll delta step from scroll delta accumulator.
+;; @param A: delta accumulator
+;; @ret A: delta accumulator (updated)
+;; @ret C: delta step
+;; @mut: AF, C, E
+_GetScrollDeltaStep:
+	ld c, a ; delta step (to be adjusted)
+	bit 7, c
+	jr nz, .negative
+.positive:
+	ld e, SCROLL_DELTA_STEP_MAX
+	cp e
+	jr c, .finalise ; accum < max
+	jr .clamp
+.negative:
+	ld e, -SCROLL_DELTA_STEP_MAX
+	cp e
+	jr nc, .finalise ; accum is negative and accum >= max
+.clamp:
+	ld c, e ; max <= accum ~~ clamp delta step to max
+.finalise:
+	; reduce accum by delta step
+	sub c
+	; xor a
 	ret
 

@@ -367,15 +367,28 @@ PlayerRender:
 	ldh a, [hEntityActive.state + 0] :: ld l, a
 	ldh a, [hEntityActive.state + 1] :: ld h, a
 
-	; After scrolling, adjust display position
-	entity_index Entity_DispX
+	entity_index Entity_PosX
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+	coord_int16 de
+	ld a, [wScroll.x + 0] :: ld c, a
+	ld a, [wScroll.x + 1] :: ld b, a
+	ld a, e :: sub c :: ld e, a
+	ld a, d :: sbc b :: ld d, a
+
+	entity_index Entity_PosY
 	ld a, [hl+] :: ld c, a
-	ld a, [wScroll.applied_dx]
-	cpl :: inc a :: add c :: add ENT_SPRITE_X_OFF :: ld c, a
-	assert Entity_DispY == Entity_DispX + 1
 	ld a, [hl+] :: ld b, a
-	ld a, [wScroll.applied_dy]
-	cpl :: inc a :: add b :: add ENT_SPRITE_Y_OFF :: ld b, a
+	coord_int16 bc
+		push de
+	ld a, [wScroll.y + 0] :: ld e, a
+	ld a, [wScroll.y + 1] :: ld d, a
+	ld a, c :: sub e :: ld c, a
+	ld a, b :: sbc d :: ld b, a
+		pop de
+
+	call SprxTestVisibility
+	ret nc
 
 		push bc
 
@@ -427,6 +440,8 @@ PlayerViewTarget::
 	call EntityAt
 	ret nc
 
+	; TODO: pick target point ahead on current heading
+
 	; player entity Y position
 	entity_index Entity_PosY
 	ld a, [hl+] :: ld c, a
@@ -439,10 +454,7 @@ PlayerViewTarget::
 	ld a, [wScroll.y + 1]
 	adc e :: sub e :: ld d, a
 
-	coord_sub bc, de
-	entity_index Entity_DispY
-	ld a, c :: add 144 / 2 :: ld [hl], a
-	call _ScrollFenceThing
+	call _ScrollTargetDelta
 	ld [wScroll.dy], a
 
 	; player entity X position
@@ -457,39 +469,39 @@ PlayerViewTarget::
 	ld a, [wScroll.x + 1]
 	adc e :: sub e :: ld d, a
 
-	coord_sub bc, de
-	entity_index Entity_DispX
-	ld a, c :: add 160 / 2 :: ld [hl], a
-	call _ScrollFenceThing
+	call _ScrollTargetDelta
 	ld [wScroll.dx], a
 
 	ret
 
 
-;; Scroll view if target is more than this distance from the screen centre.
-def SCROLL_FENCE equ 4
-
-
-;; @param C: dCentre -- target position relative to view centre
-;; @ret A: scroll delta
-_ScrollFenceThing:
+;; @param BC: target state
+;; @param DE: current view state
+;; @ret BC: raw delta
+;; @ret A: signed delta, clamped to scroll delta range (+/- 127)
+;; @mut: AF, BC, D
+_ScrollTargetDelta:
+	coord_sub bc, de
+	ld a, b
+	bit 7, a :: jr nz, .negative
+.positive:
+	ld d, 127
+	and a :: jr nz, .saturate
+	; high byte is zero ~~ check low byte is less than 128
+	ld a, d
+	cp c :: jr c, .saturate ; diff > 127
 	ld a, c
-	and a
-	ret z
-	rlca
-	jr c, .negative
-.positive
-	ld a, c
-	sub SCROLL_FENCE
-	ret nc
-	xor a
 	ret
-.negative
-	ld a, c
-	sub -SCROLL_FENCE
-	ret c
-	xor a
+.saturate:
+	ld a, d ; saturate
 	ret
+.negative:
+	ld d, -127
+	inc a :: jr nz, .saturate
+	; high byte is $FF ~~ check low byte is greater than -128
+	ld a, c
+	cp d :: ret nc ; -127 <= diff
+	jr .saturate
 
 
 ;; Clear and erase the contents of the action requests buffer.

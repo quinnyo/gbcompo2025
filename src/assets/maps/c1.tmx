@@ -726,7 +726,7 @@
   </objectgroup>
  </group>
  <objectgroup id="7" name="Objects" offsetx="-512" offsety="0">
-  <object id="9" type="PlayerStart" x="16" y="16">
+  <object id="9" type="PlayerStart" x="555" y="640">
    <point/>
   </object>
   <object id="105" type="ItemPlace" x="11" y="238" width="7" height="7">

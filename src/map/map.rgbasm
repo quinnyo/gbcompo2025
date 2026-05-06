@@ -752,7 +752,8 @@ MapSyncVisible::
 	call MapRenderScan
 	call MapRenderScan
 	call MapRenderScan
-	ld d, 20
+	; render 20 rows, starting at 'front' row Y=0
+	ld de, (20 << 8) | 0
 	ld a, [wScroll.row + 0]
 	dec a
 :
@@ -772,6 +773,7 @@ MapSyncVisible::
 
 
 section "MapSyncFront", rom0
+;; Perform a row sync at a view-relative 'front' Y coordinate.
 ;; @param E: Y
 ;; @mut: AF, BC, DE, HL
 MapSyncFrontRow:
@@ -785,6 +787,7 @@ MapSyncFrontRow:
 
 	; get tile row at map view origin
 	ldh a, [hMapViewChunkY]
+	; ([hMapViewChunkY] - 1) * 16
 	dec a :: swap a :: and $F0 :: ld d, a
 	; relative position of the 'front' (from map view origin) in tile coords
 	ld a, e :: sub d :: ld d, a
@@ -1335,28 +1338,18 @@ _UpdateActiveChunkSlot:
 ;; @ret B,C: Y,X chunk view coord delta
 ;; @mut: AF, BC, DE, HL
 _UpdateViewChunk:
-	ldh a, [hScrollStat] :: ld c, a
-	bit bScrollStat_ChangeChunkX, c
-	jr z, :+
-	; Update X axis chunk view position & slots
 	ldh a, [hMapViewChunkX] :: ld b, a
-	ld a, [wScroll.chunk_x + 0]
-	ldh [hMapViewChunkX], a ; save newX
-	ld e, a ; return newX
-	sub b :: ld d, a ; temp. hold deltaX in D
+	ld a, [wScroll.chunk_x + 0] :: ld e, a
+	ldh [hMapViewChunkX], a
+	sub b :: ld c, a
 	call nz, _UpdateSlotsX
-:
 
-	bit bScrollStat_ChangeChunkY, c
-	ret z
-	; Update Y axis chunk view position & slots
 	ldh a, [hMapViewChunkY] :: ld b, a
-	ld a, [wScroll.chunk_y + 0]
-	ldh [hMapViewChunkY], a ; save newY
-	ld c, d ; return deltaX
-	ld d, a ; return newY
-	sub b :: ld b, a ; return deltaY
-	jr nz, _UpdateSlotsY
+	ld a, [wScroll.chunk_y + 0] :: ld d, a
+	ldh [hMapViewChunkY], a
+	sub b :: ld b, a
+	call nz, _UpdateSlotsY
+
 	ret
 
 

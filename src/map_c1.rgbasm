@@ -17,7 +17,7 @@ map_c1::
 	dw 237, 240
 .XidObject_9:
 	dw $40
-	dw 16, 16
+	dw 640, 555
 .XidLayer_f:
 	dw $41
 	dw $D000
