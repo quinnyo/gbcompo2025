@@ -55,7 +55,7 @@ FIXFLAGS=(-C -m ${CART} -r ${RAMSIZE} -n ${ROMVER} -t ${TITLE} -k ${LICENSEE} -i
 ## Mesen(2) emulator command
 MESENEXE=Mesen
 ## Command args to use when running the Mesen emulator (excluding the rom to load)
-MESENARGS=()
+MESENARGS=(--doNotSaveSettings --enableStdout --preferences.automaticallyCheckForUpdates=false --preferences.singleInstance=false --gameBoy.ramPowerOnState=Random --gameBoy.allowInvalidInput=true )
 
 
 # vim: ft=bash
