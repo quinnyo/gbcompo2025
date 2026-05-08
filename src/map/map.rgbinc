@@ -4,6 +4,11 @@ def Q_MAP_INC_rJ398bhW equ 1
 include "st.rgbinc"
 
 
+;; Upper bound (exclusive) of chunk coordinates.
+;; A Map cannot contain more than this number of chunks in either axis.
+def CHUNK_COORD_END equ 128
+
+
 rsreset
 ;; Terminates the brushes array.
 def BR_TERM rb 1
@@ -86,6 +91,20 @@ st MapChunkHeader
 	stf brushes1, 2
 	stf elements, 2
 	stf items, 2
+st
+
+
+st ActiveChunk
+	;; Chunk coord, Y axis. A value of CHUNK_COORD_END indicates the 'null chunk'.
+	stf coord_y, 1
+	;; Chunk coord, X axis.
+	stf coord_x, 1
+	;; Chunk origin in world dots, Y axis
+	stf origin_y, 2
+	;; Chunk origin in world dots, X axis
+	stf origin_x, 2
+	;; Copy of chunk header from map data.
+	stf header, szMapChunkHeader
 st
 
 
@@ -202,6 +221,9 @@ def Doodad_Flow315 rb 1
 ************ Item Placement ************
 ***************************************/
 
+;; ID of a MapItem that doesn't exist.
+def MAP_ITEM_NULL equ $FF
+
 ;; Maximum number of items in a chunk.
 def CHUNK_ITEMS_MAX equ 16
 
@@ -213,12 +235,14 @@ st
 
 ;; Place an instance of an item in the scene from within a Chunk.
 st ItemPlace
+	;; The map-unique ID of the item.
+	stf id, 1
 	;; Y position in chunk local dots
 	stf posy, 1
 	;; X position in chunk local dots
 	stf posx, 1
 	;; Type of item to place
-	stf item, 1
+	stf item_type, 1
 st
 
 

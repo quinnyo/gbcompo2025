@@ -130,7 +130,6 @@ nextu
 endu
 
 
-
 section "wMapChunkHeader", wram0
 wMapChunkHeader:: stalloc MapChunkHeader
 
@@ -139,12 +138,7 @@ section "wActiveChunks", wram0
 wActiveChunks:
 	for Y, 3
 		for X, 3
-			wActiveChunk_{d:Y}_{d:X}:
-				.coord_y: db
-				.coord_x: db
-				.origin_y: dw
-				.origin_x: dw
-				.header: stalloc MapChunkHeader
+			wActiveChunk_{d:Y}_{d:X}: stalloc ActiveChunk
 		endr
 	endr
 
@@ -513,12 +507,12 @@ MapUpdate::
 
 
 section "MapHelloItems", rom0
-;; Experiment / Proof of concept: render central view chunk's items
+;; Experiment / Proof of concept: render view chunk items
 ;; BANKNOTE: Caller must ensure selected map data is accessible.
 MapHelloItems:
 	; big big mega oam share/flicker time party
 	ld d, 0 ; always show centre chunk
-	ld hl, wActiveChunk_1_1.origin_y :: call MapHelloChunkItems
+	ld hl, wActiveChunk_1_1 :: call MapHelloChunkItems
 
 	ld a, [wVBlankCount]
 	rrca
@@ -528,22 +522,30 @@ MapHelloItems:
 	ld a, [wShareOb.minor0]
 	ld d, a
 	rrca :: ld [wShareOb.minor0], a
-	ld hl, wActiveChunk_1_2.origin_y :: call MapHelloChunkItems
-	ld hl, wActiveChunk_2_1.origin_y :: call MapHelloChunkItems
-	ld hl, wActiveChunk_1_0.origin_y :: call MapHelloChunkItems
-	ld hl, wActiveChunk_0_1.origin_y :: call MapHelloChunkItems
+	ld hl, wActiveChunk_1_2 :: call MapHelloChunkItems
+	ld hl, wActiveChunk_2_1 :: call MapHelloChunkItems
+	ld hl, wActiveChunk_1_0 :: call MapHelloChunkItems
+	ld hl, wActiveChunk_0_1 :: call MapHelloChunkItems
 	ret
 .half1:
 	ld a, [wShareOb.minor1]
 	ld d, a
 	rrca :: ld [wShareOb.minor1], a
-	ld hl, wActiveChunk_2_2.origin_y :: call MapHelloChunkItems
-	ld hl, wActiveChunk_2_0.origin_y :: call MapHelloChunkItems
-	ld hl, wActiveChunk_0_0.origin_y :: call MapHelloChunkItems
-	ld hl, wActiveChunk_0_2.origin_y :: call MapHelloChunkItems
+	ld hl, wActiveChunk_2_2 :: call MapHelloChunkItems
+	ld hl, wActiveChunk_2_0 :: call MapHelloChunkItems
+	ld hl, wActiveChunk_0_0 :: call MapHelloChunkItems
+	ld hl, wActiveChunk_0_2 :: call MapHelloChunkItems
 	ret
 
 MapHelloChunkItems:
+	; If coord is out of range, chunk is null.
+	ld a, [hl+]
+	cp CHUNK_COORD_END
+	ret nc ; CHUNK_COORD_END <= coord_y
+	ld a, [hl+]
+	cp CHUNK_COORD_END
+	ret nc ; CHUNK_COORD_END <= coord_x
+
 	; calc Y screen position
 	ld a, [wScroll.y + 0] :: ld c, a
 	ld a, [wScroll.y + 1] :: ld b, a
@@ -597,7 +599,7 @@ MapHelloChunkItems:
 .xok:
 
 	; follow items pointer
-	ld bc, wActiveChunk_1_1.items - (wActiveChunk_1_1.origin_x + 2)
+	ld bc, MapChunkHeader_items
 	add hl, bc
 	ld a, [hl+] :: ld h, [hl] :: ld l, a
 	; if .items == $FFFF, this slot is empty.
@@ -1300,8 +1302,16 @@ MapUpdateViewChunk:
 ;; @ret HL: end of active chunk record
 ;; @mut: AF, BC, DE, HL
 _UpdateActiveChunkSlot:
-	ld a, d :: ld [hl+], a ; coord Y
-	ld a, e :: ld [hl+], a ; coord X
+		push hl
+	call MapChunkLookup2
+	ld b, h :: ld c, l
+		pop hl
+	jr nc, .null_chunk
+
+	ld a, d :: ld [hl+], a ; coord_y
+	ld a, e :: ld [hl+], a ; coord_x
+
+		push bc ; chunk data in map
 
 	; calc origin Y
 	ld a, d :: rrca :: ld c, a
@@ -1321,14 +1331,17 @@ _UpdateActiveChunkSlot:
 	ld [hl+], a
 	ld a, b :: ld [hl+], a
 
-		push hl ; @ chunk.header
-	call MapChunkLookup2
-	ld d, h :: ld e, l
-		pop hl ; @ chunk.header
-	; Copy chunk header to cache if lookup succeeded, or fill cache with $FF otherwise.
+		pop de ; chunk data in map
+
+	; Copy chunk header to ActiveChunk cache
 	ld c, szMapChunkHeader
-	; NOTE: using F.C from MapChunkLookup2 here!
-	jp c, MemCopySmall
+	jp MemCopySmall
+
+.null_chunk:
+	ld a, CHUNK_COORD_END
+	ld [hl+], a ; .coord_y
+	ld [hl+], a ; .coord_x
+	ld c, szActiveChunk - ActiveChunk_origin_y
 	ld a, $FF
 	jp MemFillSmall
 
@@ -1530,6 +1543,15 @@ section "MapChunkLookup2", rom0
 ;; @ret F.C: set if successful
 ;; @mut: AF, B, HL
 MapChunkLookup2::
+	; Check both coord axes are less than CHUNK_COORD_END.
+	ld a, d
+	cp CHUNK_COORD_END
+	ret nc ; CHUNK_COORD_END <= row
+	ld a, e
+	cp CHUNK_COORD_END
+	ret nc ; CHUNK_COORD_END <= column
+
+	; Lookup Y,X coord in chunk table
 	ld hl, wMapHeader.chunk_table
 	ld a, [hl+] :: ld h, [hl] :: ld l, a
 	ld a, [hl+]
