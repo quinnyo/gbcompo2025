@@ -2,6 +2,7 @@ include "map.rgbinc"
 include "sprite.rgbinc"
 include "hardware.inc"
 include "banker.rgbinc"
+include "quest/quest.rgbinc"
 
 
 def MAP_SIZE equ 32 * 32
@@ -146,6 +147,7 @@ wActiveChunks:
 section "hMapRender", hram
 hMapViewChunkY: db
 hMapViewChunkX: db
+;; 3*3 grid of chunk buffer info -- see SLOT_* constants.
 hMapChunkSlots: ds MAP_CHUNK_BUFFER_COUNT
 hMapChunkSlotsScratch: ds 3
 
@@ -630,18 +632,15 @@ _RenderChunkItems:
 
 	ld b, d ; Live share ob state in B
 
-	call ObdoCustomStartDE
 .item_draw_loop:
-	ld a, [hl+] ; item.id
-		push bc :: push de :: push hl
-	ld b, a ; query item id
-	call MapCollectionTrashQuery
-		pop hl :: pop de :: pop bc
-	jr c, :+
-.err_collection_query_failed
-	ld b, b
-	jr .err_collection_query_failed
-:
+	ld a, [hl+] :: ld e, a ; item.id
+	ld d, high(wScenarioCollectables.items)
+		wrambpush bank(wScenarioCollectables)
+	ld a, [de] :: ld d, a
+		wrambpop ; wScenarioCollectables
+	ld a, d
+
+	cpl :: and Collectable_READY
 	jr nz, .skip
 
 	; share oam slots
@@ -697,22 +696,21 @@ _RenderChunkItems:
 
 	; OAM X position already in C
 
-	; (close enough to) visible, build ob
-	ld a, b :: ld [de], a :: inc de ; Y
-	ld a, c :: ld [de], a :: inc de ; X
-
 	; TESTING: draw items using a variety of CHRs
 	ld a, l :: rrca :: rrca :: and $07
-	add 96 :: ld c, a
+	add 96 :: ld d, a
 	ld a, [hl+] ; item type
-	add c :: ld [de], a :: inc de ; chri
-	ld a, 4 :: ld [de], a :: inc de ; pal/atrb
+	add d :: ld [de], a :: inc de ; chri
+	ld e, 4
+		push hl
+	call ObdoSingle
+		pop hl
+
 .continue
 		pop bc ; loop counter
 .continue2
 	dec c
 	jr nz, .item_draw_loop
-	call ObdoCustomEndDE
 
 	; return updated share ob state
 	ld d, b
@@ -1270,8 +1268,7 @@ section "MapUpdateViewChunk", rom0
 ;; BANKNOTE: Caller must ensure selected map data is accessible.
 ;; @mut: AF, BC, DE, HL
 MapUpdateViewChunk:
-	call _UpdateViewChunk
-	ld a, b :: or c
+	call _UpdateMapViewCoordFromScroll
 	ret z ; no change
 
 	; update wActiveChunk cache/info
@@ -1294,6 +1291,97 @@ MapUpdateViewChunk:
 	cp low(MapSlotCoords.end)
 	jr c, :-
 
+	ret
+
+
+;; Update map view (chunk) coord from scroll position.
+;; Reallocate chunk buffer slots accordingly.
+;; @ret D,E: new map view Y,X coord
+;; @ret F.Z: indicates zero delta on both axes (no change to view coord)
+;; @mut: AF, BC, DE, HL
+_UpdateMapViewCoordFromScroll:
+	ldh a, [hMapViewChunkX] :: ld c, a
+	ld a, [wScroll.chunk_x + 0] :: ld e, a
+	ldh [hMapViewChunkX], a
+
+	ldh a, [hMapViewChunkY] :: ld b, a
+	ld a, [wScroll.chunk_y + 0] :: ld d, a
+	ldh [hMapViewChunkY], a
+
+.update_y:
+	sub b :: ld b, a
+	jr c, .yneg
+	jr z, .update_x ; delta Y == 0 ~~ jump to X axis
+.ypos:
+	; (newY - Y) > 0: scroll down ~~ shift up
+	dec a :: jp nz, _ResetAllSlots ; delta Y > 1
+	; shift slots up
+	ld hl, hMapChunkSlots
+	ld a, [hl+] :: and SLOT_BUFFER :: ldh [hMapChunkSlotsScratch + 0], a
+	ld a, [hl+] :: and SLOT_BUFFER :: ldh [hMapChunkSlotsScratch + 1], a
+	ld a, [hl+] :: and SLOT_BUFFER :: ldh [hMapChunkSlotsScratch + 2], a
+for I, MAP_CHUNK_BUFFER_COUNT
+	ld a, [hl+] :: ldh [hMapChunkSlots + I], a
+endr
+	jr .update_x
+
+.yneg:
+	; (newY - Y) < 0: scroll up ~~ shift down
+	inc a :: jp nz, _ResetAllSlots ; delta Y < -1
+	; shift slots down
+	ld hl, hMapChunkSlotsScratch + 2
+for I, MAP_CHUNK_BUFFER_COUNT
+	ldh a, [hMapChunkSlots + MAP_CHUNK_BUFFER_COUNT - I - 1] :: ld [hl-], a
+endr
+	ldh a, [hMapChunkSlotsScratch + 2] :: and SLOT_BUFFER :: ld [hl-], a
+	ldh a, [hMapChunkSlotsScratch + 1] :: and SLOT_BUFFER :: ld [hl-], a
+	ldh a, [hMapChunkSlotsScratch + 0] :: and SLOT_BUFFER :: ld [hl-], a
+
+.update_x:
+	ld a, e :: sub c :: ld c, a
+	jr c, .xneg
+	jr z, .xzero
+.xpos:
+	; (newX - oldX) > 0: scroll right ~~ shift left
+	dec a :: jr nz, _ResetAllSlots ; delta X > 1
+	; shift slots left
+	ld hl, hMapChunkSlots
+for I, 3
+	ld b, [hl]
+	ldh a, [hMapChunkSlots + I * 3 + 1] :: ld [hl+], a
+	ldh a, [hMapChunkSlots + I * 3 + 2] :: ld [hl+], a
+	ld a, b :: and SLOT_BUFFER :: ld [hl+], a
+endr
+	or 1 ; ret F.NZ
+	ret
+
+.xzero:
+	; delta X == 0 ~~ nothing to do, return F.Z if delta Y == 0
+	or b
+	ret
+
+.xneg:
+	; (newX - oldX) < 0: scroll left ~~ shift right
+	inc a :: jr nz, _ResetAllSlots ; delta X < -1
+	; shift slots right
+	ld hl, hMapChunkSlots
+for I, 3
+	ld b, [hl]
+	ldh a, [hMapChunkSlots + I * 3 + 2] :: and SLOT_BUFFER :: ld [hl+], a
+	ld a, b :: ld b, [hl] :: ld [hl+], a
+	ld a, b :: ld [hl+], a
+endr
+	or 1 ; ret F.NZ
+	ret
+
+
+;; @mut: A
+;; @ret F.NZ
+_ResetAllSlots:
+for I, MAP_CHUNK_BUFFER_COUNT
+	ld a, CHUNK_BUFFER_{d:I} :: ldh [hMapChunkSlots + I], a
+endr
+	or 1 ; ret F.NZ
 	ret
 
 
@@ -1344,112 +1432,6 @@ _UpdateActiveChunkSlot:
 	ld c, szActiveChunk - ActiveChunk_origin_y
 	ld a, $FF
 	jp MemFillSmall
-
-
-;; Update visible chunks from scroll position.
-;; @ret D,E: Y,X chunk view coord (new)
-;; @ret B,C: Y,X chunk view coord delta
-;; @mut: AF, BC, DE, HL
-_UpdateViewChunk:
-	ldh a, [hMapViewChunkX] :: ld b, a
-	ld a, [wScroll.chunk_x + 0] :: ld e, a
-	ldh [hMapViewChunkX], a
-	sub b :: ld c, a
-	call nz, _UpdateSlotsX
-
-	ldh a, [hMapViewChunkY] :: ld b, a
-	ld a, [wScroll.chunk_y + 0] :: ld d, a
-	ldh [hMapViewChunkY], a
-	sub b :: ld b, a
-	call nz, _UpdateSlotsY
-
-	ret
-
-
-;; @mut: A
-_ResetAllSlots:
-for I, MAP_CHUNK_BUFFER_COUNT
-	ld a, CHUNK_BUFFER_{d:I} :: ldh [hMapChunkSlots + I], a
-endr
-	ret
-
-
-;; @param AF: result of newX - oldX
-;; @mut: AF, B, HL
-_UpdateSlotsX:
-	jr c, .neg
-	; (newX - oldX) > 0: scroll right ~~ shift left
-	dec a :: jr z, _SlotsShiftLeft
-	jr _ResetAllSlots
-.neg
-	; (newX - oldX) < 0: scroll left ~~ shift right
-	inc a :: jr z, _SlotsShiftRight
-	jr _ResetAllSlots
-
-
-;; @param AF: result of newY - oldY
-;; @mut: AF, HL
-_UpdateSlotsY:
-	jr c, .neg
-	; (newY - Y) > 0: scroll down ~~ shift up
-	dec a :: jr z, _SlotsShiftUp
-	jr _ResetAllSlots
-.neg
-	; (newY - Y) < 0: scroll up ~~ shift down
-	inc a :: jr z, _SlotsShiftDown
-	jr _ResetAllSlots
-
-
-;; @mut: AF, B, HL
-_SlotsShiftLeft:
-	ld hl, hMapChunkSlots
-
-for I, 3
-	ld b, [hl]
-	ldh a, [hMapChunkSlots + I * 3 + 1] :: ld [hl+], a
-	ldh a, [hMapChunkSlots + I * 3 + 2] :: ld [hl+], a
-	ld a, b :: and SLOT_BUFFER :: ld [hl+], a
-endr
-	ret
-
-
-;; @mut: AF, B, HL
-_SlotsShiftRight:
-	ld hl, hMapChunkSlots
-
-for I, 3
-	ld b, [hl]
-	ldh a, [hMapChunkSlots + I * 3 + 2] :: and SLOT_BUFFER :: ld [hl+], a
-	ld a, b :: ld b, [hl] :: ld [hl+], a
-	ld a, b :: ld [hl+], a
-endr
-	ret
-
-
-;; Shift the chunk slots up (by one row)
-;; @mut: AF, HL
-_SlotsShiftUp:
-	ld hl, hMapChunkSlots
-	ld a, [hl+] :: and SLOT_BUFFER :: ldh [hMapChunkSlotsScratch + 0], a
-	ld a, [hl+] :: and SLOT_BUFFER :: ldh [hMapChunkSlotsScratch + 1], a
-	ld a, [hl+] :: and SLOT_BUFFER :: ldh [hMapChunkSlotsScratch + 2], a
-for I, MAP_CHUNK_BUFFER_COUNT
-	ld a, [hl+] :: ldh [hMapChunkSlots + I], a
-endr
-	ret
-
-
-;; Shift the chunk slots down (by one row)
-;; @mut: AF, HL
-_SlotsShiftDown:
-	ld hl, hMapChunkSlotsScratch + 2
-for I, MAP_CHUNK_BUFFER_COUNT
-	ldh a, [hMapChunkSlots + MAP_CHUNK_BUFFER_COUNT - I - 1] :: ld [hl-], a
-endr
-	ldh a, [hMapChunkSlotsScratch + 2] :: and SLOT_BUFFER :: ld [hl-], a
-	ldh a, [hMapChunkSlotsScratch + 1] :: and SLOT_BUFFER :: ld [hl-], a
-	ldh a, [hMapChunkSlotsScratch + 0] :: and SLOT_BUFFER :: ld [hl-], a
-	ret
 
 
 section "MapChunkTransfer", rom0
@@ -1752,6 +1734,8 @@ section "MapReset", rom0
 ;; NOTE: This does **not** reset the selected map! (`hMapSelectAddr`, `hMapSelectBank`).
 ;; @mut: AF, BC, HL
 MapReset::
+	call QuestScenarioClear
+
 	ld a, $FF
 	ldh [hMapViewChunkY], a
 	ldh [hMapViewChunkX], a

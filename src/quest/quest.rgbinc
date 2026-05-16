@@ -2,6 +2,22 @@ if !def(Q_QUEST_INC_IpxEY4hb)
 def Q_QUEST_INC_IpxEY4hb equ 1
 
 
+rsreset
+;; Invalid or non-existent collectable.
+def Collectable_NULL rb 1
+;; Collectable can be found in the world and is ready to be picked up.
+def Collectable_READY rb 1
+;; Collectable has been picked up but not yet added to the collection.
+def Collectable_CARRIED rb 1
+;; Collectable has been added to the collection.
+def Collectable_COLLECTED rb 1
+def _Collectable_RESERVED rb 4
+
+
+;; Maximum number of collectables to be found in a single scenario.
+def SCENARIO_COLLECTABLE_CAPACITY equ 200
+
+
 ;; Number of things to find
 def FINDS_COUNT equ $40
 

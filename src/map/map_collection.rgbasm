@@ -1,13 +1,7 @@
 include "map.rgbinc"
 include "hardware.inc"
 include "banker.rgbinc"
-
-
-pushs "wMapCollection", wramx
-;; Working copy of map collection state.
-wMapCollection:: stalloc MapCollection
-
-pops ; wMapCollection
+include "quest/quest.rgbinc"
 
 
 pushs "MapCollectionOpen", rom0
@@ -18,22 +12,6 @@ pushs "MapCollectionOpen", rom0
 ;; @mut: AF, BC, DE, HL
 MapCollectionOpen::
 	; NOTE: Load state not implemented! Completely re-initialises collection.
-		wrambpush bank(wMapCollection)
-		push hl ; Map
-	call MapCollectionInit
-		pop hl ; Map
-		wrambpop ; wMapCollection
-	ret
-
-pops ; MapCollectionOpen
-
-
-pushs "MapCollectionInit", rom0
-;; Initialise map's collection in wMapCollection
-;; BANKNOTE: Caller to ensure Map data & wMapCollection is accessible.
-;; @param HL: Map
-;; @mut: AF, BC, DE, HL
-MapCollectionInit:
 	; trash items
 	ld bc, MapHeader_info
 	add hl, bc
@@ -41,110 +19,34 @@ MapCollectionInit:
 	; trash_item_count
 	ld bc, MapInfo_trash_item_count
 	add hl, bc
-	ld a, [hl] ; trash_item_count
-	cp MapCollection_TRASH_ITEM_COUNT_MAX + 1
-	jr nc, .err_trash_items_overrun
-	ld hl, wMapCollection.trash_items_placed
-	ld [hl+], a
-	ld c, szMapCollection_TRASH_ITEMS
-	xor a
-	jp MemFillSmall
-.err_trash_items_overrun:
-	ld b, b
-	jr .err_trash_items_overrun
+	ld c, [hl] ; trash_item_count
+		wrambpush bank(wScenarioCollectables)
+	ld hl, wScenarioCollectables
+	ld a, c :: ld [hl+], a ; .size
+	ld a, Collectable_READY
+	call MemFillSmall
+		wrambpop ; wScenarioCollectables
+	ret
 
-
-pops ; MapCollectionInit
+pops ; MapCollectionOpen
 
 
 pushs "MapCollectionTrashQuery", rom0
 ;; @param B: query item id
-;; @ret D: collection block containing query bit
-;; @ret E: query bit mask
-;; @ret HL: pointer to block containing query bit
 ;; @ret F.C: query success
-;; @ret F.Z: query item state (NZ: 1 | Z: 0)
 ;; @mut: AF, BC, DE, HL
 MapCollectionTrashQuery::
-		wrambpush bank(wMapCollection)
-	call MapCollectionTrashAccess
-	jr nc, .failed
-		wrambpop ; wMapCollection
-	ld a, d
-	and e
-	scf
-	ret
-.failed:
-		wrambpop ; wMapCollection
-	and a ; clear F.C
+		wrambpush bank(wScenarioCollectables)
+	ld hl, wScenarioCollectables
+	ld a, [hl+] :: ld c, a ; .size
+	ld a, b
+	cp c
+	ret nc ; query item ID >= collection size
+	assert low(wScenarioCollectables.items) == 0
+	ld l, b
+	ld a, [hl]
+		wrambpop ; wScenarioCollectables
 	ret
 
 pops ; MapCollectionTrashQuery
-
-
-pushs "MapCollectionTrashAccess", rom0
-;; BANKNOTE: wMapCollection bank must be selected
-;; @param B: query item id
-;; @ret D: collection block containing query bit
-;; @ret E: query bit mask
-;; @ret HL: pointer to block containing query bit
-;; @ret F.C: success
-;; @mut: AF, BC, DE, HL
-MapCollectionTrashAccess:
-	ld hl, wMapCollection.trash_items_placed
-	; check query item in range
-	ld a, [hl+] :: ld c, a
-	ld a, b
-	cp c
-	ret nc
-	call CollectionBitQuery
-	scf
-	ret
-
-pops ; MapCollectionTrashAccess
-
-
-pushs "MapCollectionTrashPickup", rom0
-;; Mark trash item as picked up
-;; @param B: item id
-;; @mut: AF, BC, DE, HL
-MapCollectionTrashPickup::
-		wrambpush bank(wMapCollection)
-	call MapCollectionTrashAccess
-	jr nc, :+
-	ld a, d
-	or e
-	ld [hl], a
-:
-		wrambpop ; wMapCollection
-	ret
-
-pops ; MapCollectionTrashPickup
-
-
-pushs "CollectionBitQuery", rom0
-;; @param B: query bit index
-;; @param HL: collection state
-;; @ret D: collection block containing query bit
-;; @ret E: query bit mask
-;; @ret HL: pointer to block containing query bit
-;; @mut: AF, DE, HL
-CollectionBitQuery:
-	; separate query index into (block_offset, bit_index)
-	ld a, b
-	and $07 :: ld e, a
-	xor b :: rrca :: rrca :: rrca ; div 8
-	; offset collection block pointer
-	add l :: ld l, a
-	adc h :: sub l :: ld h, a
-	; query bit mask
-	ld a, e
-	ld de, BitmaskTable
-	or e :: ld e, a
-	ld a, [de] :: ld e, a
-	; read containing block
-	ld d, [hl]
-	ret
-
-pops ; CollectionBitQuery
 

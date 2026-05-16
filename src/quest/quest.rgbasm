@@ -8,6 +8,28 @@ Quest: progression / collectables / unlocks
 */
 
 
+pushs "wScenarioCollectables", wramx
+				wScenarioCollectables::
+					.size:: db
+					.items:: align 8
+						ds SCENARIO_COLLECTABLE_CAPACITY
+
+pops ; wScenarioCollectables
+
+
+pushs "QuestScenarioClear", rom0
+QuestScenarioClear::
+		wrambpush bank(wScenarioCollectables)
+	ld c, SCENARIO_COLLECTABLE_CAPACITY
+	ld hl, wScenarioCollectables
+	ld a, Collectable_NULL
+	call MemFillSmall
+		wrambpop ; wScenarioCollectables
+	ret
+
+pops ; QuestScenarioClear
+
+
 pushs "TypInfo", romx
 TypInfo::
 	;; Number of Typs defined
