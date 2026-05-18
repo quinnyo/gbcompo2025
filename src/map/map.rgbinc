@@ -8,6 +8,8 @@ include "st.rgbinc"
 ;; A Map cannot contain more than this number of chunks in either axis.
 def CHUNK_COORD_END equ 128
 
+;; Maximum number of items detected in map query.
+def MAP_QUERY_RESULT_MAX_ITEMS equ 1
 
 rsreset
 ;; Terminates the brushes array.

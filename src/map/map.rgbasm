@@ -87,9 +87,9 @@ hMapCtl: db
 
 section "hMapSelect", hram
 ;; Bank of the selected map
-hMapSelectBank: db
+hMapSelectBank:: db
 ;; Selected map address
-hMapSelectAddr: dw
+hMapSelectAddr:: dw
 
 
 section "wMapContext", wram0
@@ -502,6 +502,8 @@ MapUpdate::
 	assert bank(wMapState) == bank(wMapEntitySlots)
 	wrambsel bank(wMapState)
 	call MapEntityUpdateAll
+
+	call MapQueryExecute
 
 		wrambpop
 		rombpop ; hMapSelectBank
@@ -1218,9 +1220,7 @@ MapRenderSlot:
 	ld e, a
 
 	; Chunk lookup
-	ld hl, wMapHeader.chunk_table
-	ld a, [hl+] :: ld h, [hl] :: ld l, a
-	call MapChunkLookup
+	call oMapChunkAccess
 	ret nc
 
 	; DE = chunk buffer dest
@@ -1494,7 +1494,7 @@ Test_map_chunk_render:
 		rombopen bank(map_test)
 	ld hl, map_test.chunk_table
 	ld de, (0 << 8) | 4
-	call MapChunkLookup
+	call MapChunkTableLookup
 	jr nc, .err
 	; skip 2 byte atrb pointer
 	inc hl :: inc hl
@@ -1568,14 +1568,26 @@ MapChunkLookup2::
 	ret
 
 
-section "MapChunkLookup", rom0
+section "MapChunkTableLookup", rom0
+;; Search the open map for a chunk at the given coordinates.
+;; If successful, the chunk's header is copied to wMapChunkHeader.
+;; BANKNOTE: the Map data bank must be made accessible before calling this function.
+;; @param D,E: row,column
+;; @ret F.C: set if successful
+;; @mut: AF, B, HL
+oMapChunkAccess::
+	ld hl, wMapHeader.chunk_table
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+
+	; FALLTHROUGH
+
 ;; Chunk table spatial lookup -- get chunk at chunk coordinates location.
 ;; If successful, the chunk's header is copied to wMapChunkHeader.
 ;; @param HL: Chunk Table
 ;; @param D,E: row,column
 ;; @ret F.C: set if successful
 ;; @mut: AF, B, HL
-MapChunkLookup::
+MapChunkTableLookup::
 :
 	ld a, [hl+]
 	cp CHUNK_COORD_END ; array is terminated with out of range coord
@@ -1630,7 +1642,7 @@ for Y, 6
 	ld [$2000], a
 	ld hl, map_test.chunk_table
 	ld de, (Y << 8) | X
-	call MapChunkLookup
+	call MapChunkTableLookup
 	ld b, b
 	endr
 endr
@@ -1639,96 +1651,13 @@ endr
 */
 
 
-section "MapZoneQuery", rom0
-;; Find Zone(Rules) that contains point (if any).
-;; @param BC: query point Y (dots)
-;; @param DE: query point X (dots)
-;; @ret F.C: Set if point in zone
-;; @ret DE: Rules applicable to zone (only valid with F.C)
-;; @mut: AF, BC, DE, HL
-MapZoneQuery::
-		rombpush
-	ldh a, [hMapSelectBank]
-	ld [ROMB_LO], a
-		push de :: push bc
-	; dots to chunk coord for MapChunkLookup (D,E: row,column)
-	rl e :: rl d :: ld e, d ; X
-	ld d, b :: rl c :: rl d ; Y
-
-	ld hl, wMapHeader.chunk_table
-	ld a, [hl+] :: ld h, [hl] :: ld l, a
-	call MapChunkLookup
-		pop bc :: pop de
-	jr nc, .exit_miss
-
-	ld hl, wMapChunkHeader.elements
-	ld a, [hl+] :: ld h, [hl] :: ld l, a
-	ld a, [hl+] :: ld b, a ; number of items
-	; early out if zero items
-	and a
-	jr z, .exit_miss
-
-	; query point relative to chunk
-	; NOTE: `res 7, R8` faster than equiv. using `and $7F`
-	res 7, c ; Y
-	res 7, e ; X
-
-	; iterate elements
-.loop
-	; filter ChunkZone type
-	ld a, [hl+] ; .typeid.0
-	inc hl ; skip typeid.1
-	cp MapObject_CHUNK_ZONE
-	jr nz, .err_unexpected_typeid
-		push hl
-	; Y
-	; rel = p - min; rel < 0 ? miss
-	ld a, c :: sub [hl] :: jr c, .continue
-	inc hl
-	; rel >= size ? miss
-	cp [hl] :: jr nc, .continue ; compare relative point in zone with size
-	inc hl
-
-	; X
-	ld a, e :: sub [hl] :: jr c, .continue
-	inc hl
-	cp [hl] :: jr nc, .continue
-	inc hl
-
-	; hit
-	ld a, [hl+] :: ld e, a
-	ld a, [hl+] :: ld d, a
-
-		pop af ; discard stashed element pointer
-		rombpop
-	scf
-	ret
-
-.continue
-		pop hl
-	ld a, szChunkZone
-	add l :: ld l, a
-	adc h :: sub l :: ld h, a
-
-	dec b
-	jr nz, .loop
-
-.exit_miss:
-		rombpop
-	and a ; Clear F.C
-	ret
-
-.err_unexpected_typeid:
-	ld b, b
-	jr .err_unexpected_typeid
-
-
 section "MapReset", rom0
 ;; Clear map state, cache, etc.
 ;; NOTE: This does **not** reset the selected map! (`hMapSelectAddr`, `hMapSelectBank`).
 ;; @mut: AF, BC, HL
 MapReset::
 	call QuestScenarioClear
+	call MapQueryReset
 
 	ld a, $FF
 	ldh [hMapViewChunkY], a

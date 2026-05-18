@@ -1,4 +1,170 @@
 include "map.rgbinc"
+include "banker.rgbinc"
+
+
+pushs "wMapQuery", wram0
+wMapQuery::
+	;; Query point in world dots, Y axis
+	.py:: dw
+	;; Query point in world dots, X axis
+	.px:: dw
+
+wMapQueryResult::
+	;; Y coord of chunk containing query point.
+	.chunkrow:: db
+	;; X coord of chunk containing query point.
+	.chunkcol:: db
+	;; Query point local to containing chunk, Y axis.
+	.chunkrely:: db
+	;; Query point local to containing chunk, X axis.
+	.chunkrelx:: db
+
+	;; Number of detected items & length of .items array.
+	;; NOTE: Value will be 0 (no item detected) or 1.
+	.items_size:: db
+	;; Array of detected item IDs.
+	.items_id:: ds MAP_QUERY_RESULT_MAX_ITEMS
+
+	;; Pointer to zone rules state applicable at query point (if any).
+	;; These objects are kept in `wMapState` (user is responsible for banking).
+	;; A value of $FF00 or greater indicates null result (no zone detected).
+	.zone_rules:: dw
+
+pops ; wMapQuery
+
+
+pushs "MapQueryExecute", rom0
+;; @mut: AF, BC, DE, HL
+MapQueryExecute::
+	; Clear previous result
+	xor a
+	ld [wMapQueryResult.items_size], a
+	dec a ; $FF
+	ld [wMapQueryResult.zone_rules + 0], a
+	ld [wMapQueryResult.zone_rules + 1], a
+
+	; Prepare query
+	ld hl, wMapQuery.py
+	ld a, [hl+] :: ld c, a ; .py[0]
+	rla ; F.C <=== .py[0] bit 7
+	ld a, [hl+] :: ld b, a ; .py[1]
+	rla :: ld d, a ; D <=== high(py << 1) = chunk row
+		push bc ; py
+	ld a, [hl+] :: ld c, a ; .px[0]
+	rla ; F.C <=== .px[0] bit 7
+	ld a, [hl+] :: ld b, a ; .px[1]
+	rla :: ld e, a ; E <=== high(px << 1) = chunk column
+
+	; Store containing chunk coord
+	assert wMapQueryResult.chunkrow == wMapQuery.py + 4
+	ld a, d :: ld [hl+], a ; .chunkrow
+	ld a, e :: ld [hl+], a ; .chunkcol
+
+	; Query point relative to containing chunk
+	ld a, c ; px[0]
+		pop bc ; py
+	ld b, c :: res 7, b
+	ld c, a :: res 7, c
+	ld a, b :: ld [hl+], a ; .chunkrely
+	ld a, c :: ld [hl+], a ; .chunkrelx
+
+	; Access containing chunk
+		rombpush
+	ldh a, [hMapSelectBank]
+	ld [ROMB_LO], a
+		push bc ; chunkrel{y,x}
+	call oMapChunkAccess
+		pop bc ; chunkrel{y,x}
+	jr nc, .end
+
+	; Collectable item query
+	ld hl, wMapChunkHeader.items
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+	call _do_item_query
+	; DOOT DOOT TODO: things with/to detected item
+
+	; Chunk element / Zone query
+	ld hl, wMapChunkHeader.elements
+	ld a, [hl+] :: ld h, [hl] :: ld l, a
+	call _do_zone_query
+	ld hl, wMapQueryResult.zone_rules
+	ld a, e :: ld [hl+], a :: ld [hl], d
+
+.end:
+		rombpop
+	ret
+
+
+;; Perform the collectable item query.
+_do_item_query:
+	ret
+
+
+;; Perform the chunk elements/zone query.
+;; @param HL: chunk.elements
+;; @param B,C: Y,X query point local to chunk
+;; @ret DE: result (detected zone rules pointer)
+;; @mut: AF, DE, HL
+_do_zone_query:
+	ld a, [hl+] :: ld e, a ; elements array length
+	and a
+	jr z, .exit_miss
+.loop_elements:
+	; filter ChunkZone type
+	ld a, [hl+] ; .typeid.0
+	inc hl ; skip typeid.1
+	cp MapObject_CHUNK_ZONE
+	jr nz, .err_unexpected_typeid
+		push hl ; stash element pointer
+	; Y
+	; rel = p - min; rel < 0 ? miss
+	ld a, b :: sub [hl] :: jr c, .continue_elements
+	inc hl
+	; rel >= size ? miss
+	cp [hl] :: jr nc, .continue_elements ; compare relative point in zone with size
+	inc hl
+
+	; X
+	ld a, c :: sub [hl] :: jr c, .continue_elements
+	inc hl
+	cp [hl] :: jr nc, .continue_elements
+	inc hl
+
+	; hit
+	ld a, [hl+] :: ld e, a :: ld d, [hl]
+
+		pop af ; discard stashed element pointer
+	ret
+
+.continue_elements:
+		pop hl ; element
+	ld a, szChunkZone
+	add l :: ld l, a
+	adc h :: sub l :: ld h, a
+
+	dec e
+	jr nz, .loop_elements
+.exit_miss:
+	ld de, $FFFF
+	ret
+
+.err_unexpected_typeid:
+	ld b, b
+	jr .err_unexpected_typeid
+
+pops ; MapQueryExecute
+
+
+pushs "MapQueryReset", rom0
+;; Reset/initialise map query state.
+;; @mut: AF, C, HL
+MapQueryReset::
+	ld a, $FF
+	ld c, sizeof("wMapQuery")
+	ld hl, startof("wMapQuery")
+	jp MemFillSmall
+
+pops ; MapQueryReset
 
 
 pushs "MapQueryCell", rom0

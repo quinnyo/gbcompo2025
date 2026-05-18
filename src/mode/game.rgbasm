@@ -121,6 +121,25 @@ modeGame_Process::
 	call EntityUpdate
 	call _ViewUpdate
 
+	; Configure Map query ~~ Query point is player entity position.
+	ld a, [wPlayer.ent]
+	call EntityAt
+	jr nc, :+
+	entity_index Entity_PosX
+	ld a, [hl+] :: ld e, a
+	ld a, [hl+] :: ld d, a
+	coord_int16 de
+	entity_index Entity_PosY
+	ld a, [hl+] :: ld c, a
+	ld a, [hl+] :: ld b, a
+	coord_int16 bc
+	ld hl, wMapQuery.py
+	ld a, c :: ld [hl+], a ; .py[0]
+	ld a, b :: ld [hl+], a ; .py[1]
+	ld a, e :: ld [hl+], a ; .px[0]
+	ld a, d :: ld [hl+], a ; .px[1]
+:
+
 	call _ItemsUpdateCollision
 	call ItemsUpdate
 	call TangleUpdateAll
@@ -158,23 +177,17 @@ _GotoPack:
 ;; DEBUG: Map Flow Zone & Query
 ;; Sets player acceleration from flow vector if player entity is inside zone.
 _TestMapZones:
-	ld a, [wPlayer.ent]
-	call EntityAt
-	ret nc
-
-	entity_index Entity_PosX
+	; Get map zone query result
+	ld hl, wMapQueryResult.zone_rules
 	ld a, [hl+] :: ld e, a
 	ld a, [hl+] :: ld d, a
-	coord_int16 de
+	; Only continue if rules pointer is less than $FF00 ~~ high byte below $FF
+	inc a
+	ret z
 
-	entity_index Entity_PosY
-	ld a, [hl+] :: ld c, a
-	ld a, [hl+] :: ld b, a
-	coord_int16 bc
-
-		push hl
-	call MapZoneQuery
-		pop hl
+	; Get player entity
+	ld a, [wPlayer.ent]
+	call EntityAt
 	ret nc
 
 	; Set entity acceleration from flow vector
