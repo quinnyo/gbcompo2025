@@ -426,58 +426,58 @@ map_c1::
 	db 0 ; items.len()
 
 .chunk_table:
-	db $6
 	db $0 :: dw .row0
 	db $1 :: dw .row1
 	db $2 :: dw .row2
 	db $3 :: dw .row3
 	db $4 :: dw .row4
 	db $5 :: dw .row5
+	db $80 ; END
 	.row0:
-		db $6
 		db $0 :: dw .chunk_0_0
 		db $1 :: dw .chunk_1_0
 		db $2 :: dw .chunk_2_0
 		db $3 :: dw .chunk_3_0
 		db $4 :: dw .chunk_4_0
 		db $5 :: dw .chunk_5_0
+		db $80 ; END
 	.row1:
-		db $6
 		db $0 :: dw .chunk_0_1
 		db $1 :: dw .chunk_1_1
 		db $2 :: dw .chunk_2_1
 		db $3 :: dw .chunk_3_1
 		db $4 :: dw .chunk_4_1
 		db $5 :: dw .chunk_5_1
+		db $80 ; END
 	.row2:
-		db $6
 		db $0 :: dw .chunk_0_2
 		db $1 :: dw .chunk_1_2
 		db $2 :: dw .chunk_2_2
 		db $3 :: dw .chunk_3_2
 		db $4 :: dw .chunk_4_2
 		db $5 :: dw .chunk_5_2
+		db $80 ; END
 	.row3:
-		db $6
 		db $0 :: dw .chunk_0_3
 		db $1 :: dw .chunk_1_3
 		db $2 :: dw .chunk_2_3
 		db $3 :: dw .chunk_3_3
 		db $4 :: dw .chunk_4_3
 		db $5 :: dw .chunk_5_3
+		db $80 ; END
 	.row4:
-		db $6
 		db $0 :: dw .chunk_0_4
 		db $1 :: dw .chunk_1_4
 		db $2 :: dw .chunk_2_4
 		db $3 :: dw .chunk_3_4
 		db $4 :: dw .chunk_4_4
 		db $5 :: dw .chunk_5_4
+		db $80 ; END
 	.row5:
-		db $6
 		db $0 :: dw .chunk_0_5
 		db $1 :: dw .chunk_1_5
 		db $2 :: dw .chunk_2_5
 		db $3 :: dw .chunk_3_5
 		db $4 :: dw .chunk_4_5
 		db $5 :: dw .chunk_5_5
+		db $80 ; END

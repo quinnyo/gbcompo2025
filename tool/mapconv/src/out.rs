@@ -21,6 +21,8 @@ impl Map {
     /// Size of trash item collection state in bytes.
     pub const TRASH_ITEMS_BYTES: u8 = Self::TRASH_ITEMS_COUNT_MAX.div_ceil(8);
 
+    pub const CHUNK_COORD_END: u8 = 128;
+
     pub fn rgbasm_write(&self, mut w: impl std::io::Write) -> crate::Result<()> {
         let mut code = vec![];
         self.rgbasm(&mut code);
@@ -82,14 +84,15 @@ impl Map {
         code.append(&mut vec![
             String::default(),
             format!("{}:", label_chunk_table),
-            format!("\tdb ${:X}", chunk_table_rows.len()),
+            // format!("\tdb ${:X}", chunk_table_rows.len()),
         ]);
         for row in chunk_table_rows.iter() {
             code.push(format!("\tdb ${:X} :: dw {}", row.y, &row.label));
         }
+        code.push(format!("\tdb ${:X} ; END", Self::CHUNK_COORD_END));
         for row in chunk_table_rows.iter() {
             code.push(format!("\t{}:", &row.label));
-            code.push(format!("\t\tdb ${:X}", row.columns.len()));
+            // code.push(format!("\t\tdb ${:X}", row.columns.len()));
             for x in row.columns.iter() {
                 code.push(format!(
                     "\t\tdb ${:X} :: dw {}",
@@ -97,6 +100,7 @@ impl Map {
                     Chunk::coord_label(*x, row.y)
                 ));
             }
+            code.push(format!("\t\tdb ${:X} ; END", Self::CHUNK_COORD_END));
         }
     }
 

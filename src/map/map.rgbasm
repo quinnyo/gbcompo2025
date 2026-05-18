@@ -1523,7 +1523,7 @@ section "MapChunkLookup2", rom0
 ;; @param D,E: row,column
 ;; @ret HL: pointer to chunk data
 ;; @ret F.C: set if successful
-;; @mut: AF, B, HL
+;; @mut: AF, HL
 MapChunkLookup2::
 	; Check both coord axes are less than CHUNK_COORD_END.
 	ld a, d
@@ -1536,28 +1536,25 @@ MapChunkLookup2::
 	; Lookup Y,X coord in chunk table
 	ld hl, wMapHeader.chunk_table
 	ld a, [hl+] :: ld h, [hl] :: ld l, a
-	ld a, [hl+]
-	ld b, a
 :
 	ld a, [hl+]
+	cp CHUNK_COORD_END ; array is terminated with out of range coord
+	jr nc, .fail
 	cp d
 	jr z, .xtable
 	inc hl :: inc hl
-	dec b
-	jr nz, :-
-	jr .fail
+	jr :-
 .xtable:
 	ld a, [hl+]
 	ld h, [hl]
 	ld l, a
-	ld a, [hl+]
-	ld b, a
 :
 	ld a, [hl+]
+	cp CHUNK_COORD_END ; array is terminated with out of range coord
+	jr nc, .fail
 	cp e
 	jr z, .ok
 	inc hl :: inc hl
-	dec b
 	jr nz, :-
 .fail:
 	xor a ; clear F.C
@@ -1579,29 +1576,26 @@ section "MapChunkLookup", rom0
 ;; @ret F.C: set if successful
 ;; @mut: AF, B, HL
 MapChunkLookup::
-	ld a, [hl+]
-	ld b, a
 :
 	ld a, [hl+]
+	cp CHUNK_COORD_END ; array is terminated with out of range coord
+	jr nc, .fail
 	cp d
 	jr z, .xtable
 	inc hl :: inc hl
-	dec b
-	jr nz, :-
-	jr .fail
+	jr :-
 .xtable:
 	ld a, [hl+]
 	ld h, [hl]
 	ld l, a
-	ld a, [hl+]
-	ld b, a
 :
 	ld a, [hl+]
+	cp CHUNK_COORD_END ; array is terminated with out of range coord
+	jr nc, .fail
 	cp e
 	jr z, .ok
 	inc hl :: inc hl
-	dec b
-	jr nz, :-
+	jr :-
 .fail:
 	xor a ; clear F.C
 	ret
