@@ -81,22 +81,82 @@ MapQueryExecute::
 	ld hl, wMapChunkHeader.items
 	ld a, [hl+] :: ld h, [hl] :: ld l, a
 	call _do_item_query
-	; DOOT DOOT TODO: things with/to detected item
 
 	; Chunk element / Zone query
 	ld hl, wMapChunkHeader.elements
 	ld a, [hl+] :: ld h, [hl] :: ld l, a
 	call _do_zone_query
-	ld hl, wMapQueryResult.zone_rules
-	ld a, e :: ld [hl+], a :: ld [hl], d
 
 .end:
 		rombpop
 	ret
 
 
+;; The detectable vertical size of collectable items.
+def MAP_ITEM_DETECT_HEIGHT equ 24
+def MAP_ITEM_DETECT_OFFSET_Y equ (MAP_ITEM_DETECT_HEIGHT >> 1) - 4 ; sub to ref. Ob centre
+;; The detectable horizontal size of collectable items.
+def MAP_ITEM_DETECT_WIDTH equ 24
+def MAP_ITEM_DETECT_OFFSET_X equ (MAP_ITEM_DETECT_WIDTH >> 1) - 4
+
+
 ;; Perform the collectable item query.
+;; @param HL: chunk.items
+;; @param B,C: Y,X query point local to chunk
+;; @ret D: result (detected item ID)
+;; @ret E: result (detected item ID)
+;; @mut: AF, DE, HL
 _do_item_query:
+	ld a, [hl+] ; items.len
+	and a
+	ret z ; zero items in chunk, nothing to do.
+	ld e, a
+.loop_items:
+	ld a, [hl+] :: ld d, a ; item/collectable ID
+
+	; Y
+	ld a, b :: sub [hl] :: add MAP_ITEM_DETECT_OFFSET_Y ; l = q - (P - D / 2)
+	cp MAP_ITEM_DETECT_HEIGHT ; hit = D > l ~~~ `l` will have underflowed if q < P ~~~ l > D when q < P
+	jr nc, .item_miss_y
+	inc hl
+
+	; X
+	ld a, c :: sub [hl] :: add MAP_ITEM_DETECT_OFFSET_X
+	cp MAP_ITEM_DETECT_WIDTH
+	jr nc, .item_miss_x
+	inc hl
+
+	; Hit! Push result to stack and increment counter
+		push de
+	ld a, [wMapQueryResult.items_size]
+	inc a
+	ld [wMapQueryResult.items_size], a
+	cp MAP_QUERY_RESULT_MAX_ITEMS
+	jr c, .continue
+	jr .break ; max items reached
+
+.item_miss_y:
+	inc hl ; item.y
+.item_miss_x:
+	inc hl ; item.x
+.continue:
+	inc hl ; item.type
+	dec e
+	jr nz, .loop_items
+.break:
+	; Collect results from stack
+	ld a, [wMapQueryResult.items_size]
+	and a
+	ret z ; no hits
+	ld e, a
+	ld hl, wMapQueryResult.items_id
+:
+		pop af ; detected item ID (A <~~~ D)
+	ld [hl+], a
+	dec e
+	jr nz, :-
+
+.exit_miss:
 	ret
 
 
@@ -131,7 +191,9 @@ _do_zone_query:
 	inc hl
 
 	; hit
-	ld a, [hl+] :: ld e, a :: ld d, [hl]
+	ld de, wMapQueryResult.zone_rules
+	ld a, [hl+] :: ld [de], a :: inc de
+	ld a, [hl+] :: ld [de], a
 
 		pop af ; discard stashed element pointer
 	ret
