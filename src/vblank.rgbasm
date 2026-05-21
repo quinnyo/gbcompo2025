@@ -1,6 +1,10 @@
 include "hardware.inc"
 
 
+rsreset
+export def bVBlankStat_VBLANK_DONE rb 1
+
+
 section "wVBlank", wram0
 wLCDC:: db
 wSCY:: db
@@ -8,6 +12,7 @@ wSCX:: db
 wWY:: db
 wWX:: db
 wVBlankCount:: db
+wVBlankStat:: db
 
 
 section "hVBlank", hram
@@ -32,7 +37,8 @@ VBlankHandler::
 	ld a, [hl+] :: ldh [rSCX], a
 	ld a, [hl+] :: ldh [rWY], a
 	ld a, [hl+] :: ldh [rWX], a
-	inc [hl]
+	inc [hl] :: inc hl ; wVBlankCount
+	set bVBlankStat_VBLANK_DONE, [hl] ; wVBlankStat
 
 	; OAM DMA transfer
 	ldh a, [hVBlankObuf]
@@ -62,6 +68,7 @@ VBlankInit::
 	ld [hl+], a ; WX
 	xor a
 	ld [hl+], a ; wVBlankCount
+	ld [hl+], a ; wVBlankStat
 
 	ld hl, rIE
 	set IEB_VBLANK, [hl]

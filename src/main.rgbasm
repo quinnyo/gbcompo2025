@@ -153,24 +153,24 @@ Main::
 	call SpritePoolUpdate
 	call ObdoFinaliseFrame
 
-.vsync
-	ld hl, wVBlankCount
-	ld a, [hl]
-.vsync_wait
+	ld hl, wVBlankStat
+	bit bVBlankStat_VBLANK_DONE, [hl]
+	jr z, .vsync_wait
+.tag_lag:
+	; clear missed VBlank to ensure VBlank interrupt is what we wait for
+	res bVBlankStat_VBLANK_DONE, [hl]
+.vsync_wait:
 	halt
 	nop
-	cp [hl]
+.vsync_check:
+	bit bVBlankStat_VBLANK_DONE, [hl]
 	jr z, .vsync_wait
+	res bVBlankStat_VBLANK_DONE, [hl]
 
 	di
 	call VramxBeginUpdate
 	call PalettesSync
 	ei
-
-:
-	ldh a, [rLY]
-	cp 144
-	jr nc, :-
 
 	call audio_update
 	call MusTick
