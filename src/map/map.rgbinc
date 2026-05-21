@@ -2,6 +2,7 @@ if !def(Q_MAP_INC_rJ398bhW)
 def Q_MAP_INC_rJ398bhW equ 1
 
 include "st.rgbinc"
+include "quest/quest.rgbinc"
 
 
 ;; Upper bound (exclusive) of chunk coordinates.
@@ -20,10 +21,8 @@ def BR__MAX rb 0
 def BR__TYPE equ (1 << bitwidth(BR__MAX)) - 1
 
 
-;; Maximum number of trash items in one map.
-def MapCollection_TRASH_ITEM_COUNT_MAX equ 200
 ;; Size of map trash item collection state in bytes
-def szMapCollection_TRASH_ITEMS equ MapCollection_TRASH_ITEM_COUNT_MAX / 8
+def szMapCollection_TRASH_ITEMS equ SCENARIO_COLLECTABLE_CAPACITY / 8
 
 st MapCollection
 	;; Number of trash items placed in the map.
