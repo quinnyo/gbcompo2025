@@ -1391,7 +1391,7 @@ endr
 ;; @mut: AF, BC, DE, HL
 _UpdateActiveChunkSlot:
 		push hl
-	call MapChunkLookup2
+	call oMapChunkLookup
 	ld b, h :: ld c, l
 		pop hl
 	jr nc, .null_chunk
@@ -1516,22 +1516,22 @@ Test_map_chunk_render:
 */
 
 
-section "MapChunkLookup2", rom0
+section "oMapChunkLookup", rom0
 ;; Chunk table spatial lookup in the open map.
 ;; Searches the map's chunk table for a chunk at the given chunk coordinates.
 ;; BANKNOTE: Caller must ensure selected map data is accessible.
 ;; @param D,E: row,column
-;; @ret HL: pointer to chunk data
+;; @ret HL: pointer to chunk data ($FFFF if lookup failed)
 ;; @ret F.C: set if successful
 ;; @mut: AF, HL
-MapChunkLookup2::
+oMapChunkLookup::
 	; Check both coord axes are less than CHUNK_COORD_END.
 	ld a, d
 	cp CHUNK_COORD_END
-	ret nc ; CHUNK_COORD_END <= row
+	jr nc, .fail ; CHUNK_COORD_END <= row
 	ld a, e
 	cp CHUNK_COORD_END
-	ret nc ; CHUNK_COORD_END <= column
+	jr nc, .fail ; CHUNK_COORD_END <= column
 
 	; Lookup Y,X coord in chunk table
 	ld hl, wMapHeader.chunk_table
@@ -1557,6 +1557,7 @@ MapChunkLookup2::
 	inc hl :: inc hl
 	jr nz, :-
 .fail:
+	ld hl, $FFFF
 	xor a ; clear F.C
 	ret
 .ok:

@@ -9,15 +9,6 @@ wMapQuery::
 	;; Query point in world dots, X axis
 	.px:: dw
 
-	; ;; Y coord of chunk containing query point.
-	; .chunkrow:: db
-	; ;; X coord of chunk containing query point.
-	; .chunkcol:: db
-	; ;; Query point local to containing chunk, Y axis.
-	; .chunkrely:: db
-	; ;; Query point local to containing chunk, X axis.
-	; .chunkrelx:: db
-
 wMapQueryResult::
 	;; Array of detected items (IDs) terminated with `MAP_ITEM_NULL`.
 	;; ALIGNED: ends (at `.items_end`) with a low address byte of zero.
@@ -49,34 +40,33 @@ MapQueryExecute::
 	ld a, [hl+] :: ld b, a ; .px[1]
 	rla :: ld e, a ; E <=== high(px << 1) = chunk column
 
-	; ; Store containing chunk coord
-	; ld a, d :: ld [hl+], a ; .chunkrow
-	; ld a, e :: ld [hl+], a ; .chunkcol
-
 	; Query point relative to containing chunk
 	ld a, c ; px[0]
 		pop bc ; py
 	ld b, c :: res 7, b
 	ld c, a :: res 7, c
-	; ld a, b :: ld [hl+], a ; .chunkrely
-	; ld a, c :: ld [hl+], a ; .chunkrelx
 
-	; Access containing chunk
 		rombpush
 	ldh a, [hMapSelectBank]
 	ld [ROMB_LO], a
-		push bc ; chunkrel{y,x}
-	call oMapChunkAccess
-		pop bc ; chunkrel{y,x}
-	jr nc, .end
 
-	; Collectable item query
-	ld hl, wMapChunkHeader.items
+	; Access containing chunk
+	call oMapChunkLookup
+	jr nc, .end ; lookup failed
+
+		push hl ; chunk
+
+	; Collectable item subquery
+	ld a, MapChunkHeader_items :: add l :: ld l, a
+	adc h :: sub l :: ld h, a
 	ld a, [hl+] :: ld h, [hl] :: ld l, a
 	call _do_item_query
 
-	; Chunk element / Zone query
-	ld hl, wMapChunkHeader.elements
+		pop hl ; chunk
+
+	; Chunk element / Zone subquery
+	ld a, MapChunkHeader_elements :: add l :: ld l, a
+	adc h :: sub l :: ld h, a
 	ld a, [hl+] :: ld h, [hl] :: ld l, a
 	call _do_zone_query
 
