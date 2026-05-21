@@ -9,10 +9,11 @@ Quest: progression / collectables / unlocks
 
 
 pushs "wScenarioCollectables", wramx
-				wScenarioCollectables::
-					.size:: db
-					.items:: align 8
-						ds SCENARIO_COLLECTABLE_CAPACITY
+wScenarioCollectables::
+	.size:: db
+	;; ALIGNED: Low address byte is index.
+	.items:: align 8
+		ds SCENARIO_COLLECTABLE_CAPACITY
 
 pops ; wScenarioCollectables
 

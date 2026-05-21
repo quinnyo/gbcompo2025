@@ -21,6 +21,8 @@ impl Map {
     /// Size of trash item collection state in bytes.
     pub const TRASH_ITEMS_BYTES: u8 = Self::TRASH_ITEMS_COUNT_MAX.div_ceil(8);
 
+    pub const MAP_ITEM_NULL: u8 = 0xFF;
+
     pub const CHUNK_COORD_END: u8 = 128;
 
     pub fn rgbasm_write(&self, mut w: impl std::io::Write) -> crate::Result<()> {
@@ -527,11 +529,12 @@ impl Chunk {
             let x = position.x as u8;
             let y = position.y as u8;
             let item_type = itp.item.encode();
-            code.append(&mut vec![format!(
+            code.push(format!(
                 "\t\tdb {}, {}, {}, {} ; item {}: {:?}",
                 itp.id, y, x, item_type, itp.id, itp.item
-            )]);
+            ));
         }
+        code.push(format!("\t\tdb ${:02X} ; END", Map::MAP_ITEM_NULL));
     }
 
     pub fn label(&self) -> String {

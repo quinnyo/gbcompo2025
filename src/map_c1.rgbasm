@@ -53,6 +53,7 @@ map_c1::
 		db 6, 108, 98, 1 ; item 6: Trash1
 		db 7, 116, 82, 1 ; item 7: Trash1
 		db 8, 117, 2, 1 ; item 8: Trash1
+		db $FF ; END
 .chunk_1_0:
 	dw .chunk_1_0_br0, .chunk_1_0_br1, .chunk_1_0_elems, .chunk_1_0_items
 .chunk_1_0_br0:
@@ -71,6 +72,7 @@ map_c1::
 		db 1, 77, 58, 1 ; item 1: Trash1
 		db 2, 84, 34, 1 ; item 2: Trash1
 		db 4, 100, 2, 1 ; item 4: Trash1
+		db $FF ; END
 .chunk_2_0:
 	dw .chunk_2_0_br0, .chunk_2_0_br1, .chunk_2_0_elems, .chunk_2_0_items
 .chunk_2_0_br0:
@@ -81,6 +83,7 @@ map_c1::
 	db 0
 .chunk_2_0_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_3_0:
 	dw .chunk_3_0_br0, .chunk_3_0_br1, .chunk_3_0_elems, .chunk_3_0_items
 .chunk_3_0_br0:
@@ -91,6 +94,7 @@ map_c1::
 	db 0
 .chunk_3_0_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_4_0:
 	dw .chunk_4_0_br0, .chunk_4_0_br1, .chunk_4_0_elems, .chunk_4_0_items
 .chunk_4_0_br0:
@@ -101,6 +105,7 @@ map_c1::
 	db 0
 .chunk_4_0_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_5_0:
 	dw .chunk_5_0_br0, .chunk_5_0_br1, .chunk_5_0_elems, .chunk_5_0_items
 .chunk_5_0_br0:
@@ -111,6 +116,7 @@ map_c1::
 	db 0
 .chunk_5_0_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_0_1:
 	dw .chunk_0_1_br0, .chunk_0_1_br1, .chunk_0_1_elems, .chunk_0_1_items
 .chunk_0_1_br0:
@@ -129,6 +135,7 @@ map_c1::
 		db 19, 68, 21, 1 ; item 19: Trash1
 		db 20, 87, 21, 1 ; item 20: Trash1
 		db 21, 110, 11, 1 ; item 21: Trash1
+		db $FF ; END
 .chunk_1_1:
 	dw .chunk_1_1_br0, .chunk_1_1_br1, .chunk_1_1_elems, .chunk_1_1_items
 .chunk_1_1_br0:
@@ -144,6 +151,7 @@ map_c1::
 		db 15, 31, 10, 1 ; item 15: Trash1
 		db 16, 42, 96, 1 ; item 16: Trash1
 		db 17, 44, 107, 1 ; item 17: Trash1
+		db $FF ; END
 .chunk_2_1:
 	dw .chunk_2_1_br0, .chunk_2_1_br1, .chunk_2_1_elems, .chunk_2_1_items
 .chunk_2_1_br0:
@@ -154,6 +162,7 @@ map_c1::
 	db 0
 .chunk_2_1_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_3_1:
 	dw .chunk_3_1_br0, .chunk_3_1_br1, .chunk_3_1_elems, .chunk_3_1_items
 .chunk_3_1_br0:
@@ -164,6 +173,7 @@ map_c1::
 	db 0
 .chunk_3_1_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_4_1:
 	dw .chunk_4_1_br0, .chunk_4_1_br1, .chunk_4_1_elems, .chunk_4_1_items
 .chunk_4_1_br0:
@@ -174,6 +184,7 @@ map_c1::
 	db 0
 .chunk_4_1_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_5_1:
 	dw .chunk_5_1_br0, .chunk_5_1_br1, .chunk_5_1_elems, .chunk_5_1_items
 .chunk_5_1_br0:
@@ -184,6 +195,7 @@ map_c1::
 	db 0
 .chunk_5_1_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_0_2:
 	dw .chunk_0_2_br0, .chunk_0_2_br1, .chunk_0_2_elems, .chunk_0_2_items
 .chunk_0_2_br0:
@@ -194,6 +206,7 @@ map_c1::
 	db 0
 .chunk_0_2_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_1_2:
 	dw .chunk_1_2_br0, .chunk_1_2_br1, .chunk_1_2_elems, .chunk_1_2_items
 .chunk_1_2_br0:
@@ -204,6 +217,7 @@ map_c1::
 	db 0
 .chunk_1_2_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_2_2:
 	dw .chunk_2_2_br0, .chunk_2_2_br1, .chunk_2_2_elems, .chunk_2_2_items
 .chunk_2_2_br0:
@@ -214,6 +228,7 @@ map_c1::
 	db 0
 .chunk_2_2_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_3_2:
 	dw .chunk_3_2_br0, .chunk_3_2_br1, .chunk_3_2_elems, .chunk_3_2_items
 .chunk_3_2_br0:
@@ -224,6 +239,7 @@ map_c1::
 	db 0
 .chunk_3_2_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_4_2:
 	dw .chunk_4_2_br0, .chunk_4_2_br1, .chunk_4_2_elems, .chunk_4_2_items
 .chunk_4_2_br0:
@@ -234,6 +250,7 @@ map_c1::
 	db 0
 .chunk_4_2_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_5_2:
 	dw .chunk_5_2_br0, .chunk_5_2_br1, .chunk_5_2_elems, .chunk_5_2_items
 .chunk_5_2_br0:
@@ -244,6 +261,7 @@ map_c1::
 	db 0
 .chunk_5_2_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_0_3:
 	dw .chunk_0_3_br0, .chunk_0_3_br1, .chunk_0_3_elems, .chunk_0_3_items
 .chunk_0_3_br0:
@@ -254,6 +272,7 @@ map_c1::
 	db 0
 .chunk_0_3_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_1_3:
 	dw .chunk_1_3_br0, .chunk_1_3_br1, .chunk_1_3_elems, .chunk_1_3_items
 .chunk_1_3_br0:
@@ -264,6 +283,7 @@ map_c1::
 	db 0
 .chunk_1_3_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_2_3:
 	dw .chunk_2_3_br0, .chunk_2_3_br1, .chunk_2_3_elems, .chunk_2_3_items
 .chunk_2_3_br0:
@@ -274,6 +294,7 @@ map_c1::
 	db 0
 .chunk_2_3_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_3_3:
 	dw .chunk_3_3_br0, .chunk_3_3_br1, .chunk_3_3_elems, .chunk_3_3_items
 .chunk_3_3_br0:
@@ -284,6 +305,7 @@ map_c1::
 	db 0
 .chunk_3_3_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_4_3:
 	dw .chunk_4_3_br0, .chunk_4_3_br1, .chunk_4_3_elems, .chunk_4_3_items
 .chunk_4_3_br0:
@@ -294,6 +316,7 @@ map_c1::
 	db 0
 .chunk_4_3_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_5_3:
 	dw .chunk_5_3_br0, .chunk_5_3_br1, .chunk_5_3_elems, .chunk_5_3_items
 .chunk_5_3_br0:
@@ -304,6 +327,7 @@ map_c1::
 	db 0
 .chunk_5_3_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_0_4:
 	dw .chunk_0_4_br0, .chunk_0_4_br1, .chunk_0_4_elems, .chunk_0_4_items
 .chunk_0_4_br0:
@@ -314,6 +338,7 @@ map_c1::
 	db 0
 .chunk_0_4_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_1_4:
 	dw .chunk_1_4_br0, .chunk_1_4_br1, .chunk_1_4_elems, .chunk_1_4_items
 .chunk_1_4_br0:
@@ -324,6 +349,7 @@ map_c1::
 	db 0
 .chunk_1_4_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_2_4:
 	dw .chunk_2_4_br0, .chunk_2_4_br1, .chunk_2_4_elems, .chunk_2_4_items
 .chunk_2_4_br0:
@@ -334,6 +360,7 @@ map_c1::
 	db 0
 .chunk_2_4_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_3_4:
 	dw .chunk_3_4_br0, .chunk_3_4_br1, .chunk_3_4_elems, .chunk_3_4_items
 .chunk_3_4_br0:
@@ -344,6 +371,7 @@ map_c1::
 	db 0
 .chunk_3_4_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_4_4:
 	dw .chunk_4_4_br0, .chunk_4_4_br1, .chunk_4_4_elems, .chunk_4_4_items
 .chunk_4_4_br0:
@@ -354,6 +382,7 @@ map_c1::
 	db 0
 .chunk_4_4_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_5_4:
 	dw .chunk_5_4_br0, .chunk_5_4_br1, .chunk_5_4_elems, .chunk_5_4_items
 .chunk_5_4_br0:
@@ -364,6 +393,7 @@ map_c1::
 	db 0
 .chunk_5_4_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_0_5:
 	dw .chunk_0_5_br0, .chunk_0_5_br1, .chunk_0_5_elems, .chunk_0_5_items
 .chunk_0_5_br0:
@@ -374,6 +404,7 @@ map_c1::
 	db 0
 .chunk_0_5_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_1_5:
 	dw .chunk_1_5_br0, .chunk_1_5_br1, .chunk_1_5_elems, .chunk_1_5_items
 .chunk_1_5_br0:
@@ -384,6 +415,7 @@ map_c1::
 	db 0
 .chunk_1_5_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_2_5:
 	dw .chunk_2_5_br0, .chunk_2_5_br1, .chunk_2_5_elems, .chunk_2_5_items
 .chunk_2_5_br0:
@@ -394,6 +426,7 @@ map_c1::
 	db 0
 .chunk_2_5_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_3_5:
 	dw .chunk_3_5_br0, .chunk_3_5_br1, .chunk_3_5_elems, .chunk_3_5_items
 .chunk_3_5_br0:
@@ -404,6 +437,7 @@ map_c1::
 	db 0
 .chunk_3_5_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_4_5:
 	dw .chunk_4_5_br0, .chunk_4_5_br1, .chunk_4_5_elems, .chunk_4_5_items
 .chunk_4_5_br0:
@@ -414,6 +448,7 @@ map_c1::
 	db 0
 .chunk_4_5_items:
 	db 0 ; items.len()
+		db $FF ; END
 .chunk_5_5:
 	dw .chunk_5_5_br0, .chunk_5_5_br1, .chunk_5_5_elems, .chunk_5_5_items
 .chunk_5_5_br0:
@@ -424,6 +459,7 @@ map_c1::
 	db 0
 .chunk_5_5_items:
 	db 0 ; items.len()
+		db $FF ; END
 
 .chunk_table:
 	db $0 :: dw .row0

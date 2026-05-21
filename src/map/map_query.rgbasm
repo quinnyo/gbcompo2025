@@ -9,21 +9,22 @@ wMapQuery::
 	;; Query point in world dots, X axis
 	.px:: dw
 
-wMapQueryResult::
-	;; Y coord of chunk containing query point.
-	.chunkrow:: db
-	;; X coord of chunk containing query point.
-	.chunkcol:: db
-	;; Query point local to containing chunk, Y axis.
-	.chunkrely:: db
-	;; Query point local to containing chunk, X axis.
-	.chunkrelx:: db
+	; ;; Y coord of chunk containing query point.
+	; .chunkrow:: db
+	; ;; X coord of chunk containing query point.
+	; .chunkcol:: db
+	; ;; Query point local to containing chunk, Y axis.
+	; .chunkrely:: db
+	; ;; Query point local to containing chunk, X axis.
+	; .chunkrelx:: db
 
-	;; Number of detected items & length of .items array.
-	;; NOTE: Value will be 0 (no item detected) or 1.
-	.items_size:: db
-	;; Array of detected item IDs.
-	.items_id:: ds MAP_QUERY_RESULT_MAX_ITEMS
+wMapQueryResult::
+	;; Array of detected items (IDs) terminated with `MAP_ITEM_NULL`.
+	;; ALIGNED: ends (at `.items_end`) with a low address byte of zero.
+	.items:: ds MAP_QUERY_RESULT_MAX_ITEMS
+		align 8
+	;; Marks the end of items result buffer -- will always be `MAP_ITEM_NULL`.
+	.items_end:: db
 
 	;; Pointer to zone rules state applicable at query point (if any).
 	;; These objects are kept in `wMapState` (user is responsible for banking).
@@ -36,13 +37,6 @@ pops ; wMapQuery
 pushs "MapQueryExecute", rom0
 ;; @mut: AF, BC, DE, HL
 MapQueryExecute::
-	; Clear previous result
-	xor a
-	ld [wMapQueryResult.items_size], a
-	dec a ; $FF
-	ld [wMapQueryResult.zone_rules + 0], a
-	ld [wMapQueryResult.zone_rules + 1], a
-
 	; Prepare query
 	ld hl, wMapQuery.py
 	ld a, [hl+] :: ld c, a ; .py[0]
@@ -55,18 +49,17 @@ MapQueryExecute::
 	ld a, [hl+] :: ld b, a ; .px[1]
 	rla :: ld e, a ; E <=== high(px << 1) = chunk column
 
-	; Store containing chunk coord
-	assert wMapQueryResult.chunkrow == wMapQuery.py + 4
-	ld a, d :: ld [hl+], a ; .chunkrow
-	ld a, e :: ld [hl+], a ; .chunkcol
+	; ; Store containing chunk coord
+	; ld a, d :: ld [hl+], a ; .chunkrow
+	; ld a, e :: ld [hl+], a ; .chunkcol
 
 	; Query point relative to containing chunk
 	ld a, c ; px[0]
 		pop bc ; py
 	ld b, c :: res 7, b
 	ld c, a :: res 7, c
-	ld a, b :: ld [hl+], a ; .chunkrely
-	ld a, c :: ld [hl+], a ; .chunkrelx
+	; ld a, b :: ld [hl+], a ; .chunkrely
+	; ld a, c :: ld [hl+], a ; .chunkrelx
 
 	; Access containing chunk
 		rombpush
@@ -103,16 +96,17 @@ def MAP_ITEM_DETECT_OFFSET_X equ (MAP_ITEM_DETECT_WIDTH >> 1) - 4
 ;; Perform the collectable item query.
 ;; @param HL: chunk.items
 ;; @param B,C: Y,X query point local to chunk
-;; @ret D: result (detected item ID)
-;; @ret E: result (detected item ID)
 ;; @mut: AF, DE, HL
 _do_item_query:
-	ld a, [hl+] ; items.len
-	and a
-	ret z ; zero items in chunk, nothing to do.
-	ld e, a
+	ld de, wMapQueryResult.items
+	inc hl ; skip items.len (relying on array terminator)
 .loop_items:
-	ld a, [hl+] :: ld d, a ; item/collectable ID
+	; Get item ID and write it to the results array immediately.
+	; NOTE: The results array pointer (DE) is not incremented unless the item
+	; contains the query point!
+	ld a, [hl+] :: ld [de], a
+	cp MAP_ITEM_NULL ; check for terminator
+	ret z
 
 	; Y
 	ld a, b :: sub [hl] :: add MAP_ITEM_DETECT_OFFSET_Y ; l = q - (P - D / 2)
@@ -126,14 +120,14 @@ _do_item_query:
 	jr nc, .item_miss_x
 	inc hl
 
-	; Hit! Push result to stack and increment counter
-		push de
-	ld a, [wMapQueryResult.items_size]
-	inc a
-	ld [wMapQueryResult.items_size], a
-	cp MAP_QUERY_RESULT_MAX_ITEMS
-	jr c, .continue
-	jr .break ; max items reached
+	; Hit! Increment the results pointer to keep this item ID as a result.
+	assert low(wMapQueryResult.items_end) == 0
+	; Because low(.items_end) == 0, we only need to increment the low address byte.
+	; This allows us to detect the end of the results buffer with F.Z.
+	inc e
+	jr nz, .continue
+	; At capacity.
+	ret
 
 .item_miss_y:
 	inc hl ; item.y
@@ -141,29 +135,17 @@ _do_item_query:
 	inc hl ; item.x
 .continue:
 	inc hl ; item.type
-	dec e
-	jr nz, .loop_items
-.break:
-	; Collect results from stack
-	ld a, [wMapQueryResult.items_size]
-	and a
-	ret z ; no hits
-	ld e, a
-	ld hl, wMapQueryResult.items_id
-:
-		pop af ; detected item ID (A <~~~ D)
-	ld [hl+], a
-	dec e
-	jr nz, :-
-
-.exit_miss:
+	jr .loop_items
+.end:
+	; Terminate results array
+	ld a, MAP_ITEM_NULL
+	ld [de], a
 	ret
 
 
 ;; Perform the chunk elements/zone query.
 ;; @param HL: chunk.elements
 ;; @param B,C: Y,X query point local to chunk
-;; @ret DE: result (detected zone rules pointer)
 ;; @mut: AF, DE, HL
 _do_zone_query:
 	ld a, [hl+] :: ld e, a ; elements array length
@@ -207,7 +189,10 @@ _do_zone_query:
 	dec e
 	jr nz, .loop_elements
 .exit_miss:
-	ld de, $FFFF
+	ld hl, wMapQueryResult.zone_rules
+	ld a, $FF
+	ld [hl+], a
+	ld [hl+], a
 	ret
 
 .err_unexpected_typeid:
@@ -221,6 +206,7 @@ pushs "MapQueryReset", rom0
 ;; Reset/initialise map query state.
 ;; @mut: AF, C, HL
 MapQueryReset::
+	assert MAP_ITEM_NULL == $FF
 	ld a, $FF
 	ld c, sizeof("wMapQuery")
 	ld hl, startof("wMapQuery")
